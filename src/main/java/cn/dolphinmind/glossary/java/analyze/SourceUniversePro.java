@@ -721,6 +721,46 @@ public class SourceUniversePro {
             System.out.println("✅ 未发现代码质量问题");
         }
 
+        // 📊 JArchitect 对标：代码指标计算
+        System.out.println("\n📊 正在计算代码指标 (JArchitect-style)...");
+        if (globalLibrary.isEmpty()) {
+            System.out.println("  ⚠️ 增量扫描跳过了所有文件，代码指标不可用");
+            System.out.println("  提示: 删除 .universe/cache 或修改源码可获得完整指标");
+        } else {
+            System.out.println("  分析 " + globalLibrary.size() + " 个类...");
+            try {
+                cn.dolphinmind.glossary.java.analyze.metrics.CodeMetricsCalculator metricsCalc =
+                        new cn.dolphinmind.glossary.java.analyze.metrics.CodeMetricsCalculator();
+                cn.dolphinmind.glossary.java.analyze.metrics.CodeMetricsCalculator.ProjectMetrics projectMetrics =
+                        metricsCalc.calculateProjectMetrics(globalLibrary, null, null);
+                metricsCalc.printMetricsSummary(projectMetrics);
+                rootContainer.put("code_metrics", projectMetrics.toMap());
+            } catch (Exception e) {
+                System.err.println("⚠️ 代码指标计算失败: " + e.getMessage());
+            }
+        }
+
+        // 🔗 JArchitect 对标：依赖图生成
+        System.out.println("\n🔗 正在生成依赖图 (JArchitect-style)...");
+        if (!globalLibrary.isEmpty()) {
+            try {
+                cn.dolphinmind.glossary.java.analyze.metrics.DependencyGraphGenerator depGraphGen =
+                        new cn.dolphinmind.glossary.java.analyze.metrics.DependencyGraphGenerator();
+                cn.dolphinmind.glossary.java.analyze.metrics.DependencyGraphGenerator.PackageDependencyGraph pkgGraph =
+                        depGraphGen.generatePackageGraph(globalLibrary);
+                @SuppressWarnings("unchecked")
+                List<Object> edges = (List<Object>) pkgGraph.toMap().get("edges");
+                System.out.println("  包依赖: " + (edges != null ? edges.size() : 0) + " 条边");
+                rootContainer.put("dependency_graph", new LinkedHashMap<String, Object>() {{
+                    put("package_graph", pkgGraph.toMap());
+                }});
+            } catch (Exception e) {
+                System.err.println("⚠️ 依赖图生成失败: " + e.getMessage());
+            }
+        } else {
+            System.out.println("  ⚠️ 增量扫描跳过了所有文件，依赖图不可用");
+        }
+
         // 🚀 核心分析引擎：入口点发现 + 调用链追踪 + 包结构地图 + 类型定义导航 + 数据流追踪
         System.out.println("\n=== 核心分析引擎 ===");
         try {

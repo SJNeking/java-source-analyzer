@@ -22,6 +22,10 @@ public class CoreAnalysisEngine {
     private final TypeDefinitionNavigator typeNavigator = new TypeDefinitionNavigator();
     private final DataFlowTracer dataFlowTracer = new DataFlowTracer();
     private ExternalLibrarySignatureDB signatureDB;
+    private final cn.dolphinmind.glossary.java.analyze.metrics.CodeMetricsCalculator metricsCalculator =
+            new cn.dolphinmind.glossary.java.analyze.metrics.CodeMetricsCalculator();
+    private final cn.dolphinmind.glossary.java.analyze.metrics.DependencyGraphGenerator depGraphGenerator =
+            new cn.dolphinmind.glossary.java.analyze.metrics.DependencyGraphGenerator();
 
     public ExternalLibrarySignatureDB getSignatureDB() { return signatureDB; }
 
@@ -123,14 +127,14 @@ public class CoreAnalysisEngine {
             } catch (Exception e) {}
         }
 
+        // 6. Code Metrics (JArchitect-style) - requires classAssets which is available in SourceUniversePro
+        // Metrics are calculated in SourceUniversePro.runAnalysis() after scanning
+
+        // 7. Dependency Graph (JArchitect-style) - requires classAssets
+        // Dependency graph is generated in SourceUniversePro.runAnalysis()
+
         // Build result
         Map<String, Object> result = new LinkedHashMap<>();
-
-        // Package structure
-        Map<String, Object> pkgInfo = new LinkedHashMap<>();
-        pkgInfo.put("layer_summary", packageMapper.summarizeLayers(packageTree));
-        pkgInfo.put("tree", packageMapper.export(packageTree));
-        result.put("package_structure", pkgInfo);
 
         // Entry points
         Map<String, Object> entryInfo = new LinkedHashMap<>();
