@@ -1,4 +1,4 @@
-package cn.dolphinmind.glossary.redisson;
+package cn.dolphinmind.glossary.java.analyze;
 
 import com.github.javaparser.StaticJavaParser;
 

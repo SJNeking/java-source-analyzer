@@ -1,4 +1,4 @@
-package cn.dolphinmind.glossary.redisson.map;
+package cn.dolphinmind.glossary.java.analyze.map;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;

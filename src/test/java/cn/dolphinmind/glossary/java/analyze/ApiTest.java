@@ -1,8 +1,8 @@
-package cn.dolphinmind.glossary.redisson;
+package cn.dolphinmind.glossary.java.analyze;
 
-import cn.dolphinmind.glossary.redisson.map.FileUtil;
-import cn.dolphinmind.glossary.redisson.map.HashCode;
-import cn.dolphinmind.glossary.redisson.map.RateInfo;
+import cn.dolphinmind.glossary.java.analyze.map.FileUtil;
+import cn.dolphinmind.glossary.java.analyze.map.HashCode;
+import cn.dolphinmind.glossary.java.analyze.map.RateInfo;
 import org.junit.Before;
 import org.junit.Test;
 

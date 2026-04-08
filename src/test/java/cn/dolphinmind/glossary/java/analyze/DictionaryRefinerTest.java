@@ -1,4 +1,4 @@
-package cn.dolphinmind.glossary.redisson;
+package cn.dolphinmind.glossary.java.analyze;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
