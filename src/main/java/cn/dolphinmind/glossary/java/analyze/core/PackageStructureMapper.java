@@ -39,7 +39,9 @@ public class PackageStructureMapper {
         public String getLayer() { return layer; }
         public List<String> getClasses() { return Collections.unmodifiableList(classes); }
         public Map<String, PackageNode> getSubPackages() { return Collections.unmodifiableMap(subPackages); }
+        public Map<String, PackageNode> getSubPackagesMutable() { return subPackages; }
         public Set<String> getDependencies() { return Collections.unmodifiableSet(dependencies); }
+        public Set<String> getDependenciesMutable() { return dependencies; }
 
         public int getTotalClassCount() {
             int count = classes.size();
@@ -144,8 +146,8 @@ public class PackageStructureMapper {
         // Merge into a synthetic root
         PackageNode merged = new PackageNode("(project root)");
         for (PackageNode node : allPackages.values()) {
-            merged.getSubPackages().put(node.getPackageName(), node);
-            merged.getDependencies().addAll(node.getDependencies());
+            merged.getSubPackagesMutable().put(node.getPackageName(), node);
+            merged.getDependenciesMutable().addAll(node.getDependencies());
         }
         return merged;
     }

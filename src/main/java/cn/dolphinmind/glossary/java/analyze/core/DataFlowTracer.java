@@ -4,18 +4,21 @@ import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 
 /**
- * Core Feature 5: Data Flow Tracer (JavaParser-based)
+ * Core Feature 5: Data Flow Tracer (JavaParser Symbol Solver-based)
  *
- * Traces how method parameters flow through internal method calls.
- * Answers: "这个参数传到了哪些方法？"
+ * Traces how method parameters flow through method calls.
+ * Uses Symbol Solver for accurate type resolution.
+ * Tracks multi-hop flows: param → methodA → methodB → methodC
  */
 public class DataFlowTracer {
 
@@ -59,7 +62,7 @@ public class DataFlowTracer {
     }
 
     /**
-     * Build a mapping of method signatures to their bodies for data flow analysis.
+     * Index all methods in the project for data flow analysis.
      */
     public Map<String, MethodDeclaration> indexMethods(Path projectRoot) throws IOException {
         Map<String, MethodDeclaration> methodIndex = new LinkedHashMap<>();
@@ -89,7 +92,7 @@ public class DataFlowTracer {
 
     /**
      * Trace data flow for a specific method.
-     * Tracks how each parameter is used: passed to other methods, returned, assigned to fields.
+     * Multi-hop tracking: follows parameters through internal method calls.
      */
     public List<DataFlow> traceMethod(Map<String, MethodDeclaration> methodIndex,
                                        String className, String methodName) {
@@ -98,43 +101,59 @@ public class DataFlowTracer {
         MethodDeclaration method = methodIndex.get(methodKey);
         if (method == null) return flows;
 
-        for (com.github.javaparser.ast.body.Parameter param : method.getParameters()) {
+        for (Parameter param : method.getParameters()) {
             String paramName = param.getNameAsString();
             String paramType = param.getTypeAsString();
-            traceParam(method, paramName, paramType, className, methodIndex,
-                    new ArrayList<>(), new HashSet<>(), flows);
+            traceParamMultiHop(method, paramName, paramType, className, methodIndex,
+                    new ArrayList<>(), new HashSet<>(), flows, 0, 6);
         }
 
         return flows;
     }
 
-    private void traceParam(MethodDeclaration method, String paramName, String paramType,
-                             String currentClass, Map<String, MethodDeclaration> methodIndex,
-                             List<String> path, Set<String> visited, List<DataFlow> flows) {
+    /**
+     * Multi-hop parameter tracing with depth limit.
+     */
+    private void traceParamMultiHop(MethodDeclaration method, String paramName, String paramType,
+                                     String currentClass, Map<String, MethodDeclaration> methodIndex,
+                                     List<String> path, Set<String> visited, List<DataFlow> flows,
+                                     int depth, int maxDepth) {
+        if (depth > maxDepth) return;
+
         String methodKey = currentClass + "#" + method.getNameAsString();
-        if (visited.contains(methodKey) || path.size() > 8) return;
+        if (visited.contains(methodKey)) {
+            // Cycle detected
+            List<String> chainWithCycle = new ArrayList<>(path);
+            chainWithCycle.add(methodKey + "(循环)");
+            flows.add(new DataFlow(paramName, path.get(0), chainWithCycle,
+                    methodKey, "Cycle detected at depth " + depth));
+            return;
+        }
+
         visited.add(methodKey);
         path.add(methodKey);
 
         // Track where param is used
         method.findAll(MethodCallExpr.class).forEach(call -> {
-            // Check if param is passed as argument
             call.getArguments().forEach(arg -> {
                 if (arg instanceof NameExpr && ((NameExpr) arg).getNameAsString().equals(paramName)) {
                     String targetMethod = call.getNameAsString();
-                    String targetClass = call.getScope()
-                            .map(s -> capitalize(s.toString()))
-                            .orElse(currentClass);
+                    String targetClass = resolveCalleeClass(call, currentClass);
                     String calleeKey = targetClass + "#" + targetMethod;
 
                     flows.add(new DataFlow(paramName, path.get(0), new ArrayList<>(path),
-                            calleeKey, "Parameter passed as argument to " + calleeKey));
+                            calleeKey, "Parameter passed to " + calleeKey + " (depth " + (depth + 1) + ")"));
 
                     // Continue tracing into callee if it's indexed
                     MethodDeclaration callee = methodIndex.get(calleeKey);
                     if (callee != null) {
-                        traceParam(callee, paramName, paramType, targetClass, methodIndex,
-                                new ArrayList<>(path), new HashSet<>(visited), flows);
+                        // Find which parameter receives our value
+                        int argIndex = getArgumentIndex(call, arg);
+                        if (argIndex >= 0 && argIndex < callee.getParameters().size()) {
+                            String calleeParamName = callee.getParameter(argIndex).getNameAsString();
+                            traceParamMultiHop(callee, calleeParamName, paramType, targetClass, methodIndex,
+                                    new ArrayList<>(path), new HashSet<>(visited), flows, depth + 1, maxDepth);
+                        }
                     }
                 }
             });
@@ -145,7 +164,7 @@ public class DataFlowTracer {
             ret.getExpression().ifPresent(expr -> {
                 if (expr instanceof NameExpr && ((NameExpr) expr).getNameAsString().equals(paramName)) {
                     flows.add(new DataFlow(paramName, path.get(0), new ArrayList<>(path),
-                            methodKey, "Parameter returned"));
+                            methodKey, "Parameter returned (depth " + depth + ")"));
                 }
             });
         });
@@ -163,10 +182,58 @@ public class DataFlowTracer {
         });
     }
 
-    private String capitalize(String s) {
-        if (s == null || s.isEmpty()) return s;
-        if (s.equals("this")) return "";
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    /**
+     * Resolve the class of a method call target using Symbol Solver.
+     */
+    private String resolveCalleeClass(MethodCallExpr call, String currentClass) {
+        // Try Symbol Solver first
+        try {
+            ResolvedMethodDeclaration resolved = call.resolve();
+            return resolved.declaringType().getQualifiedName();
+        } catch (Exception e) {
+            // Fallback
+            return call.getScope()
+                    .map(s -> {
+                        String scopeStr = s.toString();
+                        if (scopeStr.equals("this")) return currentClass;
+                        // Capitalize first letter as fallback
+                        if (!scopeStr.isEmpty()) {
+                            return Character.toUpperCase(scopeStr.charAt(0)) + scopeStr.substring(1);
+                        }
+                        return currentClass;
+                    })
+                    .orElse(currentClass);
+        }
+    }
+
+    /**
+     * Get the index of an argument in a method call.
+     */
+    private int getArgumentIndex(MethodCallExpr call, Expression arg) {
+        int index = 0;
+        for (Expression c : call.getArguments()) {
+            if (c == arg) return index;
+            index++;
+        }
+        return -1;
+    }
+
+    /**
+     * Fallback variable type resolution when Symbol Solver fails.
+     */
+    private String resolveVariableTypeFallback(CompilationUnit cu, String varName, String currentClass) {
+        // Check imports
+        for (com.github.javaparser.ast.ImportDeclaration imp : cu.getImports()) {
+            String impName = imp.getNameAsString();
+            if (impName.toLowerCase().contains(varName.toLowerCase())) {
+                return impName;
+            }
+        }
+        // Capitalize first letter as last resort
+        if (!varName.isEmpty()) {
+            return Character.toUpperCase(varName.charAt(0)) + varName.substring(1);
+        }
+        return currentClass;
     }
 
     public void printFlows(List<DataFlow> flows) {
@@ -174,11 +241,11 @@ public class DataFlowTracer {
             System.out.println("  (未找到数据流)");
             return;
         }
-        System.out.println("\n=== 数据流追踪 (" + flows.size() + " 条) ===");
+        System.out.println("\n=== 数据流追踪 (" + flows.size() + " 条, 最多6跳) ===");
         int shown = 0;
         for (DataFlow flow : flows) {
-            if (shown >= 15) {
-                System.out.println("  ... 还有 " + (flows.size() - 15) + " 条");
+            if (shown >= 20) {
+                System.out.println("  ... 还有 " + (flows.size() - 20) + " 条");
                 break;
             }
             System.out.println("  " + flow.toArrowString());
@@ -189,6 +256,7 @@ public class DataFlowTracer {
     public Map<String, Object> export(List<DataFlow> flows) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("total_flows", flows.size());
+        map.put("max_depth", 6);
         map.put("flows", flows.stream().map(DataFlow::toMap)
                 .collect(java.util.stream.Collectors.toList()));
         return map;

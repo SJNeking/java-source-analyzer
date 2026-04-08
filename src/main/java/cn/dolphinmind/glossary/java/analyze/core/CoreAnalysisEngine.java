@@ -84,6 +84,9 @@ public class CoreAnalysisEngine {
         Map<String, Object> callInfo = new LinkedHashMap<>();
         callInfo.put("node_count", callGraph.getNodeCount());
         callInfo.put("edge_count", callGraph.getEdgeCount());
+        callInfo.put("resolved_internal", callGraph.getResolvedInternal());
+        callInfo.put("unresolved_fallback", callGraph.getUnresolvedFallback());
+        callInfo.put("skipped_external", callGraph.getSkippedExternal());
         Map<String, Object> chainsOutput = new LinkedHashMap<>();
         for (Map.Entry<String, List<CallChainTracer.CallChain>> e : callChains.entrySet()) {
             chainsOutput.put(e.getKey(), e.getValue().stream().limit(10)
@@ -99,7 +102,7 @@ public class CoreAnalysisEngine {
         result.put("data_flows", dataFlowTracer.export(dataFlows));
 
         // Print summary
-        printSummary(entryPoints, packageTree, callChains, dataFlows);
+        printSummary(entryPoints, packageTree, callChains, callGraph, dataFlows);
 
         return result;
     }
@@ -107,6 +110,7 @@ public class CoreAnalysisEngine {
     public void printSummary(List<EntryPointDiscovery.EntryPoint> entryPoints,
                               PackageStructureMapper.PackageNode packageTree,
                               Map<String, List<CallChainTracer.CallChain>> callChains,
+                              CallChainTracer.CallGraph callGraph,
                               List<DataFlowTracer.DataFlow> dataFlows) {
         // Entry points
         System.out.println("\n=== 项目解构报告 ===");
@@ -117,7 +121,7 @@ public class CoreAnalysisEngine {
         packageMapper.printTree(packageTree);
 
         // Call chains
-        callChainTracer.printChains(callChains);
+        callChainTracer.printChains(callChains, callGraph);
 
         // Type definitions
         System.out.println("\n📚 类型定义: 已索引 " + typeNavigator.getTotalTypes() + " 个类型");
