@@ -557,7 +557,13 @@ public final class AllRules {
             String name = (String) m.get("name");
             int line = (int) m.getOrDefault("line_start", 0);
             String retType = (String) m.getOrDefault("return_type_path", "");
-            if ("boolean".equals(retType) && !name.matches("^(is|has|can|should|was|will|are|contains|matches|exists|isValid|isEmpty|isEnabled|isPresent)\\b")) {
+            // Exclude Object overrides and standard methods
+            if ("equals".equals(name) || "hashCode".equals(name) || "canEqual".equals(name) ||
+                "matches".equals(name) || "iterator".equals(name) || "test".equals(name) ||
+                "accept".equals(name) || "getAsBoolean".equals(name)) {
+                return issues;
+            }
+            if ("boolean".equals(retType) && !name.matches("^(is|has|can|should|was|will|are|contains|matches|exists|isValid|isEmpty|isEnabled|isPresent|supports|allows)\\b")) {
                 issues.add(new QualityIssue(getRuleKey(), getName(), Severity.MINOR, getCategory(), fp, cn, name, line, "Boolean method naming", name));
             }
             return issues;

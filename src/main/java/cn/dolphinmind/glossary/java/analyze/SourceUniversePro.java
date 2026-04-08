@@ -365,6 +365,7 @@ public class SourceUniversePro {
         String artifactName = null;
         String version = null;
         String internalPkgPrefix = "java";
+        String rulesConfigPath = null;
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -382,6 +383,9 @@ public class SourceUniversePro {
                     break;
                 case "--internalPkgPrefix":
                     if (i + 1 < args.length) internalPkgPrefix = args[++i];
+                    break;
+                case "--rules-config":
+                    if (i + 1 < args.length) rulesConfigPath = args[++i];
                     break;
                 case "--help":
                     printUsage();
@@ -411,6 +415,10 @@ public class SourceUniversePro {
         // 3. 加载命名语义标签和案例库
         loadNamingTags();
         loadCodeExamples();
+
+        // 🚀 P1: 加载规则配置
+        cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig =
+                cn.dolphinmind.glossary.java.analyze.config.RulesConfig.load(rulesConfigPath);
 
         ScannerContext ctx = new ScannerContext(
                 projectRoot,
@@ -454,53 +462,60 @@ public class SourceUniversePro {
         List<Map<String, String>> globalDependencies = new ArrayList<>(); // 存储依赖连线
         Map<String, Object> projectAssets = new LinkedHashMap<>();
 
-        // 4. 深度扫描与词汇提取
+        // 4. 🚀 多模块 Java 源码扫描
         System.out.println("🚀 正在全量遍历代码，提取语义词汇...");
-        Files.walk(Paths.get(ctx.getProjectRoot()))
-                .filter(p -> p.toString().endsWith(".java"))
-                .filter(p -> {
-                    String pathStr = p.toString();
-                    return (pathStr.contains("java" + File.separator) || pathStr.contains("src")) && 
-                           !pathStr.contains("test") && !pathStr.contains("target");
-                })
-                .forEach(path -> {
-                    try {
-                        List<String> fileLines = Files.readAllLines(path, StandardCharsets.UTF_8);
-                        CompilationUnit cu = StaticJavaParser.parse(path);
-                        String pkg = cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).orElse("default");
-                        
-                        // 提取模块名
-                        String moduleName = extractModuleName(pkg);
-                        
-                        cu.getTypes().forEach(type -> {
-                            classCount.incrementAndGet();
-                            String className = type.getNameAsString();
-                            allClassNames.add(className); // 收集类名用于分析
-                            
-                            // 🚀 MVP: 学习并存储该类名的翻译
-                            String cnName = translateIdentifier(className);
-                            projectGlossary.put(className.toLowerCase(), cnName);
-                            
-                            Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
-                            if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
+        
+        cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner ps = 
+                new cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner(Paths.get(ctx.getProjectRoot()));
+        List<Path> modules = ps.detectModules();
+        System.out.println("📦 检测到 " + modules.size() + " 个模块");
 
-                            // 🚀 新增: 提取 import 依赖
-                            classAsset.put("import_dependencies", extractImportDependencies(cu));
+        for (Path moduleRoot : modules) {
+            String moduleName = moduleRoot.getFileName().toString();
+            System.out.println("  🔍 扫描 Java 模块: " + moduleName);
+            
+            try {
+                Files.walk(moduleRoot)
+                        .filter(p -> p.toString().endsWith(".java"))
+                        .filter(p -> {
+                            String pathStr = p.toString();
+                            return (pathStr.contains("java" + File.separator) || pathStr.contains("src")) &&
+                                   !pathStr.contains("test") && !pathStr.contains("target");
+                        })
+                        .forEach(path -> {
+                            try {
+                                List<String> fileLines = Files.readAllLines(path, StandardCharsets.UTF_8);
+                                CompilationUnit cu = StaticJavaParser.parse(path);
+                                String pkg = cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).orElse("default");
 
-                            // 🚀 新增: 提取注解参数
-                            classAsset.put("annotation_params", extractAnnotationParams(type));
+                                cu.getTypes().forEach(type -> {
+                                    classCount.incrementAndGet();
+                                    String className = type.getNameAsString();
+                                    allClassNames.add(className);
 
-                            globalLibrary.add(classAsset);
-                            moduleLibrary.computeIfAbsent(moduleName, k -> new ArrayList<>()).add(classAsset);
-                            
-                            // 提取并存储依赖关系
-                            extractDependencies((String) classAsset.get("address"), classAsset, globalDependencies);
+                                    String cnName = translateIdentifier(className);
+                                    projectGlossary.put(className.toLowerCase(), cnName);
+
+                                    Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
+                                    if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
+
+                                    classAsset.put("module", moduleName);
+                                    classAsset.put("import_dependencies", extractImportDependencies(cu));
+                                    classAsset.put("annotation_params", extractAnnotationParams(type));
+
+                                    globalLibrary.add(classAsset);
+                                    moduleLibrary.computeIfAbsent(moduleName, k -> new ArrayList<>()).add(classAsset);
+
+                                    extractDependencies((String) classAsset.get("address"), classAsset, globalDependencies);
+                                });
+                            } catch (Exception e) {
+                                System.err.println("⚠️ 忽略解析失败文件: " + path.getFileName() + " | 错误: " + e.getMessage());
+                            }
                         });
-                    } catch (Exception e) {
-                        System.err.println("⚠️ 忽略解析失败文件: " + path.getFileName() + " | 错误: " + e.getMessage());
-                        e.printStackTrace(); // 打印堆栈以便调试
-                    }
-                });
+            } catch (IOException e) {
+                System.err.println("⚠️ 模块扫描失败: " + moduleName);
+            }
+        }
 
         // 5. 扫描 Java 以外的项目资产
         projectAssets = scanProjectFiles(Paths.get(ctx.getProjectRoot()));
@@ -516,7 +531,7 @@ public class SourceUniversePro {
 
         // 🚀 Phase 2：静态代码质量分析引擎
         System.out.println("\n🔍 正在执行静态代码质量分析...");
-        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary);
+        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig);
         rootContainer.put("quality_issues", qualityIssues);
         Map<String, Object> qualitySummary = qualityIssues.isEmpty() ? Collections.emptyMap() : buildQualitySummary(qualityIssues);
         rootContainer.put("quality_summary", qualitySummary);
@@ -691,128 +706,133 @@ public class SourceUniversePro {
      * 运行静态代码质量分析
      */
     @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> runQualityAnalysis(List<Map<String, Object>> globalLibrary) {
+    private static List<Map<String, Object>> runQualityAnalysis(List<Map<String, Object>> globalLibrary,
+                                                                 cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig) {
         List<Map<String, Object>> issues = new ArrayList<>();
 
-        // Initialize rule engine and register all rules
+        // Initialize rule engine and register rules based on config
         cn.dolphinmind.glossary.java.analyze.quality.RuleEngine engine =
                 new cn.dolphinmind.glossary.java.analyze.quality.RuleEngine();
+        java.util.function.Consumer<cn.dolphinmind.glossary.java.analyze.quality.QualityRule> reg = rule -> {
+            if (rulesConfig.isRuleEnabled(rule.getRuleKey())) engine.registerRule(rule);
+        };
 
-        // BUG rules (23)
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyCatchBlock());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringLiteralEquality());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.IdenticalOperand());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ThreadRunDirect());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WaitNotifyNoSync());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MutableMembersReturned());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FinalizerUsed());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MissingSerialVersionUID());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.NullDereference());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DeadStore());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AssertSideEffect());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LoopBranchUpdate());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PublicStaticMutableField());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DeprecatedUsage());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EqualsOnArrays());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalDouble());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ToStringReturnsNull());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ClassLoaderMisuse());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ExceptionRethrown());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UncheckedCatch());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnclosedResource());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InterruptedExceptionSwallowed());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LongToIntCast());
+        // BUG rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyCatchBlock());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringLiteralEquality());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.IdenticalOperand());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ThreadRunDirect());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WaitNotifyNoSync());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MutableMembersReturned());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FinalizerUsed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MissingSerialVersionUID());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.NullDereference());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DeadStore());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AssertSideEffect());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LoopBranchUpdate());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PublicStaticMutableField());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DeprecatedUsage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EqualsOnArrays());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalDouble());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ToStringReturnsNull());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ClassLoaderMisuse());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ExceptionRethrown());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UncheckedCatch());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnclosedResource());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InterruptedExceptionSwallowed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LongToIntCast());
 
         // CODE_SMELL rules (49)
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooLongMethod());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyParameters());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyReturns());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CyclomaticComplexity());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PrintStackTrace());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.GodClass());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MissingJavadoc());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WildcardImport());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SystemOutPrintln());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyConstructors());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyStatement());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnusedLocalVariable());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyStringLiterals());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ExceptionIgnored());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EqualsWithoutHashCode());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringConcatInLoop());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyMethodBody());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BooleanLiteralInCondition());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringEqualsCaseSensitive());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SensitiveToString());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BooleanMethodName());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MethodTooLongName());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ThreadSleepInCode());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MagicNumber());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalParameter());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalGetWithoutCheck());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StreamNotConsumed());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalField());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SSLServerSocket());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakRSAKey());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AllocationInLoop());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CatchingError());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalChaining());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TLSProtocol());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AutoboxingPerformance());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakHashFunction());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JWTWithoutExpiry());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexComplexity());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexLookaround());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexDoS());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureRandom());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.NullCheckAfterDeref());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LogInjection());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HashWithoutSalt());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureCookie());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HttpOnlyCookie());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FilePermissionTooPermissive());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooLongMethod());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyParameters());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyReturns());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CyclomaticComplexity());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PrintStackTrace());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.GodClass());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MissingJavadoc());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WildcardImport());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SystemOutPrintln());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyConstructors());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyStatement());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnusedLocalVariable());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyStringLiterals());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ExceptionIgnored());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EqualsWithoutHashCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringConcatInLoop());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyMethodBody());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BooleanLiteralInCondition());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringEqualsCaseSensitive());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SensitiveToString());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BooleanMethodName());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MethodTooLongName());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ThreadSleepInCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MagicNumber());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalParameter());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalGetWithoutCheck());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StreamNotConsumed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalField());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SSLServerSocket());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakRSAKey());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AllocationInLoop());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CatchingError());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalChaining());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TLSProtocol());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AutoboxingPerformance());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakHashFunction());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JWTWithoutExpiry());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexComplexity());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexLookaround());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexDoS());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureRandom());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.NullCheckAfterDeref());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LogInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HashWithoutSalt());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureCookie());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HttpOnlyCookie());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FilePermissionTooPermissive());
 
         // SECURITY rules (18)
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedPassword());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SQLInjection());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedIP());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HTTPNotHTTPS());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureRandomGenerator());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.Deserialization());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CommandInjection());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakMAC());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ReflectionOnSensitive());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedSecretKey());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SessionFixation());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureTempFile());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LDAPInjection());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PathTraversal());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OpenRedirect());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XXEInTransformerFactory());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XPathInjection());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CORSMisconfiguration());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedPassword());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SQLInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedIP());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HTTPNotHTTPS());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureRandomGenerator());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.Deserialization());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CommandInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakMAC());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ReflectionOnSensitive());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedSecretKey());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SessionFixation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureTempFile());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LDAPInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PathTraversal());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OpenRedirect());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XXEInTransformerFactory());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XPathInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CORSMisconfiguration());
 
         // Remaining rules not yet registered
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RedundantCast());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SerializableField());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.VariableDeclaredFarFromUsage());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CSRFDisabled());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JDBCInjection());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalPrecisionLoss());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ContentTypeSniffing());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RedundantCast());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SerializableField());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.VariableDeclaredFarFromUsage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CSRFDisabled());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JDBCInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalPrecisionLoss());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ContentTypeSniffing());
 
-        // 🚀 Phase 3: CFG-based advanced analysis rules
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.TrueCyclomaticComplexity(15));
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.UnreachableCode());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceLeakPath());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingPath());
+        // Phase 3: CFG-based rules
+        int ccThreshold = rulesConfig.getEffectiveThreshold("RSPEC-3776-CFG", 15);
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TrueCyclomaticComplexity(ccThreshold));
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.UnreachableCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceLeakPath());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingPath());
 
-        // 🚀 Phase 4: Taint Analysis (Data Flow)
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.TaintFlowRule());
+        // Phase 4: Taint Analysis
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TaintFlowRule());
 
-        // Run all method-level rules
+        // Run all registered rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
         // Duplicate code detection
@@ -821,15 +841,17 @@ public class SourceUniversePro {
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> dupIssues = duplicateDetector.findDuplicates(globalLibrary);
         ruleIssues.addAll(dupIssues);
 
-        // 🚀 Phase 5: Spring Bean Analysis (circular deps, layer violations, missing beans)
-        cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule springRule =
-                new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule();
-        ruleIssues.addAll(springRule.analyzeAll(globalLibrary));
-
-        // 🚀 Phase 6: Architecture Violation Detection (layer violations, circular deps)
-        cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule archRule =
-                new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule();
-        ruleIssues.addAll(archRule.analyzeAll(globalLibrary));
+        // Collection-level rules (need full class context)
+        if (rulesConfig.isRuleEnabled("RSPEC-5135")) {
+            cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule springRule =
+                    new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule();
+            ruleIssues.addAll(springRule.analyzeAll(globalLibrary));
+        }
+        if (rulesConfig.isRuleEnabled("RSPEC-1200")) {
+            cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule archRule =
+                    new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule();
+            ruleIssues.addAll(archRule.analyzeAll(globalLibrary));
+        }
 
         // Convert to Map for JSON output
         for (cn.dolphinmind.glossary.java.analyze.quality.QualityIssue issue : ruleIssues) {
@@ -1596,7 +1618,7 @@ public class SourceUniversePro {
     }
 
     /**
-     * 扫描 Java 项目中的非 Java 文件资产 (使用新解析器框架)
+     * 扫描 Java 项目中的非 Java 文件资产 (支持多模块)
      */
     private static Map<String, Object> scanProjectFiles(Path projectRoot) {
         Map<String, Object> assets = new LinkedHashMap<>();
@@ -1604,7 +1626,17 @@ public class SourceUniversePro {
         try {
             cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner scanner =
                     new cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner(projectRoot);
-            scanner.scan();
+
+            // Detect multi-module structure
+            List<Path> modules = scanner.detectModules();
+            System.out.println("📦 检测到 " + modules.size() + " 个模块");
+
+            // Scan each module
+            for (Path moduleRoot : modules) {
+                String moduleName = moduleRoot.getFileName().toString();
+                System.out.println("  🔍 扫描模块: " + moduleName);
+                scanner.scanModule(moduleRoot);
+            }
 
             // Group by type
             for (Map.Entry<cn.dolphinmind.glossary.java.analyze.parser.FileAsset.AssetType,
@@ -1617,7 +1649,8 @@ public class SourceUniversePro {
                 assets.put(entry.getKey().name().toLowerCase(), typeAssets);
             }
 
-            // Add summary
+            // Add module info and summary
+            assets.put("modules", modules.stream().map(Path::toString).collect(java.util.stream.Collectors.toList()));
             assets.put("scan_summary", scanner.getSummary());
             assets.put("errors", scanner.getScanErrors());
 

@@ -51,7 +51,11 @@ public class QualityGate {
 
         int critical = bySeverity.getOrDefault("CRITICAL", 0).intValue();
         int major = bySeverity.getOrDefault("MAJOR", 0).intValue();
+        int minor = bySeverity.getOrDefault("MINOR", 0).intValue();
         int total = qualityIssues.size();
+
+        // Only count non-INFO issues for Quality Gate
+        int gateIssues = critical + major + minor;
         double debtRatio = 0;
         if (debtEstimate != null && debtEstimate.containsKey("technical_debt_ratio_pct")) {
             debtRatio = ((Number) debtEstimate.get("technical_debt_ratio_pct")).doubleValue();
@@ -71,12 +75,13 @@ public class QualityGate {
         }
         metrics.put("major_count", major);
 
-        // Rule 3: Total issues threshold
-        if (total > 10) {
+        // Rule 3: Total issues threshold (only non-INFO)
+        if (gateIssues > 10) {
             passed = false;
-            reasons.add("Total issues exceeds threshold: " + total + " > 10");
+            reasons.add("Total issues exceeds threshold: " + gateIssues + " > 10");
         }
         metrics.put("total_issues", total);
+        metrics.put("gate_issues", gateIssues);
 
         // Rule 4: Technical debt ratio
         if (debtRatio > 5) {

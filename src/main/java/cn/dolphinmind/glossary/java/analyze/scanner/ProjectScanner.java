@@ -41,17 +41,89 @@ public class ProjectScanner {
     }
 
     /**
-     * Scan the entire project
+     * Detect multi-module Maven project structure.
+     * Returns a list of module root directories.
+     * If this is a single-module project, returns just the project root.
      */
-    public void scan() throws IOException {
-        Files.walk(projectRoot)
+    public List<Path> detectModules() {
+        List<Path> modules = new ArrayList<>();
+        Path rootPom = projectRoot.resolve("pom.xml");
+
+        if (!Files.exists(rootPom)) {
+            // No pom.xml - not a Maven project
+            modules.add(projectRoot);
+            return modules;
+        }
+
+        try {
+            // Check if root pom has <modules> section
+            String content = new String(Files.readAllBytes(rootPom));
+            boolean hasModules = content.contains("<modules>");
+
+            if (hasModules) {
+                // Find all subdirectories with pom.xml
+                try (java.util.stream.Stream<Path> walk = Files.walk(projectRoot, 3)) {
+                    walk.filter(Files::isDirectory)
+                        .filter(dir -> !isExcluded(dir))
+                        .filter(dir -> Files.exists(dir.resolve("pom.xml")))
+                        .filter(dir -> !dir.equals(projectRoot))
+                        .forEach(modules::add);
+                }
+
+                if (modules.isEmpty()) {
+                    // No sub-modules found, treat as single module
+                    modules.add(projectRoot);
+                }
+            } else {
+                // No modules section - single module project
+                modules.add(projectRoot);
+            }
+        } catch (Exception e) {
+            modules.add(projectRoot);
+        }
+
+        return modules;
+    }
+
+    /**
+     * Scan a single module
+     */
+    public void scanModule(Path moduleRoot) throws IOException {
+        Files.walk(moduleRoot)
                 .filter(path -> !isExcluded(path))
                 .filter(Files::isRegularFile)
-                .forEach(this::processFile);
+                .forEach(this::processFileForModule);
 
         // Group assets by type
         for (FileAsset asset : allAssets) {
             assetsByType.computeIfAbsent(asset.getAssetType(), k -> new ArrayList<>()).add(asset);
+        }
+    }
+
+    private void processFileForModule(Path path) {
+        try {
+            // Check file size
+            long fileSize = Files.size(path);
+            if (fileSize > MAX_FILE_SIZE_BYTES) {
+                scanErrors.add("Skipped large file: " + projectRoot.relativize(path) + " (" + fileSize + " bytes)");
+                return;
+            }
+
+            // Check extension whitelist
+            String fileName = path.getFileName().toString().toLowerCase();
+            boolean hasWhitelistedExt = WHITELIST_EXTENSIONS.stream()
+                    .anyMatch(ext -> fileName.endsWith(ext));
+            if (!hasWhitelistedExt) {
+                return; // Silently skip non-whitelisted files
+            }
+
+            cn.dolphinmind.glossary.java.analyze.parser.FileParser parser = ParserRegistry.findParser(path);
+            if (parser != null) {
+                List<FileAsset> assets = parser.parse(path, projectRoot.toString());
+                allAssets.addAll(assets);
+            }
+        } catch (Exception e) {
+            scanErrors.add("Failed to parse: " + projectRoot.relativize(path) + " - " + e.getMessage());
         }
     }
 
