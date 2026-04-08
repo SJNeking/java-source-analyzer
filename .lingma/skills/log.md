@@ -60,12 +60,21 @@ collaboration:
 - 文件IO是原子操作,要么完整写入要么失败
 - 脚本可以独立测试、审计、优化
 
-### Step 1: AI生成思考内容并写入文件
+### Step 1: AI生成思考内容并直接写入文件
 
-AI必须完成以下任务:
+**核心机制:** AI使用`create_file`工具直接将JSON payload写入固定路径,避免通过命令行传递。
+
+**AI必须完成以下任务:**
 1. 按照规范构造完整的JSON payload
-2. 将JSON写入固定路径: `/tmp/log_entry_pending.json`
-3. **不要调用任何保存脚本**,只负责写文件
+2. 使用`create_file`工具写入: `/tmp/log_entry_pending.json`
+3. 验证文件是否成功创建(可选:读取文件确认)
+4. **不要调用任何保存脚本**,只负责写文件
+5. 输出提示:"✅ 思考内容已写入文件,等待脚本处理..."
+
+**关键约束:**
+- ✅ AI只做: 生成内容 + create_file写入
+- ❌ AI不做: 调用保存脚本、检查数据库、验证结果
+- ⚠️ 注意: `create_file`有1000行限制,如果insight过长,需要分多次写入或使用其他策略
 
 ```python
 import json

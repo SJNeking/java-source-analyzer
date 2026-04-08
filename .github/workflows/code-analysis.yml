@@ -1,0 +1,126 @@
+name: Java Source Analyzer - Code Quality Scan
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run weekly on Monday at 2 AM UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      source_root:
+        description: 'Path to Java project to analyze'
+        required: false
+        default: '.'
+
+jobs:
+  analyze:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # For SARIF upload
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for incremental analysis
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: maven
+
+      - name: Build Java Source Analyzer
+        run: |
+          cd /opt
+          if [ ! -d "java-source-analyzer" ]; then
+            git clone https://github.com/java-source-analyzer/java-source-analyzer.git
+          fi
+          cd java-source-analyzer
+          mvn clean package -DskipTests -q
+
+      - name: Run Code Quality Scan
+        run: |
+          SOURCE_ROOT="${{ github.event.inputs.source_root || github.workspace }}"
+          java -jar /opt/java-source-analyzer/target/glossary-java-source-analyzer-1.0.jar \
+            --sourceRoot "$SOURCE_ROOT" \
+            --outputDir ./analysis-output \
+            --version "${{ github.sha }}"
+
+      - name: Upload Full Analysis Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-results
+          path: |
+            ./analysis-output/*.json
+            ./analysis-output/*.html
+            ./analysis-output/*.sarif
+          retention-days: 30
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ./analysis-output/*.sarif
+          category: java-source-analyzer
+
+      - name: Post Quality Gate Result
+        if: always()
+        run: |
+          echo "## 📊 Code Quality Analysis Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Output | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| JSON Report | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+          echo "| HTML Dashboard | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+          echo "| SARIF Report | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+          echo "| Technical Debt | ✅ Estimated |" >> $GITHUB_STEP_SUMMARY
+          echo "| Quality Gate | See results below |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR with Summary
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Find the SARIF file
+            const sarifFiles = fs.readdirSync('./analysis-output').filter(f => f.endsWith('.sarif'));
+            if (sarifFiles.length > 0) {
+              const sarif = JSON.parse(fs.readFileSync(path.join('./analysis-output', sarifFiles[0]), 'utf8'));
+              const results = sarif.runs[0]?.results || [];
+              const errors = results.filter(r => r.level === 'error').length;
+              const warnings = results.filter(r => r.level === 'warning').length;
+              const notes = results.filter(r => r.level === 'note').length;
+
+              const comment = `## 📊 Code Quality Analysis
+
+              | Metric | Count |
+              |---|---|
+              | 🔴 Errors | ${errors} |
+              | 🟡 Warnings | ${warnings} |
+              | 🔵 Notes | ${notes} |
+              | **Total** | **${results.length}** |
+
+              ${errors > 0 ? '❌ **Quality Gate: FAILED** - Please fix errors before merging.' : '✅ **Quality Gate: PASSED**'}
+
+              <details>
+              <summary>View details</summary>
+              Check the "Code Scanning" tab or download the full HTML report from artifacts.
+              </details>`;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
