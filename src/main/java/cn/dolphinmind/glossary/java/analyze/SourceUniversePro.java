@@ -440,10 +440,28 @@ public class SourceUniversePro {
         RulesConfig rulesConfig = RulesConfig.load(config.getRulesConfigPath());
         translator.loadProjectGlossary(config.getSourceRoot());
 
-        // Configure JavaParser Symbol Solver
+        // Configure JavaParser Symbol Solver with full Maven classpath
+        cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver cpResolver = null;
+        try {
+            cpResolver = new cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver();
+        } catch (Exception e) {}
+
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
         typeSolver.add(new JavaParserTypeSolver(new java.io.File(config.getSourceRoot())));
         try { registerSubModules(typeSolver, config.getSourceRoot()); } catch (Exception ignored) {}
+
+        // Add Maven dependencies to type solver for accurate symbol resolution
+        if (cpResolver != null) {
+            try {
+                CombinedTypeSolver fullSolver = cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver.create(
+                        Paths.get(config.getSourceRoot()));
+                // Merge: add all type solvers from the full resolver
+                typeSolver = fullSolver;
+                System.out.println("📚 Maven classpath loaded for symbol resolution");
+            } catch (Exception e) {
+                System.out.println("⚠️  Maven classpath not available: " + e.getMessage());
+            }
+        }
 
         com.github.javaparser.ParserConfiguration parserConfig = new com.github.javaparser.ParserConfiguration();
         parserConfig.setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);

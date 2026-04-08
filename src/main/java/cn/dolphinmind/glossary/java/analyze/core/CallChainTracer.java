@@ -5,6 +5,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -13,9 +14,8 @@ import java.util.*;
 /**
  * Core Feature 2: Call Chain Tracer (JavaParser Symbol Solver-based)
  *
- * Uses JavaParser's Symbol Solver to accurately resolve method call targets.
- * Only tracks calls between INTERNAL project classes.
- * External library calls are filtered out.
+ * Uses JavaParser's Symbol Solver with full Maven classpath to accurately
+ * resolve method call targets. Only tracks calls between INTERNAL project classes.
  */
 public class CallChainTracer {
 
