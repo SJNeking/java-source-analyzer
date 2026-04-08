@@ -35,8 +35,9 @@ public class ExternalLibrarySignatureDB {
      * Build the signature database from Maven dependencies.
      */
     public void build(Path projectRoot) throws IOException {
-        // Find Maven dependencies
-        List<Path> jars = resolveMavenDependencies(projectRoot);
+        // Use improved Maven dependency resolver
+        MavenDependencyResolver resolver = new MavenDependencyResolver(projectRoot);
+        Set<Path> jars = resolver.resolveJars();
 
         for (Path jar : jars) {
             try {
@@ -198,91 +199,24 @@ public class ExternalLibrarySignatureDB {
     }
 
     /**
-     * Resolve Maven dependencies from the project's pom.xml.
+     * Resolve Maven dependencies using improved parser.
+     * (Method kept for compatibility but not used - build() calls MavenDependencyResolver directly)
      */
+    @Deprecated
     private List<Path> resolveMavenDependencies(Path projectRoot) throws IOException {
-        List<Path> jars = new ArrayList<>();
-        Path pomFile = projectRoot.resolve("pom.xml");
-        if (!Files.exists(pomFile)) return jars;
-
-        String m2Repo = System.getProperty("user.home") + "/.m2/repository";
-        Path m2Path = Paths.get(m2Repo);
-        if (!Files.exists(m2Path)) return jars;
-
-        List<String[]> dependencies = parsePomDependencies(pomFile);
-
-        for (String[] dep : dependencies) {
-            String groupId = dep[0];
-            String artifactId = dep[1];
-            String version = dep[2];
-
-            String groupPath = groupId.replace('.', '/');
-            Path depDir = m2Path.resolve(groupPath).resolve(artifactId).resolve(version);
-
-            if (Files.exists(depDir)) {
-                try {
-                    Files.walk(depDir)
-                            .filter(p -> p.toString().endsWith(".jar"))
-                            .filter(p -> !p.toString().endsWith("-sources.jar"))
-                            .filter(p -> !p.toString().endsWith("-javadoc.jar"))
-                            .forEach(jars::add);
-                } catch (IOException e) {}
-            }
-        }
-
-        return jars;
+        return Collections.emptyList();
     }
 
     /**
-     * Simple pom.xml parser to extract dependencies.
+     * Simple pom.xml parser - deprecated, use MavenDependencyResolver.
      */
+    @Deprecated
     private List<String[]> parsePomDependencies(Path pomFile) throws IOException {
-        List<String[]> deps = new ArrayList<>();
-        try {
-            String content = new String(Files.readAllBytes(pomFile));
-            String[] lines = content.split("\n");
-
-            boolean inDependency = false;
-            String groupId = null, artifactId = null, version = null;
-
-            for (String line : lines) {
-                String trimmed = line.trim();
-
-                if (trimmed.contains("<dependency>") && !trimmed.contains("</dependency>")) {
-                    inDependency = true;
-                    groupId = null; artifactId = null; version = null;
-                    continue;
-                }
-
-                if (trimmed.contains("</dependency>")) {
-                    if (groupId != null && artifactId != null && version != null) {
-                        deps.add(new String[]{groupId, artifactId, version});
-                    }
-                    inDependency = false;
-                    continue;
-                }
-
-                if (!inDependency) continue;
-
-                if (trimmed.startsWith("<groupId>") && groupId == null) {
-                    groupId = extractXmlValue(trimmed);
-                } else if (trimmed.startsWith("<artifactId>") && artifactId == null) {
-                    artifactId = extractXmlValue(trimmed);
-                } else if (trimmed.startsWith("<version>") && version == null) {
-                    version = extractXmlValue(trimmed);
-                }
-            }
-        } catch (Exception e) {}
-
-        return deps;
+        return Collections.emptyList();
     }
 
+    @Deprecated
     private String extractXmlValue(String line) {
-        int start = line.indexOf('>');
-        int end = line.indexOf('<', start + 1);
-        if (start >= 0 && end > start) {
-            return line.substring(start + 1, end).trim();
-        }
         return null;
     }
 }

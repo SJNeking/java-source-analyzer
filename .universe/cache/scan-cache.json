@@ -1,5 +1,5 @@
 {
-  "scanDate": "2026-04-09T06:30:57",
+  "scanDate": "2026-04-09T06:38:20",
   "analyzerVersion": "1.0-M5",
   "files": {
     "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/TrueCyclomaticComplexity.java": {
@@ -105,7 +105,7 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CallChainTracer.java": {
-      "hash": "56efd49020ce40e5af81b96c5b3ced611c6ae9eca1cd4e32c4a2080d2e5feda7",
+      "hash": "aa1af629af71de0dc194ce5692fcc3c1004e3965a4156ff2c528205dd710a052",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
@@ -399,7 +399,13 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/ExternalLibrarySignatureDB.java": {
-      "hash": "2f28fba826352c478480278b376817633c4807aeffc2d14086cd36ed9b3ac51e",
+      "hash": "c5150bf0a0bc4b76df1693c13617655657d7f8ef1cb7dd7a33b7f0e856e1c881",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/MavenDependencyResolver.java": {
+      "hash": "9cf3b306094710b1961d1c49278bdea0b2788513c2f6db6c8c6139f00e9650c8",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
