@@ -996,6 +996,17 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.ExceptionMessageExposed());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.SSRF());
 
+        // Performance Rules (P1)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.NPlusOneQuery());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.MissingBatchOperation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.InefficientCollectionInit());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.InefficientLoopCondition());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.UnboundedStaticCollection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.ResourceNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.ThreadPoolMisconfiguration());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.ConnectionNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.StringConcatInLoopEnhanced());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
