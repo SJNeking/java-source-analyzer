@@ -640,34 +640,110 @@ public class SourceUniversePro {
         cn.dolphinmind.glossary.java.analyze.quality.RuleEngine engine =
                 new cn.dolphinmind.glossary.java.analyze.quality.RuleEngine();
 
-        // Bug rules
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.EmptyCatchBlockRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.StringLiteralEquality());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.IdenticalOperandRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.ThreadRunRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.WaitWhileSynchronizedRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.MutableMembersReturnedRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.FinalizerRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.SerialVersionUIDRule());
+        // BUG rules (23)
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyCatchBlock());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringLiteralEquality());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.IdenticalOperand());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ThreadRunDirect());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WaitNotifyNoSync());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MutableMembersReturned());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FinalizerUsed());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MissingSerialVersionUID());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.NullDereference());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DeadStore());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AssertSideEffect());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LoopBranchUpdate());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PublicStaticMutableField());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DeprecatedUsage());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EqualsOnArrays());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalDouble());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ToStringReturnsNull());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ClassLoaderMisuse());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ExceptionRethrown());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UncheckedCatch());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnclosedResource());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InterruptedExceptionSwallowed());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LongToIntCast());
 
-        // Code smell rules
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.TooLongMethod());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.TooManyParameters());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.TooManyReturn());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.CyclomaticComplexityRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.UseOfPrintStackTrace());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.GodClassRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.NoCommentRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.WildcardImportRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.SystemOutRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.ConstructorOverloadingRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.EmptyStatementRule());
+        // CODE_SMELL rules (49)
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooLongMethod());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyParameters());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyReturns());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CyclomaticComplexity());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PrintStackTrace());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.GodClass());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MissingJavadoc());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WildcardImport());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SystemOutPrintln());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyConstructors());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyStatement());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnusedLocalVariable());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyStringLiterals());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ExceptionIgnored());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EqualsWithoutHashCode());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringConcatInLoop());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyMethodBody());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BooleanLiteralInCondition());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringEqualsCaseSensitive());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SensitiveToString());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BooleanMethodName());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MethodTooLongName());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ThreadSleepInCode());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.MagicNumber());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalParameter());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalGetWithoutCheck());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StreamNotConsumed());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalField());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SSLServerSocket());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakRSAKey());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AllocationInLoop());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CatchingError());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalChaining());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TLSProtocol());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AutoboxingPerformance());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakHashFunction());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JWTWithoutExpiry());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexComplexity());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexLookaround());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RegexDoS());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureRandom());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.NullCheckAfterDeref());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LogInjection());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HashWithoutSalt());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureCookie());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HttpOnlyCookie());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FilePermissionTooPermissive());
 
-        // Security rules
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.HardcodedPassword());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.SQLInjectionRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.HardcodedIPRule());
-        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.URLShouldUseHTTPS());
+        // SECURITY rules (18)
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedPassword());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SQLInjection());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedIP());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HTTPNotHTTPS());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureRandomGenerator());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.Deserialization());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CommandInjection());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakMAC());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ReflectionOnSensitive());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedSecretKey());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SessionFixation());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureTempFile());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LDAPInjection());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.PathTraversal());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OpenRedirect());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XXEInTransformerFactory());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XPathInjection());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CORSMisconfiguration());
+
+        // Remaining rules not yet registered
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RedundantCast());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SerializableField());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.VariableDeclaredFarFromUsage());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CSRFDisabled());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JDBCInjection());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalPrecisionLoss());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ContentTypeSniffing());
 
         // Run all rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);

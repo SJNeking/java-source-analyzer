@@ -4,6 +4,7 @@
   "parserregistry": "ParserRegistry",
   "emptycatchblockrule": "EmptyCatchBlockRule",
   "abstractmethodrule": "AbstractMethodRule",
+  "allrules": "AllRules",
   "fileparser": "文件Parser",
   "pomxmlparser": "PomXmlParser",
   "fileasset": "文件Asset",
