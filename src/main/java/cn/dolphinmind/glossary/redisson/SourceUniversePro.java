@@ -85,7 +85,7 @@ public class SourceUniversePro {
 
         // 加载全局基础字典 (Global Base Dictionary)
         try {
-            java.io.File baseDictFile = new java.io.File("/Users/mingxilv/WebDevelopment/gitcode/dev-proj/s-pay-mall/s-pay-mall-ddd/source-proj/glossary-redisson/src/main/resources/cleaned-english-chinese-mapping.json");
+            java.io.File baseDictFile = new java.io.File("/Users/mingxilv/learn/java-source-analyzer/src/main/resources/cleaned-english-chinese-mapping.json");
             if (baseDictFile.exists()) {
                 JsonObject dictObj = JsonParser.parseReader(new FileReader(baseDictFile)).getAsJsonObject();
                 for (String key : dictObj.keySet()) {
@@ -372,8 +372,8 @@ public class SourceUniversePro {
         StaticJavaParser.getParserConfiguration()
                 .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);
 
-        // 🚩 定义输出路径
-        String outputDirPath = "/Users/mingxilv/WebDevelopment/gitcode/dev-proj/s-pay-mall/s-pay-mall-ddd/source-proj/glossary-redisson/dev-ops/output";
+        // 🚩 定义输出路径 - 统一指向 dev-ops/output 目录
+        String outputDirPath = "/Users/mingxilv/learn/java-source-analyzer/dev-ops/output";
         Path outputDir = Paths.get(outputDirPath);
         Files.createDirectories(outputDir); // 确保目录存在
 

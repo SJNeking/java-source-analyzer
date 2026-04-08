@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>架构图谱 - 力导向图 | Java Source Analyzer</title>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/styles.css">
+    
+    <!-- Libraries -->
+    <script src="../js/lib/echarts.min.js"></script>
+</head>
+<body>
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <h3>🗺️ 力导向图 (路径优化)</h3>
+        <label>选择项目：</label>
+        <select id="projectSelector"><option>加载中...</option></select>
+        <div class="stats">
+            <span id="statsNodes">节点：-</span>
+            <span id="statsLinks">连线：-</span>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#4299e1"></div>
+                <span>接口</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#9f7aea"></div>
+                <span>抽象类</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#48bb78"></div>
+                <span>具体类</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#ed8936"></div>
+                <span>枚举</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:#a0aec0"></div>
+                <span>工具类</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText">正在初始化...</div>
+    </div>
+    
+    <!-- Hint -->
+    <div class="hint">🖱️ 悬停节点高亮路径 · 滚轮缩放 · 拖拽平移</div>
+    
+    <!-- Chart Container -->
+    <div id="main"></div>
+
+    <!-- Scripts -->
+    <script src="../js/common.js"></script>
+    <script src="../js/views/force-graph.js"></script>
+    <script>
+        // ==================== 应用初始化 ====================
+        
+        let forceView = null;
+        
+        /**
+         * 加载并渲染项目
+         */
+        async function loadProject(filename) {
+            if (!filename) return;
+            
+            try {
+                toggleLoadingOverlay(true, '正在解析数据...');
+                
+                const data = await loadProjectData(filename);
+                updateStatsDisplay(data);
+                
+                const large = isLargeDataset(data.nodes);
+                toggleLoadingOverlay(true, large ? '节点较多，正在布局...' : '正在生成图谱...');
+                
+                // 延迟渲染以避免阻塞UI
+                setTimeout(() => {
+                    if (!forceView) {
+                        forceView = new ForceGraphView('main');
+                    }
+                    forceView.render(data);
+                    toggleLoadingOverlay(false);
+                }, 100);
+                
+            } catch (error) {
+                showError(error.message);
+                toggleLoadingOverlay(false);
+            }
+        }
+        
+        /**
+         * 初始化应用
+         */
+        async function init() {
+            try {
+                Logger.info('开始初始化应用...');
+                
+                const projects = await loadProjectsIndex();
+                Logger.success(`加载了 ${projects.length} 个项目`);
+                
+                populateProjectSelector('projectSelector', projects, loadProject);
+                
+                if (projects.length > 0) {
+                    await loadProject(projects[0].file);
+                }
+                
+            } catch (error) {
+                showError(error.message);
+                Logger.error('初始化失败:', error);
+            }
+        }
+        
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

@@ -2,9 +2,9 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>cn.dolphinmind</groupId>
-  <artifactId>glossary-redisson</artifactId>
+  <artifactId>glossary-java-source-analyzer</artifactId>
   <version>1.0</version>
-  <name>Archetype - glossary-redisson</name>
+  <name>java-source-analyzer</name>
   <url>http://maven.apache.org</url>
   <packaging>jar</packaging>
 
