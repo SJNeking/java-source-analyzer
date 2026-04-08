@@ -53,6 +53,7 @@ public class IncrementalCache {
 
     public static class CacheData {
         private String scanDate;
+        private String analyzerVersion;
         private final Map<String, FileEntry> files = new LinkedHashMap<>();
         private int totalClasses;
         private int totalMethods;
@@ -60,6 +61,8 @@ public class IncrementalCache {
 
         public String getScanDate() { return scanDate; }
         public void setScanDate(String scanDate) { this.scanDate = scanDate; }
+        public String getAnalyzerVersion() { return analyzerVersion; }
+        public void setAnalyzerVersion(String analyzerVersion) { this.analyzerVersion = analyzerVersion; }
         public Map<String, FileEntry> getFiles() { return files; }
         public int getTotalClasses() { return totalClasses; }
         public void setTotalClasses(int totalClasses) { this.totalClasses = totalClasses; }
@@ -73,19 +76,34 @@ public class IncrementalCache {
 
     /**
      * Load existing cache or create new one.
+     * If cache version doesn't match current analyzer version, returns fresh cache.
      */
-    public static CacheData load(Path cacheDir) {
+    public static CacheData load(Path cacheDir, String currentAnalyzerVersion) {
         Path cacheFile = cacheDir.resolve("scan-cache.json");
         if (Files.exists(cacheFile)) {
             try {
                 String content = new String(Files.readAllBytes(cacheFile), StandardCharsets.UTF_8);
-                return GSON.fromJson(content, CacheData.class);
+                CacheData cached = GSON.fromJson(content, CacheData.class);
+                
+                // Check analyzer version - invalidate cache if version mismatch
+                if (cached.getAnalyzerVersion() == null || !cached.getAnalyzerVersion().equals(currentAnalyzerVersion)) {
+                    System.out.println("ℹ️  缓存版本不匹配 (cached: " + cached.getAnalyzerVersion() + 
+                            ", current: " + currentAnalyzerVersion + ")，强制失效");
+                    CacheData fresh = new CacheData();
+                    fresh.setAnalyzerVersion(currentAnalyzerVersion);
+                    return fresh;
+                }
+                
+                return cached;
             } catch (Exception e) {
-                return new CacheData();
+                CacheData fresh = new CacheData();
+                fresh.setAnalyzerVersion(currentAnalyzerVersion);
+                return fresh;
             }
         }
         CacheData data = new CacheData();
         data.setScanDate(new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
+        data.setAnalyzerVersion(currentAnalyzerVersion);
         return data;
     }
 

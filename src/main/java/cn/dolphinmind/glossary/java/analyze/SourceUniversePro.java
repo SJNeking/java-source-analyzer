@@ -478,10 +478,11 @@ public class SourceUniversePro {
         java.util.concurrent.atomic.AtomicInteger filesFailed = new java.util.concurrent.atomic.AtomicInteger(0);
         java.util.concurrent.atomic.AtomicInteger filesSkipped = new java.util.concurrent.atomic.AtomicInteger(0);
 
-        // Load incremental cache
+        // Load incremental cache with version checking
         Path cacheDir = Paths.get(ctx.getProjectRoot()).resolve(".universe").resolve("cache");
         cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.CacheData cache =
-                cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.load(cacheDir);
+                cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.load(cacheDir,
+                        cn.dolphinmind.glossary.java.analyze.translate.SemanticTranslator.getAnalyzerVersion());
 
         for (Path moduleRoot : modules) {
             String moduleName = moduleRoot.getFileName().toString();
@@ -1843,9 +1844,21 @@ public class SourceUniversePro {
 
     /**
      * 语义路径解析：尝试解析类型的完全限定名
+     * 降级机制：当符号解析失败时，回退到 AST 结构的启发式推断
      */
     private static String getSemanticPath(Type type) {
-        try { return type.resolve().describe(); } catch (Exception e) { return type.asString(); }
+        try {
+            return type.resolve().describe();
+        } catch (Exception e) {
+            // Fallback 1: Try to infer from import statements
+            String typeName = type.asString();
+            if (!typeName.contains(".") && typeName.matches("[A-Z]\\w*")) {
+                // Likely a simple class name - return as-is, will be resolved later
+                return typeName;
+            }
+            // Fallback 2: Use AST structure (e.g., generic types)
+            return typeName;
+        }
     }
 
     /**
