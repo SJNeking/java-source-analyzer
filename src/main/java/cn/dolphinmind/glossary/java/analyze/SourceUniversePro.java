@@ -538,6 +538,64 @@ public class SourceUniversePro {
         rootContainer.put("project_assets", projectAssets);
         String safeVersion = detectedVersion.replaceAll("[^a-zA-Z0-9.-]", "_");
         String dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
+
+        // 🚀 Phase 7: Commercial-grade report generation
+
+        // HTML Dashboard
+        try {
+            String htmlPath = outputDir.resolve(String.format("%s_v%s_report_%s.html", frameworkName, safeVersion, dateStr)).toString();
+            cn.dolphinmind.glossary.java.analyze.report.HtmlReportGenerator htmlGen =
+                    new cn.dolphinmind.glossary.java.analyze.report.HtmlReportGenerator(rootContainer, htmlPath);
+            htmlGen.generate();
+            System.out.println("✅ HTML Dashboard: " + htmlPath);
+        } catch (Exception e) {
+            System.err.println("⚠️ HTML Dashboard generation failed: " + e.getMessage());
+        }
+
+        // SARIF Output
+        try {
+            String sarifPath = outputDir.resolve(String.format("%s_v%s_%s.sarif", frameworkName, safeVersion, dateStr)).toString();
+            cn.dolphinmind.glossary.java.analyze.report.SarifGenerator sarifGen =
+                    new cn.dolphinmind.glossary.java.analyze.report.SarifGenerator(rootContainer);
+            sarifGen.generate(sarifPath);
+            System.out.println("✅ SARIF Report: " + sarifPath);
+        } catch (Exception e) {
+            System.err.println("⚠️ SARIF generation failed: " + e.getMessage());
+        }
+
+        // Technical Debt Estimation
+        Map<String, Object> debtEstimate = null;
+        try {
+            cn.dolphinmind.glossary.java.analyze.report.TechnicalDebtEstimator debtEst =
+                    new cn.dolphinmind.glossary.java.analyze.report.TechnicalDebtEstimator();
+            debtEstimate = debtEst.estimate(rootContainer);
+            rootContainer.put("technical_debt", debtEstimate);
+            System.out.println("✅ Technical Debt: " + debtEstimate.get("rating") + " | " +
+                    debtEstimate.get("total_remediation_hours") + "h | " +
+                    debtEstimate.get("technical_debt_ratio_pct") + "%");
+        } catch (Exception e) {
+            System.err.println("⚠️ Technical debt estimation failed: " + e.getMessage());
+        }
+
+        // Quality Gate
+        try {
+            cn.dolphinmind.glossary.java.analyze.report.QualityGate gate =
+                    new cn.dolphinmind.glossary.java.analyze.report.QualityGate();
+            cn.dolphinmind.glossary.java.analyze.report.QualityGate.GateResult gateResult = gate.evaluate(rootContainer, debtEstimate);
+            rootContainer.put("quality_gate", new LinkedHashMap<String, Object>() {{
+                put("passed", gateResult.isPassed());
+                put("reasons", gateResult.getReasons());
+                put("metrics", gateResult.getMetrics());
+            }});
+            System.out.println("✅ Quality Gate: " + (gateResult.isPassed() ? "PASSED ✅" : "FAILED ❌"));
+            if (!gateResult.isPassed()) {
+                for (String reason : gateResult.getReasons()) {
+                    System.out.println("   ❌ " + reason);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Quality gate evaluation failed: " + e.getMessage());
+        }
         
         // 输出全量文件
         saveAsJson(rootContainer, outputDir.resolve(String.format("%s_v%s_full_%s.json", frameworkName, safeVersion, dateStr)).toString());
