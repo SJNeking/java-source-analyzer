@@ -979,6 +979,23 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingPath());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TaintFlowRule());
 
+        // OWASP Top 10 Security Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.AccessControlNotImplemented());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.InsecureJWTValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.TLSVerificationDisabled());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.WeakCryptoAlgorithm());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.XXEInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.OpenRedirect());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.UnrestrictedFileUpload());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.SecurityMisconfiguration());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.DeprecatedInsecureAPI());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.PasswordStoredInCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.PlaintextPassword());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.InsecureDeserialization());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.SensitiveInfoLogged());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.ExceptionMessageExposed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.OwaspTop10Rules.SSRF());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
