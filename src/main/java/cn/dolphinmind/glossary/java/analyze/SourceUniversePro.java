@@ -1007,6 +1007,15 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.ConnectionNotClosed());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.PerformanceRules.StringConcatInLoopEnhanced());
 
+        // Architecture Rules (P2)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.LayerViolation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.ExcessiveFanOut());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.FeatureEnvy());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.GodClassEnhanced());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.DataClass());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.UnstableDependency());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.MissingAbstraction());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
