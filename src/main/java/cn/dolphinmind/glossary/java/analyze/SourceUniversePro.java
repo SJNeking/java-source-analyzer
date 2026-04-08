@@ -1084,6 +1084,18 @@ public class SourceUniversePro {
 
         node.put("address", address);
         node.put("kind", getKind(type));
+        
+        // 🚀 JArchitect 对标：标记类类型
+        if (type instanceof ClassOrInterfaceDeclaration) {
+            ClassOrInterfaceDeclaration cid = (ClassOrInterfaceDeclaration) type;
+            node.put("is_interface", cid.isInterface());
+            node.put("is_abstract", cid.isAbstract());
+            node.put("extends_count", cid.getExtendedTypes().size());
+            node.put("implements_count", cid.getImplementedTypes().size());
+        }
+        if (type instanceof EnumDeclaration) {
+            node.put("is_enum", true);
+        }
 
         // 🚀 结构化注释提取 (类级别)
         Map<String, Object> classCommentDetails = extractCommentDetails(fileLines, type);
@@ -1175,6 +1187,12 @@ public class SourceUniversePro {
         
         // --- 字段矩阵（详细元数据）---
         node.put("fields_matrix", resolveFieldsMatrix(fileLines, type));
+
+        // 🚀 JArchitect 对标：注入代码指标字段
+        node.put("lines_of_code", calculateClassLOC(type, fileLines));
+        node.put("comment_lines", countCommentLines(fileLines, type));
+        node.put("cyclomatic_complexity", calculateClassComplexity(type, fileLines));
+        node.put("inheritance_depth", calculateInheritanceDepth(type));
 
         // --- 方法提取（增强版）---
         List<Map<String, Object>> methods = new ArrayList<>();
@@ -2773,5 +2791,104 @@ public class SourceUniversePro {
             .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
             .limit(limit)
             .forEach(e -> System.out.printf("   - %-20s : %d 次\n", e.getKey(), e.getValue()));
+    }
+
+    // =====================================================================
+    // 🚀 JArchitect 对标：代码指标计算方法
+    // =====================================================================
+
+    /**
+     * Calculate Lines of Code (LOC) for a class.
+     * Counts non-empty, non-comment-only lines in the class body.
+     */
+    private static int calculateClassLOC(TypeDeclaration<?> type, List<String> fileLines) {
+        if (!type.getBegin().isPresent() || !type.getEnd().isPresent()) return 0;
+        int start = type.getBegin().get().line - 1; // 0-indexed
+        int end = Math.min(type.getEnd().get().line, fileLines.size());
+        int loc = 0;
+        for (int i = start; i < end && i < fileLines.size(); i++) {
+            String line = fileLines.get(i).trim();
+            if (!line.isEmpty() && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*")) {
+                loc++;
+            }
+        }
+        return loc;
+    }
+
+    /**
+     * Count comment lines in a class.
+     */
+    private static int countCommentLines(List<String> fileLines, TypeDeclaration<?> type) {
+        if (!type.getBegin().isPresent() || !type.getEnd().isPresent()) return 0;
+        int start = type.getBegin().get().line - 1;
+        int end = Math.min(type.getEnd().get().line, fileLines.size());
+        int count = 0;
+        boolean inBlockComment = false;
+        for (int i = start; i < end && i < fileLines.size(); i++) {
+            String line = fileLines.get(i).trim();
+            if (inBlockComment) {
+                count++;
+                if (line.contains("*/")) inBlockComment = false;
+            } else if (line.startsWith("//") || line.startsWith("/**") || line.startsWith("/*")) {
+                count++;
+                if (line.startsWith("/*") && !line.endsWith("*/")) inBlockComment = true;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Calculate approximate cyclomatic complexity for a class.
+     * Sum of decision points across all methods: if/else/for/while/switch/case/&&/||
+     */
+    private static double calculateClassComplexity(TypeDeclaration<?> type, List<String> fileLines) {
+        double totalComplexity = 0;
+        int methodCount = 0;
+
+        for (com.github.javaparser.ast.body.MethodDeclaration method : type.getMethods()) {
+            if (!method.getBody().isPresent()) continue;
+            String body = method.getBody().get().toString();
+            double complexity = 1; // Base complexity
+
+            // Count decision points
+            complexity += countPatternOccurrences(body, "\\bif\\s*\\(");
+            complexity += countPatternOccurrences(body, "\\belse\\s+if\\s*\\(");
+            complexity += countPatternOccurrences(body, "\\bfor\\s*\\(");
+            complexity += countPatternOccurrences(body, "\\bwhile\\s*\\(");
+            complexity += countPatternOccurrences(body, "\\bcase\\s+");
+            complexity += countPatternOccurrences(body, "\\bcatch\\s*\\(");
+            complexity += countPatternOccurrences(body, "&&");
+            complexity += countPatternOccurrences(body, "\\|\\|");
+            complexity += countPatternOccurrences(body, "\\?[^?]"); // Ternary
+
+            totalComplexity += complexity;
+            methodCount++;
+        }
+
+        return methodCount > 0 ? Math.round(totalComplexity * 100.0) / 100.0 : 1.0;
+    }
+
+    private static int countPatternOccurrences(String text, String regex) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
+        java.util.regex.Matcher matcher = pattern.matcher(text);
+        int count = 0;
+        while (matcher.find()) count++;
+        return count;
+    }
+
+    /**
+     * Calculate inheritance depth for a class.
+     * Count how many superclasses it extends.
+     */
+    private static int calculateInheritanceDepth(TypeDeclaration<?> type) {
+        if (!(type instanceof ClassOrInterfaceDeclaration)) return 0;
+        ClassOrInterfaceDeclaration classDecl = (ClassOrInterfaceDeclaration) type;
+        int depth = 0;
+
+        // Count extended classes
+        NodeList<ClassOrInterfaceType> extended = classDecl.getExtendedTypes();
+        if (!extended.isEmpty()) depth++;
+
+        return depth;
     }
 }
