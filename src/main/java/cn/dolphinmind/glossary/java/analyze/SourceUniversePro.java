@@ -745,6 +745,12 @@ public class SourceUniversePro {
         engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalPrecisionLoss());
         engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ContentTypeSniffing());
 
+        // 🚀 Phase 3: CFG-based advanced analysis rules
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.TrueCyclomaticComplexity(15));
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.UnreachableCode());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceLeakPath());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingPath());
+
         // Run all rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 

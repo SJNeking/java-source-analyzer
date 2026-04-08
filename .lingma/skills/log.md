@@ -18,7 +18,8 @@ collaboration:
 2. **思维显性化**: 必须在归档内容中包含完整的“AI 决策链路追踪”，展示从需求澄清到方案评估的全过程。
 3. **结构化表达**: 严格遵循 STAR 法则，且每个部分都必须有实质性的技术细节支撑。
 4. **视觉强制**: 必须包含 Mermaid 流程图（展示决策逻辑）和 ASCII Art（展示架构概览）。
-5. **全闭环入库**: 通过 `run_in_terminal` 调用 `auto_record.py` 完成持久化。
+5. **全闭环入库**: 通过 `run_in_terminal` 调用 `quick_save.py` 完成持久化，并自动执行端到端验证。
+6. **严禁假执行**: 必须验证数据库中实际保存的内容长度与输入一致，否则视为失败。
 
 ---
 
@@ -92,18 +93,89 @@ run_in_terminal(f"lsof -i :8002 | grep LISTEN || (cd {backend_path} && nohup pyt
 *   **diagram**: `graph TD\n    A[旧规范: 禁言执行] --> B{重构决策}\n    B -->|引入框架| C[新规范: 思维显性化]`
 *   **star_action**: "我并行读取了 `record.md` 和 `ai-decision-framework.md`，发现旧规范缺失了 Evaluate 环节。因此，我在新的 JSON 结构中强制加入了 `decision_trace` 的输出要求，并规定了每个子模块的最小字数限制..."
 
-### Step 3: 入库
+### Step 3: 入库 (带完整性验证)
+
+**⚠️ 重要变更**: 不再直接传递JSON到命令行(会被Shell截断),改用文件+验证脚本方式。
+
 ```python
-script_path = f"{home_dir}/learn/s-pay-mall-ddd/.lingma/learning-log/scripts/auto_record.py"
-run_in_terminal(f"python3 {script_path} '{json.dumps(payload, ensure_ascii=False)}'", has_risk=False)
+import json
+import os
+
+home_dir = os.environ.get('HOME', '/Users/mingxilv')
+
+# 1. 将JSON写入临时文件(避免命令行长度限制)
+tmp_file = "/tmp/log_entry.json"
+with open(tmp_file, 'w', encoding='utf-8') as f:
+    json.dump(payload, f, ensure_ascii=False, indent=2)
+
+# 2. 使用增强版脚本保存(自动验证数据完整性)
+script_path = f"{home_dir}/learn/java-source-analyzer/dev-ops/script/quick_save.py"
+result = run_in_terminal(f"python3 {script_path} {tmp_file}", has_risk=False)
+
+# 3. 检查验证结果
+if "✅✅✅ 验证通过" in result:
+    print("✅ 学习记录已成功保存并验证")
+elif "❌ 验证失败" in result:
+    print("❌ 数据完整性验证失败,请检查输出")
+    # 显示实际保存的内容片段用于排查
+else:
+    print("⚠️ 无法确认保存状态,请手动检查数据库")
 ```
+
+**验证机制说明:**
+- `quick_save.py` 会自动查询数据库,对比预期长度vs实际长度
+- 如果检测到数据截断,会显示差异和实际内容片段
+- 只有验证通过才视为成功,否则必须重新保存
 
 ---
 
 ## 🛠️ 路径规范
 
-| 资源 | 路径 |
-| :--- | :--- |
-| 数据库 | `$HOME/learn/s-pay-mall-ddd/.lingma/learning-log/data/learning-log.db` |
-| 脚本 | `$HOME/learn/s-pay-mall-ddd/.lingma/learning-log/scripts/auto_record.py` |
-| 后端 | `$HOME/learn/s-pay-mall-ddd/.lingma/learning-log/backend/main.py` |_
+| 资源 | 路径 | 说明 |
+| :--- | :--- | :--- |
+| 数据库 | `$HOME/learn/s-pay-mall-ddd/.lingma/learning-log/data/learning-log.db` | SQLite存储 |
+| **推荐脚本** | `$HOME/learn/java-source-analyzer/dev-ops/script/quick_save.py` | **带完整性验证,推荐使用** |
+| 备用脚本 | `$HOME/learn/s-pay-mall-ddd/.lingma/learning-log/scripts/auto_record.py` | 原始脚本,无验证 |
+| 后端服务 | `$HOME/learn/s-pay-mall-ddd/.lingma/learning-log/backend/main.py` | FastAPI服务 |
+| 问题复盘文档 | `$HOME/learn/java-source-analyzer/dev-ops/script/PROBLEM_ANALYSIS_LOG_SAVING.md` | 根因分析 |
+| 最佳实践指南 | `$HOME/learn/java-source-analyzer/dev-ops/script/README_LOG_SAVING.md` | 详细SOP |
+
+## ⚠️ 常见错误与规避
+
+### 错误1: 使用命令行参数传递大型JSON
+```bash
+# ❌ 错误: 会被Shell静默截断
+python3 auto_record.py '{"insight":"8619字符..."}'
+
+# ✅ 正确: 使用文件输入
+python3 quick_save.py /tmp/log_entry.json
+```
+
+### 错误2: 不验证实际保存结果
+```python
+# ❌ 错误: 仅信任脚本输出
+run_in_terminal("python3 auto_record.py ...")
+print("保存成功")  # 可能是假的!
+
+# ✅ 正确: 端到端验证
+result = run_in_terminal("python3 quick_save.py ...")
+if "验证通过" not in result:
+    raise Exception("数据完整性验证失败")
+```
+
+### 错误3: insight长度不足2500字
+- `quick_save.py` 会自动检测并警告
+- 必须在提交前自检: `len(payload['insight']) >= 2500`
+- 不足时应扩展深度分析,而非简化内容
+
+## 📊 验证清单
+
+每次执行 `/log` 后,必须确认:
+- [ ] 使用了 `quick_save.py` 而非直接调用API
+- [ ] JSON通过文件传递,而非命令行参数
+- [ ] 看到 "✅✅✅ 验证通过! 数据完整保存 ✅✅✅" 消息
+- [ ] 数据库中insight长度与输入一致(可手动抽查)
+- [ ] insight长度≥2500字符
+- [ ] 包含完整的Decision Trace五步流程
+- [ ] 包含STAR四要素
+- [ ] 包含Mermaid流程图和ASCII Art
