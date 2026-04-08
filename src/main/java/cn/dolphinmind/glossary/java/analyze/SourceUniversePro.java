@@ -751,7 +751,10 @@ public class SourceUniversePro {
         engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceLeakPath());
         engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingPath());
 
-        // Run all rules
+        // 🚀 Phase 4: Taint Analysis (Data Flow)
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.TaintFlowRule());
+
+        // Run all method-level rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
         // Duplicate code detection
@@ -759,6 +762,16 @@ public class SourceUniversePro {
                 new cn.dolphinmind.glossary.java.analyze.quality.DuplicateCodeDetector();
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> dupIssues = duplicateDetector.findDuplicates(globalLibrary);
         ruleIssues.addAll(dupIssues);
+
+        // 🚀 Phase 5: Spring Bean Analysis (circular deps, layer violations, missing beans)
+        cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule springRule =
+                new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule();
+        ruleIssues.addAll(springRule.analyzeAll(globalLibrary));
+
+        // 🚀 Phase 6: Architecture Violation Detection (layer violations, circular deps)
+        cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule archRule =
+                new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule();
+        ruleIssues.addAll(archRule.analyzeAll(globalLibrary));
 
         // Convert to Map for JSON output
         for (cn.dolphinmind.glossary.java.analyze.quality.QualityIssue issue : ruleIssues) {

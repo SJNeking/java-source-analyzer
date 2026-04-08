@@ -45,87 +45,115 @@ collaboration:
 
 ---
 
-## ⚙️ 强制执行流程
+## ⚙️ 强制执行流程 (文件驱动模式)
 
-### Step 1: 环境保活
-```python
-home_dir = os.environ.get('HOME', '/Users/mingxilv')
-backend_path = f"{home_dir}/learn/s-pay-mall-ddd/.lingma/learning-log/backend"
-run_in_terminal(f"lsof -i :8002 | grep LISTEN || (cd {backend_path} && nohup python3 main.py > /tmp/ll.log 2>&1 &)")
-```
+### 核心原则: 思考与执行分离
 
-### Step 2: 构造数据 (结构化思维注入规范)
+**传统模式的问题:**
+- AI通过`run_in_terminal`直接执行命令
+- 存在Shell截断、网络失败等不确定性
+- AI看到的是输出,但无法确认实际执行结果
 
-**核心原则**: 
-1. **内容归内容，元数据归系统**: AI **严禁**在 JSON 中编造 `created_at` 或 `scan_time`。时间戳必须由 `auto_record.py` 在入库瞬间通过 `datetime.now()` 自动生成，以确保时间线的绝对权威性和一致性。
-2. **思维维度承载**: 每一个 JSON 字段都必须承载《AI 助手决策框架》中的特定思维维度，严禁使用模糊的占位符。
-3. **字数自检**: 在提交前，AI 必须自检 `insight` 长度是否达标（≥2500字）。
+**文件驱动模式的优势:**
+- AI只负责生成思考内容,写入JSON文件
+- 脚本读取文件并执行,逻辑完全确定
+- 文件IO是原子操作,要么完整写入要么失败
+- 脚本可以独立测试、审计、优化
 
-```json
-{
-  "topic": "精准概括：[领域] + [核心技术点] + [解决的问题]（例：DDD架构下支付状态机的幂等性设计）",
-  
-  "insight": "深度分析文章（≥2500字），必须包含以下四个模块：\n1. **Decision Trace (决策链路)**: 详细记录 Clarify(需求澄清), Investigate(工具调用与事实获取), Generate(方案空间), Evaluate(MCDA加权评分) 的全过程。\n2. **STAR Analysis**: 结合项目上下文，运用第一性原理剖析 Situation 和 Task，深度展开 Action 中的权衡取舍（Trade-offs）。\n3. **Domain Mapping**: 将技术决策映射到具体业务场景（如电商秒杀、金融清算），分析其边界条件。\n4. **Socratic Reflection**: 提出 1-2 个关于技术演进或架构哲学的深层反问。",
-  
-  "diagram": "Mermaid graph TD 流程图：必须展示从‘原始需求’到‘最终方案’的逻辑推导路径，节点需标注关键决策点（如：为何选择 Redis 而非 DB）。",
-  
-  "code_snippet": "完整可运行代码：必须包含类定义、关键方法实现及必要的注释。禁止提供伪代码或片段，需体现 macOS 风格的代码美学。",
-  
-  "star_situation": "背景锚定：描述当前的技术栈约束（如 Spring Boot 版本）、业务痛点（如并发超卖）及已有的失败尝试。",
-  
-  "star_task": "目标拆解：明确需要达成的量化指标（如 QPS 提升 50%）或定性目标（如消除循环依赖）。",
-  
-  "star_action": "行动推演：记录多方案对比过程。例如：方案 A（简单但扩展性差）vs 方案 B（复杂但高性能），并说明最终选择的理由。",
-  
-  "star_result": "价值闭环：总结方案实施后的收益，包括性能提升数据、代码可读性改善或对后续开发的指导意义。",
-  
-  "topic_tag_id": "cn.dolphinmind.learning.log.tag.discipline.cs.ai.skill",
-  "project_tag_id": "null 或 具体的 project.component 标签ID",
-  "research_type": "deep-research (深度研究) | topic-exploration (主题探索) | domain-mapping (领域映射)",
-  "energy_level": 1-5 (根据任务复杂度与认知负荷自评),
-  "aha_moment": true/false (是否产生了颠覆性的认知突破)"
-}
-```
+### Step 1: AI生成思考内容并写入文件
 
-#### 字段填充示例 (以本次重构为例):
-*   **topic**: "Skill 规范演进：基于决策框架的思维显性化重构"
-*   **insight**: "...在本次重构中，我通过 MCDA 模型评估了三种演进路径。其中‘增量升级’方案在技术可行性（30%权重）上得分最高，因为它保留了原有的入库脚本兼容性。为了达到 2500 字的要求，我进一步分析了人类认知与机器存储的本质差异，并引入了 CAPTURE Loop 协议来确保协作的严密性..."
-*   **diagram**: `graph TD\n    A[旧规范: 禁言执行] --> B{重构决策}\n    B -->|引入框架| C[新规范: 思维显性化]`
-*   **star_action**: "我并行读取了 `record.md` 和 `ai-decision-framework.md`，发现旧规范缺失了 Evaluate 环节。因此，我在新的 JSON 结构中强制加入了 `decision_trace` 的输出要求，并规定了每个子模块的最小字数限制..."
-
-### Step 3: 入库 (带完整性验证)
-
-**⚠️ 重要变更**: 不再直接传递JSON到命令行(会被Shell截断),改用文件+验证脚本方式。
+AI必须完成以下任务:
+1. 按照规范构造完整的JSON payload
+2. 将JSON写入固定路径: `/tmp/log_entry_pending.json`
+3. **不要调用任何保存脚本**,只负责写文件
 
 ```python
 import json
 import os
 
-home_dir = os.environ.get('HOME', '/Users/mingxilv')
+# AI生成的完整payload
+payload = {
+    "topic": "精准概括：[领域] + [核心技术点] + [解决的问题]",
+    "insight": "深度分析文章（≥2500字）...",
+    "diagram": "graph TD\n    A[开始] --> B[结束]",
+    "code_snippet": "完整可运行代码...",
+    "star_situation": "...",
+    "star_task": "...",
+    "star_action": "...",
+    "star_result": "...",
+    "topic_tag_id": "cn.dolphinmind.learning.log.tag.discipline.cs.ai.skill",
+    "project_tag_id": None,  # Python的None,不是字符串"null"
+    "research_type": "deep-research",
+    "energy_level": 5,
+    "aha_moment": True
+}
 
-# 1. 将JSON写入临时文件(避免命令行长度限制)
-tmp_file = "/tmp/log_entry.json"
-with open(tmp_file, 'w', encoding='utf-8') as f:
+# 写入待处理文件(原子操作)
+pending_file = "/tmp/log_entry_pending.json"
+with open(pending_file, 'w', encoding='utf-8') as f:
     json.dump(payload, f, ensure_ascii=False, indent=2)
 
-# 2. 使用增强版脚本保存(自动验证数据完整性)
-script_path = f"{home_dir}/learn/java-source-analyzer/dev-ops/script/quick_save.py"
-result = run_in_terminal(f"python3 {script_path} {tmp_file}", has_risk=False)
-
-# 3. 检查验证结果
-if "✅✅✅ 验证通过" in result:
-    print("✅ 学习记录已成功保存并验证")
-elif "❌ 验证失败" in result:
-    print("❌ 数据完整性验证失败,请检查输出")
-    # 显示实际保存的内容片段用于排查
-else:
-    print("⚠️ 无法确认保存状态,请手动检查数据库")
+print(f"✅ 思考内容已写入: {pending_file}")
+print(f"   Insight长度: {len(payload['insight'])}字符")
+print(f"   等待脚本处理...")
 ```
 
-**验证机制说明:**
-- `quick_save.py` 会自动查询数据库,对比预期长度vs实际长度
-- 如果检测到数据截断,会显示差异和实际内容片段
-- 只有验证通过才视为成功,否则必须重新保存
+**关键约束:**
+- ✅ AI只做: 生成内容 + 写文件
+- ❌ AI不做: 调用保存脚本、检查数据库、验证结果
+
+### Step 2: 用户或自动化触发脚本执行
+
+**方式A: 手动执行(推荐用于调试)**
+```bash
+python3 /Users/mingxilv/learn/java-source-analyzer/dev-ops/script/process_log_entry.py
+```
+
+**方式B: 自动执行(生产环境)**
+```python
+# AI在写完文件后,可以提示用户执行
+result = run_in_terminal(
+    "python3 /Users/mingxilv/learn/java-source-analyzer/dev-ops/script/process_log_entry.py",
+    has_risk=False
+)
+print(result)
+```
+
+### Step 3: 脚本执行并返回确定性结果
+
+`process_log_entry.py`的职责:
+1. 读取`/tmp/log_entry_pending.json`
+2. 验证数据完整性(insight长度、必填字段等)
+3. 调用API保存到数据库
+4. 查询数据库验证实际保存的内容
+5. 移动文件到归档目录: `/tmp/log_entry_archived/YYYYMMDD_HHMMSS.json`
+6. 返回明确的执行结果(成功/失败+原因)
+
+**脚本输出示例(成功):**
+```
+📖 读取待处理文件: /tmp/log_entry_pending.json
+✅ 数据验证通过: insight长度=8619字符
+
+💾 正在保存到数据库...
+✅ API返回成功, ID: 22
+
+🔍 验证数据库中实际内容...
+   预期长度: 8619字符
+   实际长度: 8619字符
+✅ 验证通过!
+
+📦 归档文件: /tmp/log_entry_archived/20260408_183000.json
+✅✅✅ 学习记录已成功保存并验证 ✅✅✅
+```
+
+**脚本输出示例(失败):**
+```
+📖 读取待处理文件: /tmp/log_entry_pending.json
+❌ 数据验证失败: insight长度=1800字符 < 2500字符要求
+
+⚠️ 文件保留在: /tmp/log_entry_pending.json
+请修正后重新执行脚本
+```
 
 ---
 
