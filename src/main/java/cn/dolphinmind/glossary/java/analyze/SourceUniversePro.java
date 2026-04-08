@@ -462,7 +462,7 @@ public class SourceUniversePro {
         List<Map<String, String>> globalDependencies = new ArrayList<>(); // 存储依赖连线
         Map<String, Object> projectAssets = new LinkedHashMap<>();
 
-        // 4. 🚀 多模块 Java 源码扫描
+        // 4. 🚀 多模块 Java 源码扫描（并行）
         System.out.println("🚀 正在全量遍历代码，提取语义词汇...");
         
         cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner ps = 
@@ -470,11 +470,20 @@ public class SourceUniversePro {
         List<Path> modules = ps.detectModules();
         System.out.println("📦 检测到 " + modules.size() + " 个模块");
 
+        // Parallel file scanning using ForkJoinPool
+        java.util.concurrent.ForkJoinPool forkJoinPool = new java.util.concurrent.ForkJoinPool(
+                Math.min(Runtime.getRuntime().availableProcessors(), 8));
+        
+        java.util.concurrent.atomic.AtomicInteger filesScanned = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger filesFailed = new java.util.concurrent.atomic.AtomicInteger(0);
+
         for (Path moduleRoot : modules) {
             String moduleName = moduleRoot.getFileName().toString();
             System.out.println("  🔍 扫描 Java 模块: " + moduleName);
             
             try {
+                // Collect all Java files first
+                List<Path> javaFiles = new java.util.ArrayList<>();
                 Files.walk(moduleRoot)
                         .filter(p -> p.toString().endsWith(".java"))
                         .filter(p -> {
@@ -482,40 +491,56 @@ public class SourceUniversePro {
                             return (pathStr.contains("java" + File.separator) || pathStr.contains("src")) &&
                                    !pathStr.contains("test") && !pathStr.contains("target");
                         })
-                        .forEach(path -> {
-                            try {
-                                List<String> fileLines = Files.readAllLines(path, StandardCharsets.UTF_8);
-                                CompilationUnit cu = StaticJavaParser.parse(path);
-                                String pkg = cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).orElse("default");
+                        .forEach(javaFiles::add);
+                
+                System.out.println("    📄 找到 " + javaFiles.size() + " 个 Java 文件");
 
-                                cu.getTypes().forEach(type -> {
-                                    classCount.incrementAndGet();
-                                    String className = type.getNameAsString();
-                                    allClassNames.add(className);
+                // Process files in parallel
+                forkJoinPool.submit(() ->
+                    javaFiles.parallelStream().forEach(path -> {
+                        try {
+                            filesScanned.incrementAndGet();
+                            List<String> fileLines = Files.readAllLines(path, StandardCharsets.UTF_8);
+                            CompilationUnit cu = StaticJavaParser.parse(path);
+                            String pkg = cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).orElse("default");
 
-                                    String cnName = translateIdentifier(className);
-                                    projectGlossary.put(className.toLowerCase(), cnName);
+                            cu.getTypes().forEach(type -> {
+                                classCount.incrementAndGet();
+                                String className = type.getNameAsString();
+                                allClassNames.add(className);
 
-                                    Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
-                                    if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
+                                String cnName = translateIdentifier(className);
+                                projectGlossary.put(className.toLowerCase(), cnName);
 
-                                    classAsset.put("module", moduleName);
-                                    classAsset.put("import_dependencies", extractImportDependencies(cu));
-                                    classAsset.put("annotation_params", extractAnnotationParams(type));
+                                Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
+                                if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
 
+                                classAsset.put("module", moduleName);
+                                classAsset.put("import_dependencies", extractImportDependencies(cu));
+                                classAsset.put("annotation_params", extractAnnotationParams(type));
+
+                                synchronized (globalLibrary) {
                                     globalLibrary.add(classAsset);
+                                }
+                                synchronized (moduleLibrary) {
                                     moduleLibrary.computeIfAbsent(moduleName, k -> new ArrayList<>()).add(classAsset);
+                                }
 
-                                    extractDependencies((String) classAsset.get("address"), classAsset, globalDependencies);
-                                });
-                            } catch (Exception e) {
-                                System.err.println("⚠️ 忽略解析失败文件: " + path.getFileName() + " | 错误: " + e.getMessage());
-                            }
-                        });
-            } catch (IOException e) {
+                                extractDependencies((String) classAsset.get("address"), classAsset, globalDependencies);
+                            });
+                        } catch (Exception e) {
+                            filesFailed.incrementAndGet();
+                            System.err.println("⚠️ 忽略解析失败文件: " + path.getFileName() + " | 错误: " + e.getMessage());
+                        }
+                    })
+                ).get(); // Wait for completion
+            } catch (Exception e) {
                 System.err.println("⚠️ 模块扫描失败: " + moduleName);
             }
         }
+        
+        forkJoinPool.shutdown();
+        System.out.println("✅ 扫描完成: " + filesScanned.get() + " 文件, " + filesFailed.get() + " 失败");
 
         // 5. 扫描 Java 以外的项目资产
         projectAssets = scanProjectFiles(Paths.get(ctx.getProjectRoot()));
