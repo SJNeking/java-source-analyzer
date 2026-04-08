@@ -2,7 +2,9 @@ package cn.dolphinmind.glossary.java.analyze.core;
 
 import com.github.javaparser.ast.body.MethodDeclaration;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.*;
 import java.util.*;
 
@@ -56,6 +58,9 @@ public class CoreAnalysisEngine {
         // 4. Call Graph: Progressive analysis (source → bytecode)
         System.out.println("🔗 正在构建调用图...");
 
+        // Check if target/classes exists, try to compile if not
+        boolean hasBytecode = ensureBytecodeAvailable(projectRoot);
+
         // Layer 1: Source analysis (semantic understanding)
         System.out.println("  📖 第一层: 源码分析...");
         CallChainTracer.CallGraph sourceGraph = callChainTracer.buildCallGraph(projectRoot);
@@ -67,10 +72,15 @@ public class CoreAnalysisEngine {
         System.out.println("  ⚡ 第二层: 字节码分析...");
         BytecodeCallGraphBuilder.BytecodeCallGraph bytecodeGraph = null;
         try {
-            bytecodeGraph = bytecodeCallGraphBuilder.buildFromBytecode(projectRoot);
-            if (bytecodeGraph.getInternalCalls() > 0) {
-                System.out.println("     解析: " + bytecodeGraph.getInternalCalls() + " 内部调用(0 回退), " +
-                        bytecodeGraph.getExternalCalls() + " 外部库已跳过");
+            if (hasBytecode) {
+                bytecodeGraph = bytecodeCallGraphBuilder.buildFromBytecode(projectRoot);
+                if (bytecodeGraph.getInternalCalls() > 0) {
+                    System.out.println("     解析: " + bytecodeGraph.getInternalCalls() + " 内部调用(0 回退), " +
+                            bytecodeGraph.getExternalCalls() + " 外部库已跳过");
+                }
+            } else {
+                System.out.println("     ⚠️ 无编译后的 class 文件，字节码分析不可用");
+                System.out.println("     提示: 运行 'mvn compile' 可获得 0 回退的精确调用链");
             }
         } catch (Exception e) {
             System.out.println("     ⚠️ 字节码分析不可用: " + e.getMessage());
@@ -192,5 +202,76 @@ public class CoreAnalysisEngine {
         if (!dataFlows.isEmpty()) {
             dataFlowTracer.printFlows(dataFlows);
         }
+    }
+
+    /**
+     * Check if target/classes exists. If not, try to compile the project.
+     * Returns true if bytecode is available after this call.
+     */
+    private boolean ensureBytecodeAvailable(Path projectRoot) {
+        // Check if target/classes already exists with class files
+        Path classesDir = projectRoot.resolve("target/classes");
+        if (Files.exists(classesDir)) {
+            try {
+                long classCount = Files.walk(classesDir)
+                        .filter(p -> p.toString().endsWith(".class"))
+                        .count();
+                if (classCount > 0) {
+                    System.out.println("  ✅ 发现 " + classCount + " 个编译后的 class 文件");
+                    return true;
+                }
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+
+        // Try multi-module target/classes
+        try {
+            Path multiModuleClasses = findAnyClassesDir(projectRoot);
+            if (multiModuleClasses != null) {
+                System.out.println("  ✅ 发现多模块编译目录: " + projectRoot.relativize(multiModuleClasses));
+                return true;
+            }
+        } catch (IOException e) {
+            // ignore
+        }
+
+        // No bytecode available - try to compile
+        System.out.println("  📋 未找到编译后的 class 文件，尝试编译项目...");
+        try {
+            ProcessBuilder pb = new ProcessBuilder("mvn", "compile", "-q", "-DskipTests");
+            pb.directory(projectRoot.toFile());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+
+            // Read output (but don't print it to avoid noise)
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            while (reader.readLine() != null) {
+                // consume output
+            }
+
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                System.out.println("  ✅ 编译成功，字节码分析可用");
+                return true;
+            } else {
+                System.out.println("  ⚠️ 编译失败 (exit code: " + exitCode + ")，回退到源码分析");
+                return false;
+            }
+        } catch (Exception e) {
+            System.out.println("  ⚠️ 无法执行编译（Maven 未安装或项目结构异常），回退到源码分析");
+            return false;
+        }
+    }
+
+    /**
+     * Find any target/classes directory in a multi-module project.
+     */
+    private Path findAnyClassesDir(Path projectRoot) throws IOException {
+        return Files.walk(projectRoot, 5)
+                .filter(p -> p.toString().endsWith("target/classes"))
+                .filter(Files::isDirectory)
+                .findFirst()
+                .orElse(null);
     }
 }
