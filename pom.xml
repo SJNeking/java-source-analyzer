@@ -60,6 +60,11 @@
       <version>3.9.6</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+        <groupId>org.ow2.asm</groupId>
+        <artifactId>asm</artifactId>
+        <version>9.6</version>
+    </dependency>
   </dependencies>
 
   <build>

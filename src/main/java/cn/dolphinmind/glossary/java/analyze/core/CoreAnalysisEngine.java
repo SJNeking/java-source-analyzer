@@ -15,6 +15,7 @@ public class CoreAnalysisEngine {
 
     private final EntryPointDiscovery entryPointDiscovery = new EntryPointDiscovery();
     private final CallChainTracer callChainTracer = new CallChainTracer();
+    private final BytecodeCallGraphBuilder bytecodeCallGraphBuilder = new BytecodeCallGraphBuilder();
     private final PackageStructureMapper packageMapper = new PackageStructureMapper();
     private final TypeDefinitionNavigator typeNavigator = new TypeDefinitionNavigator();
     private final DataFlowTracer dataFlowTracer = new DataFlowTracer();
@@ -34,9 +35,33 @@ public class CoreAnalysisEngine {
         System.out.println("📚 正在构建类型定义索引...");
         typeNavigator.buildIndex(projectRoot);
 
-        // 4. Call Graph (JavaParser-based, internal-only)
+        // 4. Call Graph: Bytecode analysis (primary) + Source analysis (fallback)
         System.out.println("🔗 正在构建调用图...");
+
+        // Try bytecode analysis first (most accurate)
+        BytecodeCallGraphBuilder.BytecodeCallGraph bytecodeGraph = null;
+        try {
+            bytecodeGraph = bytecodeCallGraphBuilder.buildFromBytecode(projectRoot);
+            if (bytecodeGraph.getInternalCalls() > 0) {
+                System.out.println("  ✅ 字节码分析: " + bytecodeGraph.getInternalCalls() + " 内部调用, " +
+                        bytecodeGraph.getExternalCalls() + " 外部调用已跳过");
+            }
+        } catch (Exception e) {
+            System.out.println("  ⚠️ 字节码分析不可用: " + e.getMessage());
+        }
+
+        // Fallback to source-based analysis if bytecode not available
         CallChainTracer.CallGraph callGraph = callChainTracer.buildCallGraph(projectRoot);
+
+        // If bytecode analysis succeeded, prefer its results
+        if (bytecodeGraph != null && bytecodeGraph.getInternalCalls() > 0) {
+            // Merge bytecode results into callGraph for tracing
+            for (Map.Entry<String, Set<String>> entry : bytecodeGraph.getAdjacencyList().entrySet()) {
+                for (String callee : entry.getValue()) {
+                    callGraph.addCall(entry.getKey(), callee, true);
+                }
+            }
+        }
 
         // Trace chains from entry points
         List<String> entryPointKeys = new ArrayList<>();
@@ -87,6 +112,11 @@ public class CoreAnalysisEngine {
         callInfo.put("resolved_internal", callGraph.getResolvedInternal());
         callInfo.put("unresolved_fallback", callGraph.getUnresolvedFallback());
         callInfo.put("skipped_external", callGraph.getSkippedExternal());
+        if (bytecodeGraph != null) {
+            callInfo.put("bytecode_total", bytecodeGraph.getTotalCalls());
+            callInfo.put("bytecode_internal", bytecodeGraph.getInternalCalls());
+            callInfo.put("bytecode_external", bytecodeGraph.getExternalCalls());
+        }
         Map<String, Object> chainsOutput = new LinkedHashMap<>();
         for (Map.Entry<String, List<CallChainTracer.CallChain>> e : callChains.entrySet()) {
             chainsOutput.put(e.getKey(), e.getValue().stream().limit(10)

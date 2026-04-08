@@ -1,5 +1,5 @@
 {
-  "scanDate": "2026-04-09T05:26:52",
+  "scanDate": "2026-04-09T06:10:59",
   "analyzerVersion": "1.0-M5",
   "files": {
     "src/main/java/cn/dolphinmind/glossary/java/analyze/cfg/CFGEdge.java": {
@@ -69,7 +69,7 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CoreAnalysisEngine.java": {
-      "hash": "373a1240b05dae42ea1ac579fa3384a2ed421a04760d5c85b37de0b3e2aba0c2",
+      "hash": "26f024e35fea74729b5135279baa3cf53d6fe7f6a3e9ec127cc415928d7d944c",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
@@ -117,7 +117,7 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/PackageStructureMapper.java": {
-      "hash": "eda436907c2cbf553260cf7a9b1dd10c391de3467841d9b4967dd0a526578af7",
+      "hash": "49ffbc371ce35a8d24abacb1780d7bf2db88f79d4c57d0e431ee2a5dd369246f",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
@@ -165,13 +165,13 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/DataFlowTracer.java": {
-      "hash": "321083b9be6b7a1e50366e830f72a65cdae4e910cf5bf43cba949447531b08f0",
+      "hash": "883549002c1cb6f36beee772e0adb2ff925265e65e5af4cc31a91530aabffc46",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CallChainTracer.java": {
-      "hash": "41f3a8c307f5df3901cc75e5d79c749af48f454f0509d5d524867708e100cc07",
+      "hash": "55f7ae70b3db90a04b39f45f4e7489accd35ddaa4315e8b8a202e4c75e35cb20",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
@@ -375,13 +375,25 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/SourceUniversePro.java": {
-      "hash": "8d122d327926658c74ac4874160d1e24f932bc085011e67531619bd385cd3697",
+      "hash": "5854b2affa4592090f959dc9ea73162dd8b27136e9a4a9261f0ba91379dc9e70",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/AllRules.java": {
       "hash": "07026220579d0658ec9175c78a29ee5dcb733047ca3c6b15ee8466b5a7edcb8d",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/ClasspathResolver.java": {
+      "hash": "95f5bf9b3ca9be0726de72bc2cdcea59c66a130a26c13c91f0a18045ef35703e",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/BytecodeCallGraphBuilder.java": {
+      "hash": "abfd3832501780ec8cdcb3596000e4a7ba03c7bffff85063359fe4b55354fb6e",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
