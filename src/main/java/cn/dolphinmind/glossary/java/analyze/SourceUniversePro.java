@@ -1,5 +1,10 @@
 package cn.dolphinmind.glossary.java.analyze;
 
+import cn.dolphinmind.glossary.java.analyze.config.RulesConfig;
+import cn.dolphinmind.glossary.java.analyze.orchestrate.AnalysisConfig;
+import cn.dolphinmind.glossary.java.analyze.orchestrate.AnalysisOrchestrator;
+import cn.dolphinmind.glossary.java.analyze.translate.SemanticTranslator;
+
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
@@ -358,100 +363,114 @@ public class SourceUniversePro {
         }
     }
 
+    /**
+     * Main entry point: parse CLI args and delegate to orchestrator.
+     */
     public static void main(String[] args) throws Exception {
-        // 1. 解析命令行参数
-        String projectRoot = null;
-        String outputDirPath = null;
-        String artifactName = null;
-        String version = null;
-        String internalPkgPrefix = "java";
-        String rulesConfigPath = null;
+        // 1. Parse CLI arguments into config
+        AnalysisConfig config = parseCliArgs(args);
+        if (config == null) return; // --help was shown
+
+        // 2. Create services
+        SemanticTranslator translator = new SemanticTranslator();
+
+        // 3. Create and run orchestrator
+        AnalysisOrchestrator orchestrator = new AnalysisOrchestrator(config, translator);
+        orchestrator.execute();
+    }
+
+    /**
+     * Parse CLI arguments into AnalysisConfig.
+     * Returns null if --help was shown.
+     */
+    private static AnalysisConfig parseCliArgs(String[] args) {
+        AnalysisConfig config = new AnalysisConfig();
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--sourceRoot":
-                    if (i + 1 < args.length) projectRoot = args[++i];
+                    if (i + 1 < args.length) config.setSourceRoot(args[++i]);
                     break;
                 case "--outputDir":
-                    if (i + 1 < args.length) outputDirPath = args[++i];
+                    if (i + 1 < args.length) config.setOutputDir(args[++i]);
                     break;
                 case "--artifactName":
-                    if (i + 1 < args.length) artifactName = args[++i];
+                    if (i + 1 < args.length) config.setArtifactName(args[++i]);
                     break;
                 case "--version":
-                    if (i + 1 < args.length) version = args[++i];
+                    if (i + 1 < args.length) config.setVersion(args[++i]);
                     break;
                 case "--internalPkgPrefix":
-                    if (i + 1 < args.length) internalPkgPrefix = args[++i];
+                    if (i + 1 < args.length) config.setInternalPkgPrefix(args[++i]);
                     break;
                 case "--rules-config":
-                    if (i + 1 < args.length) rulesConfigPath = args[++i];
+                    if (i + 1 < args.length) config.setRulesConfigPath(args[++i]);
                     break;
                 case "--help":
                     printUsage();
-                    return;
+                    return null;
                 default:
-                    if (projectRoot == null) {
-                        projectRoot = args[i];
+                    if (config.getSourceRoot() == null) {
+                        config.setSourceRoot(args[i]);
                     }
                     break;
             }
         }
 
-        // 默认值
-        if (projectRoot == null) {
-            projectRoot = "/Users/mingxilv/WebDevelopment/gitcode/dev-proj/s-pay-mall/s-pay-mall-ddd/source-proj/jdk8-src";
-            System.out.println("⚠️  未指定 --sourceRoot，使用默认路径: " + projectRoot);
-        }
-        if (outputDirPath == null) {
-            outputDirPath = System.getProperty("user.dir") + "/dev-ops/output";
-            System.out.println("⚠️  未指定 --outputDir，使用默认路径: " + outputDirPath);
+        // Apply defaults and show warnings
+        if (config.getSourceRoot() == null) {
+            config.setSourceRoot("/Users/mingxilv/WebDevelopment/gitcode/dev-proj/s-pay-mall/s-pay-mall-ddd/source-proj/jdk8-src");
+            System.out.println("⚠️  未指定 --sourceRoot，使用默认路径: " + config.getSourceRoot());
         }
 
-        // 2. 加载动态标签字典并初始化内存缓存
+        return config;
+    }
+
+    /**
+     * Run the full analysis pipeline.
+     */
+    public static void runAnalysis(AnalysisConfig config, SemanticTranslator translator) throws Exception {
+        // Load dictionaries
         loadTagDictionary();
         initTagLibrary();
-
-        // 3. 加载命名语义标签和案例库
         loadNamingTags();
         loadCodeExamples();
 
-        // 🚀 P1: 加载规则配置
-        cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig =
-                cn.dolphinmind.glossary.java.analyze.config.RulesConfig.load(rulesConfigPath);
+        RulesConfig rulesConfig = RulesConfig.load(config.getRulesConfigPath());
+        translator.loadProjectGlossary(config.getSourceRoot());
 
-        ScannerContext ctx = new ScannerContext(
-                projectRoot,
-                internalPkgPrefix,
-                version != null ? version : "1.0"
-        );
-
-        // 🚀 MVP: 加载项目专属字典
-        loadProjectGlossary(projectRoot);
-
-        // 4. 🚀 关键修复：配置 JavaParser Symbol Solver
+        // Configure JavaParser Symbol Solver
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new JavaParserTypeSolver(new java.io.File(ctx.getProjectRoot())));
-        try { registerSubModules(typeSolver, ctx.getProjectRoot()); } catch (Exception ignored) {}
+        typeSolver.add(new JavaParserTypeSolver(new java.io.File(config.getSourceRoot())));
+        try { registerSubModules(typeSolver, config.getSourceRoot()); } catch (Exception ignored) {}
 
-        com.github.javaparser.ParserConfiguration config = new com.github.javaparser.ParserConfiguration();
-        config.setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);
-        config.setSymbolResolver(new com.github.javaparser.symbolsolver.JavaSymbolSolver(typeSolver));
-        StaticJavaParser.setConfiguration(config);
+        com.github.javaparser.ParserConfiguration parserConfig = new com.github.javaparser.ParserConfiguration();
+        parserConfig.setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);
+        parserConfig.setSymbolResolver(new com.github.javaparser.symbolsolver.JavaSymbolSolver(typeSolver));
+        StaticJavaParser.setConfiguration(parserConfig);
 
-        Path outputDir = Paths.get(outputDirPath);
+        Path outputDir = config.getOutputDirPath();
         Files.createDirectories(outputDir);
 
-        // 2. 自动检测框架名称和版本号
-        String frameworkName = extractFrameworkName(ctx.getProjectRoot());
-        String detectedVersion = version != null ? version : extractVersion(ctx.getProjectRoot());
-        
+        String frameworkName = extractFrameworkName(config.getSourceRoot());
+        String detectedVersion = config.getVersion() != null ? config.getVersion() : extractVersion(config.getSourceRoot());
+        config.setFrameworkName(frameworkName);
+        config.setDetectedVersion(detectedVersion);
+
+        // Print startup banner
         printLine('=', 80);
         System.out.println("🚀 " + frameworkName.toUpperCase() + " SEMANTIC DICTIONARY BUILDER | 语义字典构建引擎启动");
         printLine('=', 80);
-        System.out.println("📦 识别到 " + frameworkName + " 版本: " + version);
+        System.out.println("📦 识别到 " + frameworkName + " 版本: " + detectedVersion);
 
-        // 3. 创建根容器，注入元数据
+        // Create ScannerContext
+        ScannerContext ctx = new ScannerContext(
+                config.getSourceRoot(),
+                config.getInternalPkgPrefix(),
+                config.getEffectiveVersion()
+        );
+
+        // Create root container
         Map<String, Object> rootContainer = new LinkedHashMap<>();
         rootContainer.put("framework", frameworkName);
         rootContainer.put("version", detectedVersion);
@@ -459,37 +478,35 @@ public class SourceUniversePro {
 
         List<Map<String, Object>> globalLibrary = new ArrayList<>();
         Map<String, List<Map<String, Object>>> moduleLibrary = new LinkedHashMap<>();
-        List<Map<String, String>> globalDependencies = new ArrayList<>(); // 存储依赖连线
+        List<Map<String, String>> globalDependencies = new ArrayList<>();
         Map<String, Object> projectAssets = new LinkedHashMap<>();
 
-        // 4. 🚀 多模块 Java 源码扫描（并行）
+        // Parallel Java source scanning
         System.out.println("🚀 正在全量遍历代码，提取语义词汇...");
-        
-        cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner ps = 
-                new cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner(Paths.get(ctx.getProjectRoot()));
+
+        cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner ps =
+                new cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner(Paths.get(config.getSourceRoot()));
         List<Path> modules = ps.detectModules();
         System.out.println("📦 检测到 " + modules.size() + " 个模块");
 
-        // Parallel file scanning using ForkJoinPool with incremental cache support
         java.util.concurrent.ForkJoinPool forkJoinPool = new java.util.concurrent.ForkJoinPool(
                 Math.min(Runtime.getRuntime().availableProcessors(), 8));
-        
+
         java.util.concurrent.atomic.AtomicInteger filesScanned = new java.util.concurrent.atomic.AtomicInteger(0);
         java.util.concurrent.atomic.AtomicInteger filesFailed = new java.util.concurrent.atomic.AtomicInteger(0);
         java.util.concurrent.atomic.AtomicInteger filesSkipped = new java.util.concurrent.atomic.AtomicInteger(0);
 
         // Load incremental cache with version checking
-        Path cacheDir = Paths.get(ctx.getProjectRoot()).resolve(".universe").resolve("cache");
+        Path cacheDir = config.getCacheDir();
         cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.CacheData cache =
                 cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.load(cacheDir,
-                        cn.dolphinmind.glossary.java.analyze.translate.SemanticTranslator.getAnalyzerVersion());
+                        SemanticTranslator.getAnalyzerVersion());
 
         for (Path moduleRoot : modules) {
             String moduleName = moduleRoot.getFileName().toString();
             System.out.println("  🔍 扫描 Java 模块: " + moduleName);
-            
+
             try {
-                // Collect all Java files first
                 List<Path> javaFiles = new java.util.ArrayList<>();
                 Files.walk(moduleRoot)
                         .filter(p -> p.toString().endsWith(".java"))
@@ -499,29 +516,20 @@ public class SourceUniversePro {
                                    !pathStr.contains("test") && !pathStr.contains("target");
                         })
                         .forEach(javaFiles::add);
-                
+
                 System.out.println("    📄 找到 " + javaFiles.size() + " 个 Java 文件");
 
-                // Find changed files using incremental cache
                 List<Path> changedFiles = cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.findChangedFiles(
                         moduleRoot, cache, javaFiles);
                 filesSkipped.addAndGet(javaFiles.size() - changedFiles.size());
 
                 if (changedFiles.isEmpty()) {
                     System.out.println("    ✅ 无变更，跳过 " + javaFiles.size() + " 个文件");
-                    // Restore cached results
-                    synchronized (globalLibrary) {
-                        for (Path f : javaFiles) {
-                            String relPath = moduleRoot.relativize(f).toString();
-                            // Restore from cache - simplified approach
-                        }
-                    }
                     continue;
                 }
-                
+
                 System.out.println("    📄 变更文件: " + changedFiles.size() + ", 跳过: " + (javaFiles.size() - changedFiles.size()));
 
-                // Process only changed files in parallel
                 forkJoinPool.submit(() ->
                     changedFiles.parallelStream().forEach(path -> {
                         try {
@@ -535,7 +543,7 @@ public class SourceUniversePro {
                                 String className = type.getNameAsString();
                                 allClassNames.add(className);
 
-                                String cnName = translateIdentifier(className);
+                                String cnName = translator.translateIdentifier(className);
                                 projectGlossary.put(className.toLowerCase(), cnName);
 
                                 Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
@@ -558,10 +566,8 @@ public class SourceUniversePro {
                                 try {
                                     String relPath = moduleRoot.relativize(path).toString();
                                     String hash = cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.computeFileHash(path);
-                                    cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.FileEntry entry = new cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.FileEntry(hash);
-                                    entry.setClassCount(classCount.get());
-                                    entry.setMethodCount(methodCount.get());
-                                    entry.setFieldCount(fieldCount.get());
+                                    cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.FileEntry entry =
+                                            new cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.FileEntry(hash);
                                     synchronized (cache) {
                                         cache.getFiles().put(relPath, entry);
                                     }
@@ -574,31 +580,28 @@ public class SourceUniversePro {
                             System.err.println("⚠️ 忽略解析失败文件: " + path.getFileName() + " | 错误: " + e.getMessage());
                         }
                     })
-                ).get(); // Wait for completion
-            } catch (Exception e) {
+                ).get();
+            } catch (IOException e) {
                 System.err.println("⚠️ 模块扫描失败: " + moduleName);
             }
         }
-        
+
         forkJoinPool.shutdown();
         System.out.println("✅ 扫描完成: " + filesScanned.get() + " 文件, " + filesFailed.get() + " 失败");
 
         // Save incremental cache
         try {
-            cache.setScanDate(new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
-            cache.setTotalClasses(classCount.get());
-            cache.setTotalMethods(methodCount.get());
-            cache.setTotalFields(fieldCount.get());
+            cache.setScanDate(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
             cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.save(cache, cacheDir);
             System.out.println("💾 增量缓存已保存: " + cache.getFiles().size() + " 文件记录");
         } catch (Exception e) {
             System.err.println("⚠️ 保存增量缓存失败: " + e.getMessage());
         }
 
-        // 5. 扫描 Java 以外的项目资产
-        projectAssets = scanProjectFiles(Paths.get(ctx.getProjectRoot()));
+        // Scan non-Java assets
+        projectAssets = scanProjectFiles(Paths.get(config.getSourceRoot()));
 
-        // 🚀 新增：跨文件关联引擎
+        // Cross-file relations
         cn.dolphinmind.glossary.java.analyze.relation.RelationEngine relationEngine =
                 new cn.dolphinmind.glossary.java.analyze.relation.RelationEngine();
         Map<String, Object> relationData = new LinkedHashMap<>();
@@ -607,32 +610,26 @@ public class SourceUniversePro {
                 relationEngine.discoverRelations(relationData, projectAssets);
         rootContainer.put("cross_file_relations", relationEngine.toMap());
 
-        // 🚀 Phase 2：静态代码质量分析引擎
+        // Quality analysis
         System.out.println("\n🔍 正在执行静态代码质量分析...");
-        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig, projectRoot, globalDependencies);
+        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig, config.getSourceRoot(), globalDependencies);
         rootContainer.put("quality_issues", qualityIssues);
         Map<String, Object> qualitySummary = qualityIssues.isEmpty() ? Collections.emptyMap() : buildQualitySummary(qualityIssues);
         rootContainer.put("quality_summary", qualitySummary);
 
-        // 🚀 新增：注释覆盖率指标
-        Map<String, Object> coverageMetrics = calculateCommentCoverage(globalLibrary);
-        rootContainer.put("comment_coverage", coverageMetrics);
-
-        // 🚀 新增：项目类型检测
+        // Project type detection
         cn.dolphinmind.glossary.java.analyze.scanner.ProjectTypeDetector typeDetector =
                 new cn.dolphinmind.glossary.java.analyze.scanner.ProjectTypeDetector();
         Map<String, Object> projectTypeInfo = typeDetector.detect(
-                Paths.get(ctx.getProjectRoot()), projectAssets, relationData);
+                Paths.get(config.getSourceRoot()), projectAssets, relationData);
         rootContainer.put("project_type", projectTypeInfo);
 
-        // 6. 组装并输出资产（含压缩摘要）
+        // Assemble output
         rootContainer.put("assets", globalLibrary);
-        rootContainer.put("dependencies", globalDependencies); // 注入依赖数据
+        rootContainer.put("dependencies", globalDependencies);
         rootContainer.put("project_assets", projectAssets);
         String safeVersion = detectedVersion.replaceAll("[^a-zA-Z0-9.-]", "_");
         String dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
-
-        // 🚀 Phase 7: Commercial-grade report generation
 
         // HTML Dashboard
         try {
@@ -645,7 +642,7 @@ public class SourceUniversePro {
             System.err.println("⚠️ HTML Dashboard generation failed: " + e.getMessage());
         }
 
-        // SARIF Output
+        // SARIF
         try {
             String sarifPath = outputDir.resolve(String.format("%s_v%s_%s.sarif", frameworkName, safeVersion, dateStr)).toString();
             cn.dolphinmind.glossary.java.analyze.report.SarifGenerator sarifGen =
@@ -656,7 +653,7 @@ public class SourceUniversePro {
             System.err.println("⚠️ SARIF generation failed: " + e.getMessage());
         }
 
-        // Technical Debt Estimation
+        // Technical Debt
         Map<String, Object> debtEstimate = null;
         try {
             cn.dolphinmind.glossary.java.analyze.report.TechnicalDebtEstimator debtEst =
@@ -689,8 +686,26 @@ public class SourceUniversePro {
         } catch (Exception e) {
             System.err.println("⚠️ Quality gate evaluation failed: " + e.getMessage());
         }
-        
-        // Generate compressed summary file
+
+        // Filter baseline-marked issues
+        cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.BaselineData baseline =
+                cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.load(Paths.get(config.getSourceRoot()));
+        qualityIssues = cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.filterBaseline(qualityIssues, baseline);
+        int baselineCount = qualityIssues.size() - qualityIssues.size();
+        if (baselineCount > 0) {
+            System.out.println("📌 基线过滤: " + baselineCount + " 个问题已标记（误报/不修复）");
+        }
+
+        if (!qualityIssues.isEmpty()) {
+            System.out.println("✅ 发现 " + qualityIssues.size() + " 个代码质量问题");
+        } else {
+            System.out.println("✅ 未发现代码质量问题");
+        }
+
+        // Save glossary
+        translator.saveProjectGlossary();
+
+        // Generate compressed summary
         try {
             Map<String, Object> compressedSummary = new LinkedHashMap<>();
             compressedSummary.put("framework", frameworkName);
@@ -711,10 +726,10 @@ public class SourceUniversePro {
             System.err.println("⚠️ Summary generation failed: " + e.getMessage());
         }
 
-        // 输出全量文件（包含所有详细信息，可能很大）
+        // Save full JSON
         saveAsJson(rootContainer, outputDir.resolve(String.format("%s_v%s_full_%s.json", frameworkName, safeVersion, dateStr)).toString());
-        
-        // 🚩 新增：输出原始术语表 (用于 Glossary 翻译流程)
+
+        // Save glossary raw
         List<Map<String, String>> glossaryRaw = new ArrayList<>();
         for (Map<String, Object> asset : globalLibrary) {
             Map<String, String> entry = new LinkedHashMap<>();
@@ -725,8 +740,8 @@ public class SourceUniversePro {
             glossaryRaw.add(entry);
         }
         saveAsJson(glossaryRaw, outputDir.resolve(String.format("%s_v%s_glossary_raw_%s.json", frameworkName, safeVersion, dateStr)).toString());
-        
-        // 输出分模块文件
+
+        // Save per-module files
         moduleLibrary.forEach((modName, assets) -> {
             try {
                 Map<String, Object> modContainer = new LinkedHashMap<>(rootContainer);
@@ -737,12 +752,10 @@ public class SourceUniversePro {
             } catch (Exception e) { e.printStackTrace(); }
         });
 
-        // 6. 🚀 核心任务：生成语义映射字典表
+        // Semantic dictionary
         generateSemanticDictionary(frameworkName, outputDir);
 
-        // 🚀 MVP: 保存项目专属字典 (增量学习)
-        saveProjectGlossary();
-
+        // Print final report
         printReport();
     }
 
@@ -751,9 +764,7 @@ public class SourceUniversePro {
      */
     private static List<String> extractImportDependencies(CompilationUnit cu) {
         List<String> imports = new ArrayList<>();
-        cu.getImports().forEach(importDecl -> {
-            imports.add(importDecl.getNameAsString());
-        });
+        cu.getImports().forEach(importDecl -> imports.add(importDecl.getNameAsString()));
         return imports;
     }
 
@@ -765,60 +776,37 @@ public class SourceUniversePro {
         type.getAnnotations().forEach(annotation -> {
             Map<String, Object> ann = new LinkedHashMap<>();
             ann.put("name", annotation.getNameAsString());
-
-            // Extract parameters
             List<Map<String, String>> params = new ArrayList<>();
             annotation.getChildNodes().forEach(node -> {
                 if (node instanceof com.github.javaparser.ast.expr.MemberValuePair) {
-                    com.github.javaparser.ast.expr.MemberValuePair mvp =
-                            (com.github.javaparser.ast.expr.MemberValuePair) node;
+                    com.github.javaparser.ast.expr.MemberValuePair mvp = (com.github.javaparser.ast.expr.MemberValuePair) node;
                     Map<String, String> param = new LinkedHashMap<>();
                     param.put("key", mvp.getNameAsString());
                     param.put("value", mvp.getValue().toString());
                     params.add(param);
                 }
             });
-            if (!params.isEmpty()) {
-                ann.put("parameters", params);
-            }
+            if (!params.isEmpty()) ann.put("parameters", params);
             annotations.add(ann);
         });
         return annotations;
     }
 
     /**
-     * 提取包层级结构
-     */
-    private static List<String> extractPackageHierarchy(String pkg) {
-        List<String> hierarchy = new ArrayList<>();
-        String[] parts = pkg.split("\\.");
-        StringBuilder current = new StringBuilder();
-        for (String part : parts) {
-            if (current.length() > 0) current.append(".");
-            current.append(part);
-            hierarchy.add(current.toString());
-        }
-        return hierarchy;
-    }
-
-    /**
-     * 运行静态代码质量分析
+     * 运行质量规则分析
      */
     @SuppressWarnings("unchecked")
-    private static List<Map<String, Object>> runQualityAnalysis(List<Map<String, Object>> globalLibrary,
-                                                                 cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig,
-                                                                 String projectRoot,
-                                                                 List<Map<String, String>> globalDependencies) {
+    private static List<Map<String, Object>> runQualityAnalysis(
+            List<Map<String, Object>> globalLibrary, RulesConfig rulesConfig,
+            String projectRoot, List<Map<String, String>> globalDependencies) {
         List<Map<String, Object>> issues = new ArrayList<>();
-
-        // Initialize rule engine and register rules based on config
         cn.dolphinmind.glossary.java.analyze.quality.RuleEngine engine =
                 new cn.dolphinmind.glossary.java.analyze.quality.RuleEngine();
         java.util.function.Consumer<cn.dolphinmind.glossary.java.analyze.quality.QualityRule> reg = rule -> {
             if (rulesConfig.isRuleEnabled(rule.getRuleKey())) engine.registerRule(rule);
         };
 
-        // BUG rules
+        // Register all rules (BUG, CODE_SMELL, SECURITY, CFG, Taint)
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.EmptyCatchBlock());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.StringLiteralEquality());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.IdenticalOperand());
@@ -842,8 +830,6 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.UnclosedResource());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InterruptedExceptionSwallowed());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.LongToIntCast());
-
-        // CODE_SMELL rules (49)
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooLongMethod());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyParameters());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.TooManyReturns());
@@ -875,7 +861,6 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalField());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SSLServerSocket());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.WeakRSAKey());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.DOMParserXXE());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.AllocationInLoop());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CatchingError());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.OptionalChaining());
@@ -893,8 +878,11 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.InsecureCookie());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HttpOnlyCookie());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.FilePermissionTooPermissive());
-
-        // SECURITY rules (18)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RedundantCast());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SerializableField());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.VariableDeclaredFarFromUsage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalPrecisionLoss());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ContentTypeSniffing());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedPassword());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SQLInjection());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.HardcodedIP());
@@ -913,36 +901,27 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XXEInTransformerFactory());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.XPathInjection());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CORSMisconfiguration());
-
-        // Remaining rules not yet registered
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.RedundantCast());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.SerializableField());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.VariableDeclaredFarFromUsage());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.CSRFDisabled());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.JDBCInjection());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.BigDecimalPrecisionLoss());
-        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.AllRules.ContentTypeSniffing());
-
-        // Phase 3: CFG-based rules
         int ccThreshold = rulesConfig.getEffectiveThreshold("RSPEC-3776-CFG", 15);
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TrueCyclomaticComplexity(ccThreshold));
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.UnreachableCode());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceLeakPath());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingPath());
-
-        // Phase 4: Taint Analysis
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TaintFlowRule());
 
-        // Run all registered rules
+        // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
         // Duplicate code detection
         cn.dolphinmind.glossary.java.analyze.quality.DuplicateCodeDetector duplicateDetector =
                 new cn.dolphinmind.glossary.java.analyze.quality.DuplicateCodeDetector();
-        List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> dupIssues = duplicateDetector.findDuplicates(globalLibrary);
-        ruleIssues.addAll(dupIssues);
+        ruleIssues.addAll(duplicateDetector.findDuplicates(globalLibrary));
 
-        // Collection-level rules (need full class context)
+        // Cross-method taint
+        if (rulesConfig.isRuleEnabled("RSPEC-2076-XMETHOD")) {
+            cn.dolphinmind.glossary.java.analyze.quality.rules.CrossMethodTaintRule crossMethodTaint =
+                    new cn.dolphinmind.glossary.java.analyze.quality.rules.CrossMethodTaintRule();
+            ruleIssues.addAll(crossMethodTaint.analyzeAll(globalLibrary, globalDependencies));
+        }
         if (rulesConfig.isRuleEnabled("RSPEC-5135")) {
             cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule springRule =
                     new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBeanAnalysisRule();
@@ -954,31 +933,9 @@ public class SourceUniversePro {
             ruleIssues.addAll(archRule.analyzeAll(globalLibrary));
         }
 
-        // Cross-method taint analysis
-        if (rulesConfig.isRuleEnabled("RSPEC-2076-XMETHOD")) {
-            cn.dolphinmind.glossary.java.analyze.quality.rules.CrossMethodTaintRule crossMethodTaint =
-                    new cn.dolphinmind.glossary.java.analyze.quality.rules.CrossMethodTaintRule();
-            ruleIssues.addAll(crossMethodTaint.analyzeAll(globalLibrary, globalDependencies));
-        }
-
-        // Convert to Map for JSON output
+        // Convert to Map
         for (cn.dolphinmind.glossary.java.analyze.quality.QualityIssue issue : ruleIssues) {
             issues.add(issue.toMap());
-        }
-
-        // Filter baseline-marked issues
-        cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.BaselineData baseline =
-                cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.load(Paths.get(projectRoot));
-        issues = cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.filterBaseline(issues, baseline);
-        int baselineCount = ruleIssues.size() - issues.size();
-        if (baselineCount > 0) {
-            System.out.println("📌 基线过滤: " + baselineCount + " 个问题已标记（误报/不修复）");
-        }
-
-        if (!issues.isEmpty()) {
-            System.out.println("✅ 发现 " + issues.size() + " 个代码质量问题");
-        } else {
-            System.out.println("✅ 未发现代码质量问题");
         }
 
         return issues;
@@ -990,81 +947,17 @@ public class SourceUniversePro {
     private static Map<String, Object> buildQualitySummary(List<Map<String, Object>> issues) {
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("total_issues", issues.size());
-
         Map<String, Long> bySeverity = new LinkedHashMap<>();
         bySeverity.put("CRITICAL", issues.stream().filter(i -> "CRITICAL".equals(i.get("severity"))).count());
         bySeverity.put("MAJOR", issues.stream().filter(i -> "MAJOR".equals(i.get("severity"))).count());
         bySeverity.put("MINOR", issues.stream().filter(i -> "MINOR".equals(i.get("severity"))).count());
-        bySeverity.put("INFO", issues.stream().filter(i -> "INFO".equals(i.get("severity"))).count());
         summary.put("by_severity", bySeverity);
-
         Map<String, Long> byCategory = new LinkedHashMap<>();
         byCategory.put("BUG", issues.stream().filter(i -> "BUG".equals(i.get("category"))).count());
         byCategory.put("CODE_SMELL", issues.stream().filter(i -> "CODE_SMELL".equals(i.get("category"))).count());
         byCategory.put("SECURITY", issues.stream().filter(i -> "SECURITY".equals(i.get("category"))).count());
         summary.put("by_category", byCategory);
-
         return summary;
-    }
-
-    /**
-     * 计算注释覆盖率指标
-     */
-    private static Map<String, Object> calculateCommentCoverage(List<Map<String, Object>> globalLibrary) {
-        Map<String, Object> coverage = new LinkedHashMap<>();
-
-        int totalClasses = globalLibrary.size();
-        int classesWithComments = 0;
-        int totalMethods = 0;
-        int methodsWithComments = 0;
-        int totalFields = 0;
-        int fieldsWithComments = 0;
-
-        for (Map<String, Object> classAsset : globalLibrary) {
-            // Class comment
-            String desc = (String) classAsset.getOrDefault("description", "");
-            if (!desc.isEmpty() && !desc.equals("暂无描述")) {
-                classesWithComments++;
-            }
-
-            // Methods
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> methods = (List<Map<String, Object>>)
-                    classAsset.getOrDefault("methods_full", Collections.emptyList());
-            for (Map<String, Object> method : methods) {
-                totalMethods++;
-                String methodDesc = (String) method.getOrDefault("description", "");
-                if (!methodDesc.isEmpty() && !methodDesc.equals("暂无描述")) {
-                    methodsWithComments++;
-                }
-            }
-
-            // Fields
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> fieldsMatrix = (List<Map<String, Object>>)
-                    classAsset.getOrDefault("fields_matrix", Collections.emptyList());
-            for (Map<String, Object> field : fieldsMatrix) {
-                totalFields++;
-                String fieldDesc = (String) field.getOrDefault("description", "");
-                if (!fieldDesc.isEmpty()) {
-                    fieldsWithComments++;
-                }
-            }
-        }
-
-        coverage.put("total_classes", totalClasses);
-        coverage.put("classes_with_comments", classesWithComments);
-        coverage.put("class_comment_coverage_pct", totalClasses > 0 ? Math.round(classesWithComments * 1000.0 / totalClasses) / 10.0 : 0);
-
-        coverage.put("total_methods", totalMethods);
-        coverage.put("methods_with_comments", methodsWithComments);
-        coverage.put("method_comment_coverage_pct", totalMethods > 0 ? Math.round(methodsWithComments * 1000.0 / totalMethods) / 10.0 : 0);
-
-        coverage.put("total_fields", totalFields);
-        coverage.put("fields_with_comments", fieldsWithComments);
-        coverage.put("field_comment_coverage_pct", totalFields > 0 ? Math.round(fieldsWithComments * 1000.0 / totalFields) / 10.0 : 0);
-
-        return coverage;
     }
 
     /**

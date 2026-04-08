@@ -158,8 +158,9 @@ public class CrossMethodTaintAnalyzer {
         for (Map.Entry<String, Map<String, Object>> entry : methodLookup.entrySet()) {
             String address = entry.getKey();
             Map<String, Object> method = entry.getValue();
-            String body = (String) method.getOrDefault("body_code", "");
-            String keyStatements = (String) method.getOrDefault("key_statements", "");
+            Object bodyObj = method.get("body_code");
+            if (!(bodyObj instanceof String)) continue;
+            String body = (String) bodyObj;
 
             // Check if method body contains source patterns
             if (body.contains("getParameter") || body.contains("getHeader") ||
