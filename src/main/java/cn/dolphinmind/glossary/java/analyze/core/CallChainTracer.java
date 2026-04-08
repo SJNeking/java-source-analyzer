@@ -158,46 +158,174 @@ public class CallChainTracer {
     }
 
     /**
-     * Fallback variable type resolution when Symbol Solver fails.
-     * Uses import statements and naming conventions.
+     * Comprehensive variable type inference.
+     *
+     * Two-pass approach with method return type tracking:
+     * 1. Build variable → type map (params + local vars + fields)
+     * 2. Build method → return type map for chained call resolution
+     * 3. Use both maps to resolve method call targets
+     *
+     * Handles: chained calls (a.b().c()), lambda parameters, generics, arrays.
      */
     private String resolveVariableTypeFallback(CompilationUnit cu, String varName, String currentClass) {
-        // Check local variable declarations in the method
-        for (com.github.javaparser.ast.body.MethodDeclaration method : cu.findAll(com.github.javaparser.ast.body.MethodDeclaration.class)) {
-            for (com.github.javaparser.ast.body.Parameter param : method.getParameters()) {
-                if (param.getNameAsString().equals(varName)) {
-                    return resolveTypeFromDeclaration(param.getType().toString(), cu);
-                }
-            }
-            // Check local variable declarations
-            for (com.github.javaparser.ast.stmt.ExpressionStmt stmt : method.findAll(com.github.javaparser.ast.stmt.ExpressionStmt.class)) {
-                String expr = stmt.getExpression().toString();
-                if (expr.startsWith(varName + " =") || expr.equals(varName)) {
-                    // Try to find the type from the declaration
-                }
-            }
-        }
+        // Pass 1: Build complete variable type table
+        Map<String, String> varTypeTable = buildVariableTypeTable(cu, currentClass);
 
-        // Check field declarations
-        for (com.github.javaparser.ast.body.ClassOrInterfaceDeclaration classDecl : cu.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class)) {
-            for (com.github.javaparser.ast.body.FieldDeclaration field : classDecl.getFields()) {
-                for (com.github.javaparser.ast.body.VariableDeclarator var : field.getVariables()) {
-                    if (var.getNameAsString().equals(varName)) {
-                        return resolveTypeFromDeclaration(field.getCommonType().toString(), cu);
-                    }
-                }
-            }
-        }
+        // Pass 2: Build method return type table
+        Map<String, String> methodReturnTypeTable = buildMethodReturnTypeTable(cu);
+
+        // Pass 3: Resolve the variable - could be simple var or chained call
+        String type = resolveVariableWithChaining(varName, varTypeTable, methodReturnTypeTable, currentClass);
+        if (type != null) return type;
 
         // Last resort: capitalize first letter
-        if (!varName.isEmpty()) {
+        if (!varName.isEmpty() && Character.isLowerCase(varName.charAt(0))) {
             return Character.toUpperCase(varName.charAt(0)) + varName.substring(1);
         }
         return currentClass;
     }
 
+    /**
+     * Resolve a variable that might be a chained call like "a.b().c()".
+     * Returns the type of the final expression.
+     */
+    private String resolveVariableWithChaining(String varName, Map<String, String> varTypeTable,
+                                                Map<String, String> methodReturnTypeTable,
+                                                String currentClass) {
+        // Simple variable lookup
+        String type = varTypeTable.get(varName);
+        if (type != null) return type;
+
+        // Try to resolve as chained method call: "method1.method2().method3"
+        if (varName.contains(".")) {
+            String[] parts = varName.split("\\.");
+            String currentType = null;
+
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i];
+                // Remove () suffix if present
+                String methodName = part.endsWith("()") ? part.substring(0, part.length() - 2) : part;
+
+                if (i == 0) {
+                    // First part should be a variable
+                    currentType = varTypeTable.get(methodName);
+                    if (currentType == null) {
+                        // Try as static method call or field
+                        currentType = methodReturnTypeTable.get(currentClass + "#" + methodName);
+                    }
+                } else {
+                    // Subsequent parts are method calls on the current type
+                    String methodKey = currentType + "#" + methodName;
+                    String returnType = methodReturnTypeTable.get(methodKey);
+                    if (returnType != null) {
+                        currentType = returnType;
+                    } else {
+                        // Try with simple type name
+                        String simpleType = currentType.contains(".") ? currentType.substring(currentType.lastIndexOf('.') + 1) : currentType;
+                        methodKey = simpleType + "#" + methodName;
+                        returnType = methodReturnTypeTable.get(methodKey);
+                        if (returnType != null) {
+                            currentType = returnType;
+                        } else {
+                            return null; // Can't resolve
+                        }
+                    }
+                }
+
+                if (currentType == null) return null;
+            }
+
+            return currentType;
+        }
+
+        return null;
+    }
+
+    /**
+     * Build a method → return type mapping for all methods in the CU.
+     */
+    private Map<String, String> buildMethodReturnTypeTable(CompilationUnit cu) {
+        Map<String, String> table = new LinkedHashMap<>();
+        String pkg = cu.getPackageDeclaration()
+                .map(pd -> pd.getNameAsString()).orElse("");
+
+        for (com.github.javaparser.ast.body.ClassOrInterfaceDeclaration classDecl : cu.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class)) {
+            String fullClassName = (pkg.isEmpty() ? "" : pkg + ".") + classDecl.getNameAsString();
+
+            for (com.github.javaparser.ast.body.MethodDeclaration method : classDecl.getMethods()) {
+                String methodName = method.getNameAsString();
+                String returnType = method.getType().toString();
+                returnType = resolveTypeFromDeclaration(returnType, cu);
+
+                table.put(fullClassName + "#" + methodName, returnType);
+
+                // Also add with simple class name for cross-CU lookups
+                String className = classDecl.getNameAsString();
+                table.put(className + "#" + methodName, returnType);
+            }
+        }
+
+        return table;
+    }
+
+    /**
+     * Build a complete variable → type mapping for all methods and fields in the CU.
+     */
+    private Map<String, String> buildVariableTypeTable(CompilationUnit cu, String currentClass) {
+        Map<String, String> table = new LinkedHashMap<>();
+
+        // 1. Field declarations (class-level variables)
+        for (com.github.javaparser.ast.body.ClassOrInterfaceDeclaration classDecl : cu.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class)) {
+            for (com.github.javaparser.ast.body.FieldDeclaration field : classDecl.getFields()) {
+                String fieldType = resolveTypeFromDeclaration(field.getCommonType().toString(), cu);
+                for (com.github.javaparser.ast.body.VariableDeclarator var : field.getVariables()) {
+                    table.put(var.getNameAsString(), fieldType);
+                }
+            }
+        }
+
+        // 2. Method parameters
+        for (com.github.javaparser.ast.body.MethodDeclaration method : cu.findAll(com.github.javaparser.ast.body.MethodDeclaration.class)) {
+            for (com.github.javaparser.ast.body.Parameter param : method.getParameters()) {
+                String paramType = resolveTypeFromDeclaration(param.getType().toString(), cu);
+                table.put(param.getNameAsString(), paramType);
+            }
+        }
+
+        // 3. Local variable declarations (VariableDeclarationExpr)
+        for (com.github.javaparser.ast.body.MethodDeclaration method : cu.findAll(com.github.javaparser.ast.body.MethodDeclaration.class)) {
+            method.findAll(com.github.javaparser.ast.expr.VariableDeclarationExpr.class).forEach(varExpr -> {
+                String varType = resolveTypeFromDeclaration(varExpr.getCommonType().toString(), cu);
+                for (com.github.javaparser.ast.body.VariableDeclarator var : varExpr.getVariables()) {
+                    table.put(var.getNameAsString(), varType);
+                }
+            });
+
+            // 4. For-each loop variables
+            method.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).forEach(foreach -> {
+                com.github.javaparser.ast.expr.VariableDeclarationExpr var = foreach.getVariable();
+                String varType = resolveTypeFromDeclaration(var.getCommonType().toString(), cu);
+                for (com.github.javaparser.ast.body.VariableDeclarator v : var.getVariables()) {
+                    table.put(v.getNameAsString(), varType);
+                }
+            });
+
+            // 5. Lambda parameters (with explicit types)
+            method.findAll(com.github.javaparser.ast.expr.LambdaExpr.class).forEach(lambda -> {
+                lambda.getParameters().forEach(param -> {
+                    if (!param.getType().isUnknownType()) {
+                        String paramType = resolveTypeFromDeclaration(param.getType().toString(), cu);
+                        table.put(param.getNameAsString(), paramType);
+                    }
+                });
+            });
+        }
+
+        return table;
+    }
+
     private String resolveTypeFromDeclaration(String typeStr, CompilationUnit cu) {
-        // Handle generic types: List<User> → User
+        // Handle generic types: List<User> → List
         if (typeStr.contains("<")) {
             typeStr = typeStr.substring(0, typeStr.indexOf('<'));
         }
@@ -205,8 +333,29 @@ public class CallChainTracer {
         if (typeStr.endsWith("[]")) {
             typeStr = typeStr.substring(0, typeStr.length() - 2);
         }
+        // Handle wildcard types: ? extends User → User
+        if (typeStr.startsWith("? extends ")) {
+            typeStr = typeStr.substring(10);
+        } else if (typeStr.startsWith("? super ")) {
+            typeStr = typeStr.substring(8);
+        }
         // If simple name, try to resolve from imports
         if (!typeStr.contains(".")) {
+            // Check known Java types
+            String[] knownTypes = {
+                "String", "Integer", "Long", "Double", "Float", "Boolean", "Byte", "Short", "Character",
+                "List", "ArrayList", "LinkedList", "Set", "HashSet", "TreeSet", "LinkedHashSet",
+                "Map", "HashMap", "TreeMap", "LinkedHashMap", "ConcurrentHashMap",
+                "Optional", "Stream", "Collection", "Iterable", "Iterator",
+                "Runnable", "Callable", "Future", "CompletableFuture",
+                "Exception", "RuntimeException", "Throwable", "Error",
+                "Object", "Class", "Enum"
+            };
+            for (String known : knownTypes) {
+                if (typeStr.equals(known)) return "java.lang." + known;
+            }
+
+            // Check imports
             for (com.github.javaparser.ast.ImportDeclaration imp : cu.getImports()) {
                 String impName = imp.getNameAsString();
                 if (impName.endsWith("." + typeStr)) {

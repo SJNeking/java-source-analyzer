@@ -1,5 +1,5 @@
 {
-  "scanDate": "2026-04-09T06:15:17",
+  "scanDate": "2026-04-09T06:24:22",
   "analyzerVersion": "1.0-M5",
   "files": {
     "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/TrueCyclomaticComplexity.java": {
@@ -105,7 +105,7 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CallChainTracer.java": {
-      "hash": "55f7ae70b3db90a04b39f45f4e7489accd35ddaa4315e8b8a202e4c75e35cb20",
+      "hash": "71ab978c5c2893c0927299e8b919c2c733ccae0b2d11ee11aebd7b3420a1c0f9",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
