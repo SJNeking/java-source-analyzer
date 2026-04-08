@@ -514,6 +514,13 @@ public class SourceUniversePro {
                 relationEngine.discoverRelations(relationData, projectAssets);
         rootContainer.put("cross_file_relations", relationEngine.toMap());
 
+        // 🚀 Phase 2：静态代码质量分析引擎
+        System.out.println("\n🔍 正在执行静态代码质量分析...");
+        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary);
+        rootContainer.put("quality_issues", qualityIssues);
+        Map<String, Object> qualitySummary = qualityIssues.isEmpty() ? Collections.emptyMap() : buildQualitySummary(qualityIssues);
+        rootContainer.put("quality_summary", qualitySummary);
+
         // 🚀 新增：注释覆盖率指标
         Map<String, Object> coverageMetrics = calculateCommentCoverage(globalLibrary);
         rootContainer.put("comment_coverage", coverageMetrics);
@@ -620,6 +627,92 @@ public class SourceUniversePro {
             hierarchy.add(current.toString());
         }
         return hierarchy;
+    }
+
+    /**
+     * 运行静态代码质量分析
+     */
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> runQualityAnalysis(List<Map<String, Object>> globalLibrary) {
+        List<Map<String, Object>> issues = new ArrayList<>();
+
+        // Initialize rule engine and register all rules
+        cn.dolphinmind.glossary.java.analyze.quality.RuleEngine engine =
+                new cn.dolphinmind.glossary.java.analyze.quality.RuleEngine();
+
+        // Bug rules
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.EmptyCatchBlockRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.StringLiteralEquality());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.IdenticalOperandRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.ThreadRunRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.WaitWhileSynchronizedRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.MutableMembersReturnedRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.FinalizerRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.SerialVersionUIDRule());
+
+        // Code smell rules
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.TooLongMethod());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.TooManyParameters());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.TooManyReturn());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.CyclomaticComplexityRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.UseOfPrintStackTrace());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.GodClassRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.NoCommentRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.WildcardImportRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.SystemOutRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.ConstructorOverloadingRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.EmptyStatementRule());
+
+        // Security rules
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.HardcodedPassword());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.SQLInjectionRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.HardcodedIPRule());
+        engine.registerRule(new cn.dolphinmind.glossary.java.analyze.quality.rules.RuleCollection.URLShouldUseHTTPS());
+
+        // Run all rules
+        List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
+
+        // Duplicate code detection
+        cn.dolphinmind.glossary.java.analyze.quality.DuplicateCodeDetector duplicateDetector =
+                new cn.dolphinmind.glossary.java.analyze.quality.DuplicateCodeDetector();
+        List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> dupIssues = duplicateDetector.findDuplicates(globalLibrary);
+        ruleIssues.addAll(dupIssues);
+
+        // Convert to Map for JSON output
+        for (cn.dolphinmind.glossary.java.analyze.quality.QualityIssue issue : ruleIssues) {
+            issues.add(issue.toMap());
+        }
+
+        if (!issues.isEmpty()) {
+            System.out.println("✅ 发现 " + issues.size() + " 个代码质量问题");
+        } else {
+            System.out.println("✅ 未发现代码质量问题");
+        }
+
+        return issues;
+    }
+
+    /**
+     * 构建质量分析摘要
+     */
+    private static Map<String, Object> buildQualitySummary(List<Map<String, Object>> issues) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("total_issues", issues.size());
+
+        Map<String, Long> bySeverity = new LinkedHashMap<>();
+        bySeverity.put("CRITICAL", issues.stream().filter(i -> "CRITICAL".equals(i.get("severity"))).count());
+        bySeverity.put("MAJOR", issues.stream().filter(i -> "MAJOR".equals(i.get("severity"))).count());
+        bySeverity.put("MINOR", issues.stream().filter(i -> "MINOR".equals(i.get("severity"))).count());
+        bySeverity.put("INFO", issues.stream().filter(i -> "INFO".equals(i.get("severity"))).count());
+        summary.put("by_severity", bySeverity);
+
+        Map<String, Long> byCategory = new LinkedHashMap<>();
+        byCategory.put("BUG", issues.stream().filter(i -> "BUG".equals(i.get("category"))).count());
+        byCategory.put("CODE_SMELL", issues.stream().filter(i -> "CODE_SMELL".equals(i.get("category"))).count());
+        byCategory.put("SECURITY", issues.stream().filter(i -> "SECURITY".equals(i.get("category"))).count());
+        summary.put("by_category", byCategory);
+
+        return summary;
     }
 
     /**
