@@ -19,6 +19,22 @@ import java.util.*;
  */
 public class CallChainTracer {
 
+    private ExternalLibrarySignatureDB signatureDB;
+
+    public CallChainTracer() {}
+
+    public CallChainTracer(ExternalLibrarySignatureDB signatureDB) {
+        this.signatureDB = signatureDB;
+    }
+
+    /**
+     * Build call graph with optional external library signature database.
+     */
+    public CallGraph buildCallGraph(Path projectRoot, ExternalLibrarySignatureDB sigDB) throws IOException {
+        if (sigDB != null) this.signatureDB = sigDB;
+        return buildCallGraph(projectRoot);
+    }
+
     public static class CallChain {
         private final String entryPoint;
         private final List<String> chain;
@@ -129,7 +145,7 @@ public class CallChainTracer {
 
                                 method.findAll(MethodCallExpr.class).forEach(call -> {
                                     String methodName = call.getNameAsString();
-                                    
+
                                     // Try Symbol Solver first
                                     try {
                                         ResolvedMethodDeclaration resolved = call.resolve();
@@ -146,6 +162,13 @@ public class CallChainTracer {
                                                 })
                                                 .orElse(fullClassName);
                                         String calleeKey = targetClass + "#" + methodName;
+                                        
+                                        // DEBUG: Log what's falling back
+                                        // Uncomment to debug fallback calls:
+                                        // if (callerKey.contains("SourceUniversePro") && !calleeKey.contains("java.")) {
+                                        //     System.out.println("  [FALLBACK] " + callerKey + " → " + calleeKey + " (scope: " + call.getScope().map(Object::toString).orElse("<none>") + ")");
+                                        // }
+                                        
                                         graph.addUnresolvedFallback(callerKey, calleeKey);
                                     }
                                 });
@@ -217,6 +240,12 @@ public class CallChainTracer {
                     // Subsequent parts are method calls on the current type
                     String methodKey = currentType + "#" + methodName;
                     String returnType = methodReturnTypeTable.get(methodKey);
+
+                    // If not in current file's method table, check external library signature DB
+                    if (returnType == null && signatureDB != null) {
+                        returnType = signatureDB.getReturnType(currentType, methodName);
+                    }
+
                     if (returnType != null) {
                         currentType = returnType;
                     } else {
@@ -224,6 +253,12 @@ public class CallChainTracer {
                         String simpleType = currentType.contains(".") ? currentType.substring(currentType.lastIndexOf('.') + 1) : currentType;
                         methodKey = simpleType + "#" + methodName;
                         returnType = methodReturnTypeTable.get(methodKey);
+
+                        // Also check external library DB with simple name
+                        if (returnType == null && signatureDB != null) {
+                            returnType = signatureDB.getReturnType(simpleType, methodName);
+                        }
+
                         if (returnType != null) {
                             currentType = returnType;
                         } else {

@@ -1,5 +1,5 @@
 {
-  "scanDate": "2026-04-09T06:24:22",
+  "scanDate": "2026-04-09T06:30:57",
   "analyzerVersion": "1.0-M5",
   "files": {
     "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/TrueCyclomaticComplexity.java": {
@@ -105,7 +105,7 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CallChainTracer.java": {
-      "hash": "71ab978c5c2893c0927299e8b919c2c733ccae0b2d11ee11aebd7b3420a1c0f9",
+      "hash": "56efd49020ce40e5af81b96c5b3ced611c6ae9eca1cd4e32c4a2080d2e5feda7",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
@@ -369,7 +369,7 @@
       "fieldCount": 0
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CoreAnalysisEngine.java": {
-      "hash": "adc27ec3f5394830efad4b29477e1f29a2fbac953c432c9676c6eccbe8498cf5",
+      "hash": "efc16a1d3a11ff8902fd7eeed9d86b92a73c52c287ecc8c946340d8c0a53020e",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0
@@ -394,6 +394,12 @@
     },
     "src/main/java/cn/dolphinmind/glossary/java/analyze/scanner/ProjectScanner.java": {
       "hash": "e1293a9b38dbbd05ba7a69946dc9b2717622a6ab8b96d19fb5336bfd85407765",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/ExternalLibrarySignatureDB.java": {
+      "hash": "2f28fba826352c478480278b376817633c4807aeffc2d14086cd36ed9b3ac51e",
       "classCount": 0,
       "methodCount": 0,
       "fieldCount": 0

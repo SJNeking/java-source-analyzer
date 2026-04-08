@@ -14,14 +14,32 @@ import java.util.*;
 public class CoreAnalysisEngine {
 
     private final EntryPointDiscovery entryPointDiscovery = new EntryPointDiscovery();
-    private final CallChainTracer callChainTracer = new CallChainTracer();
+    private CallChainTracer callChainTracer;
     private final BytecodeCallGraphBuilder bytecodeCallGraphBuilder = new BytecodeCallGraphBuilder();
     private final PackageStructureMapper packageMapper = new PackageStructureMapper();
     private final TypeDefinitionNavigator typeNavigator = new TypeDefinitionNavigator();
     private final DataFlowTracer dataFlowTracer = new DataFlowTracer();
+    private ExternalLibrarySignatureDB signatureDB;
+
+    public ExternalLibrarySignatureDB getSignatureDB() { return signatureDB; }
 
     public Map<String, Object> analyze(Path projectRoot) throws IOException {
         System.out.println("\n=== 核心分析引擎启动 ===");
+
+        // 0. Build external library method signature database
+        System.out.println("📚 正在构建外部库方法签名数据库...");
+        signatureDB = new ExternalLibrarySignatureDB();
+        try {
+            signatureDB.build(projectRoot);
+            System.out.println("  ✅ 已索引: " + signatureDB.getJarsScanned() + " 个jar, " +
+                    signatureDB.getClassesScanned() + " 个类, " +
+                    signatureDB.getMethodsIndexed() + " 个方法签名");
+        } catch (Exception e) {
+            System.out.println("  ⚠️ 外部库签名构建失败: " + e.getMessage());
+        }
+
+        // Initialize call chain tracer with signature DB
+        callChainTracer = new CallChainTracer(signatureDB);
 
         // 1. Package Structure (JavaParser-based)
         System.out.println("📦 正在分析包结构...");
