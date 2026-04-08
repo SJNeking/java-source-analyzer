@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>架构图谱 - 多层级透视系统</title>
+    <script src="./echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        #main { width: 100vw; height: 100vh; }
+        
+        .control-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(14, 18, 28, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 16px; border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #a0aec0; z-index: 100; min-width: 260px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        
+        h3 { margin: 0 0 12px 0; color: #e2e8f0; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+        label { font-size: 11px; color: #718096; display: block; margin-bottom: 6px; }
+        
+        /* 🚀 自定义下拉菜单样式 */
+        .custom-select {
+            position: relative; width: 100%;
+        }
+        .custom-select-trigger {
+            width: 100%; background: #1a202c; color: #e2e8f0;
+            border: 1px solid #2d3748; padding: 8px 10px;
+            border-radius: 6px; font-size: 12px; cursor: pointer; outline: none;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: all 0.2s;
+        }
+        .custom-select-trigger:hover, .custom-select-trigger.active { border-color: #4299e1; }
+        .custom-select-trigger::after {
+            content: '▼'; font-size: 8px; color: #718096; margin-left: 8px;
+            transition: transform 0.2s;
+        }
+        .custom-select-trigger.active::after { transform: rotate(180deg); }
+        .custom-options {
+            position: absolute; left: 0; right: 0;
+            background: #1a202c; border: 1px solid #2d3748; border-radius: 6px;
+            z-index: 200; max-height: 300px; overflow-y: auto;
+            display: none; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        .custom-options.open { display: block; }
+        .custom-options.open-up { top: auto; bottom: 100%; margin-bottom: 4px; }
+        .custom-options.open-down { top: 100%; margin-top: 4px; }
+        .custom-option {
+            padding: 8px 10px; font-size: 12px; color: #e2e8f0; cursor: pointer;
+            transition: background 0.1s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .custom-option:hover { background: #2d3748; }
+        .custom-option.selected { background: #4299e1; color: #fff; }
+        
+        /* 🚀 分组标题样式 */
+        .custom-option-header {
+            padding: 8px 10px 4px 10px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: default;
+            border-bottom: 1px solid rgba(45, 55, 72, 0.5);
+            margin-bottom: 4px;
+        }
+        
+        /* 滚动条样式 */
+        .custom-options::-webkit-scrollbar { width: 6px; }
+        .custom-options::-webkit-scrollbar-track { background: transparent; }
+        .custom-options::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
+        .custom-options::-webkit-scrollbar-thumb:hover { background: #718096; }
+        
+        .stats { margin-top: 10px; font-size: 10px; color: #718096; display: flex; justify-content: space-between; padding: 6px 8px; background: rgba(26, 32, 44, 0.5); border-radius: 4px; }
+        .legend { margin-top: 10px; font-size: 10px; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; padding: 4px 6px; border-radius: 4px; transition: all 0.2s; cursor: pointer; }
+        .legend-item:hover { background: rgba(255, 255, 255, 0.05); }
+        .legend-item.disabled { opacity: 0.3; filter: grayscale(0.8); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+        
+        .loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(11, 15, 25, 0.95); z-index: 200;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #4299e1; font-size: 16px; transition: opacity 0.4s;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid #1a202c;
+            border-top-color: #4299e1; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .breadcrumb {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(14, 18, 28, 0.85); backdrop-filter: blur(12px);
+            padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e2e8f0; font-size: 12px; z-index: 100; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .breadcrumb:hover { border-color: #4299e1; }
+        
+        .mode-switch {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(14, 18, 28, 0.85); backdrop-filter: blur(12px);
+            padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e2e8f0; font-size: 12px; z-index: 100; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); display: flex; align-items: center; gap: 8px;
+        }
+        .mode-switch span.active { color: #4299e1; font-weight: bold; }
+
+        .hint { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: #4a5568; font-size: 11px; background: rgba(14, 18, 28, 0.6); padding: 6px 14px; border-radius: 16px; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <h3>🔭 多层级透视系统</h3>
+        <label>选择项目：</label>
+        <div class="custom-select" id="customSelect">
+            <div class="custom-select-trigger" id="selectTrigger">选择项目</div>
+            <div class="custom-options" id="customOptions"></div>
+        </div>
+        <div class="stats"><span id="statsNodes">节点：-</span><span id="statsLinks">连线：-</span></div>
+        
+        <!-- 🚀 统一架构筛选面板 -->
+        <div id="architectureFilters" style="font-size: 10px;">
+            <label style="margin-top:8px; color:#a0aec0;">📦 节点类型 (Nodes):</label>
+            <div class="legend-item" data-type="INTERFACE" onclick="toggleFilter('INTERFACE')"><div class="legend-dot" style="background:#4299e1"></div><span>接口 (INTERFACE)</span></div>
+            <div class="legend-item" data-type="CLASS" onclick="toggleFilter('CLASS')"><div class="legend-dot" style="background:#48bb78"></div><span>具体类 (CLASS)</span></div>
+            <div class="legend-item" data-type="ABSTRACT_CLASS" onclick="toggleFilter('ABSTRACT_CLASS')"><div class="legend-dot" style="background:#9f7aea"></div><span>抽象类 (ABSTRACT)</span></div>
+            <div class="legend-item" data-type="ENUM" onclick="toggleFilter('ENUM')"><div class="legend-dot" style="background:#ed8936"></div><span>枚举 (ENUM)</span></div>
+            <div class="legend-item" data-type="EXTERNAL_LIB" onclick="toggleFilter('EXTERNAL_LIB')"><div class="legend-dot" style="background:#718096"></div><span>外部依赖 (IMPORTS)</span></div>
+            
+            <label style="margin-top:12px; color:#a0aec0;">🔗 架构关系 (Relations):</label>
+            <div class="legend-item" data-type="EXTENDS" onclick="toggleLinkType('EXTENDS')"><div class="legend-dot" style="background:#4299e1"></div><span>继承 (EXTENDS)</span></div>
+            <div class="legend-item" data-type="IMPLEMENTS_ABS" onclick="toggleLinkType('IMPLEMENTS_ABS')"><div class="legend-dot" style="background:#9f7aea"></div><span>抽象实现 (ABS IMPL)</span></div>
+            <div class="legend-item" data-type="IMPLEMENTS_INT" onclick="toggleLinkType('IMPLEMENTS_INT')"><div class="legend-dot" style="background:#48bb78"></div><span>接口实现 (INT IMPL)</span></div>
+            <div class="legend-item" data-type="DEPENDS_ON" onclick="toggleLinkType('DEPENDS_ON')"><div class="legend-dot" style="background:#38b2ac"></div><span>组合 (DEPENDS)</span></div>
+            <div class="legend-item" data-type="ISOLATED" onclick="toggleFilter('ISOLATED')"><div class="legend-dot" style="background:#fc8181"></div><span>孤立节点 (ISOLATED)</span></div>
+        </div>
+    </div>
+    
+    <div id="breadcrumb" class="breadcrumb" onclick="resetToComponent()">
+        <span style="margin-right: 10px; cursor: pointer;" id="btnBack" onclick="event.stopPropagation(); goBack()">⬅️</span>
+        <span style="cursor: pointer;" id="btnForward" onclick="event.stopPropagation(); goForward()">➡️</span>
+        <span id="breadcrumbText" style="margin-left: 10px;">🏛️ 组件依赖视图</span>
+    </div>
+    <div class="mode-switch">
+        <span id="modeGlobal" class="active" onclick="setMode('global')">全局骨架</span>
+        <span>|</span>
+        <span id="modeLink" onclick="setMode('link')">链路追踪</span>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText">正在初始化...</div>
+    </div>
+    <div class="hint">🖱️ 双击节点下钻 · 点击面包屑返回 · 滚轮缩放</div>
+    <div id="main"></div>
+
+    <script>
+        const chart = echarts.init(document.getElementById('main'), 'dark');
+        const COLOR_MAP = {
+            'INTERFACE': '#4299e1', 'ABSTRACT_CLASS': '#9f7aea', 'CLASS': '#48bb78',
+            'ENUM': '#ed8936', 'METHOD': '#f6ad55', 'EXTERNAL_METHOD': '#a0aec0',
+            'EXTERNAL_LIB': '#718096' // 灰色表示外部库
+        };
+
+        // 🚀 全局数据索引
+        let rawData = null;
+        let assetIndex = new Map(); // address -> asset
+        let currentView = 'component'; // 'component' or 'method'
+        let currentClassAddr = null;
+        let viewMode = 'global'; // 'global' (骨架) or 'link' (链路)
+        let linkPathNodes = new Set(); // 链路模式中激活的节点
+        let linkPathLinks = []; // 链路模式中激活的连线
+        let activeFilters = new Set(['INTERFACE', 'CLASS', 'ABSTRACT_CLASS', 'ENUM', 'EXTERNAL_LIB']);
+        let activeLinkTypes = new Set(['EXTENDS', 'IMPLEMENTS_ABS', 'IMPLEMENTS_INT', 'DEPENDS_ON']); // 默认关闭 CALLS
+        let activeTags = new Set(); // 🚀 活跃的方法标签筛选
+        let currentProjectFile = null; // 当前选中的项目文件
+        
+        // 🚀 历史记录栈
+        let historyStack = []; 
+        let historyIndex = -1;
+
+        // 🚀 自定义下拉菜单逻辑
+        function initCustomSelect(data) {
+            const trigger = document.getElementById('selectTrigger');
+            const options = document.getElementById('customOptions');
+            
+            if (!trigger || !options) return;
+
+            // 兼容旧版数组格式，合并所有分类为一个平面列表
+            let allProjects = [];
+            if (Array.isArray(data)) {
+                allProjects = data;
+            } else {
+                // 新版分组结构：合并 frameworks 和 projects
+                if (data.frameworks) allProjects = allProjects.concat(data.frameworks);
+                if (data.projects) allProjects = allProjects.concat(data.projects);
+            }
+            
+            if (allProjects.length === 0) return;
+
+            // 🚀 默认选中第一个项目
+            trigger.textContent = allProjects[0].name;
+            currentProjectFile = allProjects[0].file;
+
+            // 构建选项列表
+            options.innerHTML = '';
+            allProjects.forEach((p, index) => {
+                const opt = document.createElement('div');
+                opt.className = 'custom-option' + (index === 0 ? ' selected' : '');
+                opt.textContent = p.name;
+                opt.onclick = () => {
+                    options.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    trigger.textContent = p.name;
+                    currentProjectFile = p.file;
+                    closeCustomSelect();
+                    loadProject(p.file);
+                };
+                options.appendChild(opt);
+            });
+            
+            trigger.onclick = (e) => {
+                e.stopPropagation();
+                toggleCustomSelect();
+            };
+            
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.custom-select')) closeCustomSelect();
+            });
+        }
+        
+        function toggleCustomSelect() {
+            const options = document.getElementById('customOptions');
+            const trigger = document.getElementById('selectTrigger');
+            const isOpen = options.classList.contains('open');
+            
+            if (isOpen) {
+                closeCustomSelect();
+            } else {
+                openCustomSelect();
+            }
+        }
+        
+        function openCustomSelect() {
+            const options = document.getElementById('customOptions');
+            const trigger = document.getElementById('selectTrigger');
+            const panel = document.querySelector('.control-panel');
+            
+            options.classList.add('open');
+            trigger.classList.add('active');
+            
+            // 🚀 智能判断展开方向：防止向上溢出
+            const rect = trigger.getBoundingClientRect();
+            const panelRect = panel.getBoundingClientRect();
+            const spaceAbove = rect.top - panelRect.top;
+            const spaceBelow = panelRect.bottom - rect.bottom;
+            const optionsHeight = Math.min(options.scrollHeight, 300);
+            
+            // 如果上方空间不足且下方空间充足，向下展开
+            if (spaceAbove < optionsHeight && spaceBelow >= optionsHeight) {
+                options.classList.remove('open-up');
+                options.classList.add('open-down');
+            } else {
+                // 默认向上展开（避免被面板底部截断）
+                options.classList.remove('open-down');
+                options.classList.add('open-up');
+            }
+        }
+        
+        function closeCustomSelect() {
+            const options = document.getElementById('customOptions');
+            const trigger = document.getElementById('selectTrigger');
+            options.classList.remove('open', 'open-up', 'open-down');
+            trigger.classList.remove('active');
+        }
+
+        async function init() {
+            try {
+                const res = await fetch('./data/projects.json?t=' + Date.now());
+                const data = await res.json();
+                initCustomSelect(data);
+                
+                // 兼容新旧两种格式
+                const firstProject = Array.isArray(data) ? data[0] : (data.frameworks && data.frameworks[0]);
+                if (firstProject && firstProject.file) {
+                    loadProject(firstProject.file);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadProject(file) {
+            if (!file) return;
+            const overlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            overlay.style.display = 'flex'; overlay.style.opacity = '1';
+            loadingText.textContent = '正在加载数据...';
+
+            try {
+                const res = await fetch(`./data/${file}?t=${Date.now()}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                
+                loadingText.textContent = '正在解析大规模 JSON 数据...';
+                rawData = await res.json();
+                
+                // 🚀 兼容性处理：适配新旧两种 JSON 结构
+                if (rawData.assets) {
+                    // 新版结构: { assets: [], dependencies: [] }
+                    console.log('检测到新版资产结构');
+                } else if (rawData.nodes) {
+                    // 旧版结构: { nodes: [], links: [] }
+                    console.log('检测到旧版图谱结构，正在转换...');
+                    
+                    // 1. 转换节点：将 id/name/category 映射为 address/kind
+                    rawData.assets = rawData.nodes.map(n => ({
+                        address: n.id,        // 映射: id -> address
+                        kind: n.category,     // 映射: category -> kind
+                        description: n.description || '',
+                        methods: [],          // 旧版数据通常没有嵌套的方法细节
+                        depCount: n.depCount || 0
+                    }));
+
+                    // 2. 转换连线：确保 source/target 与节点的 id (即新的 address) 对应
+                    rawData.dependencies = (rawData.links || []).map(l => ({
+                        source: l.source,
+                        target: l.target,
+                        type: l.type || 'DEPENDS_ON' // 如果旧版没 type，默认给一个
+                    }));
+                } else {
+                    throw new Error('数据文件格式不支持：未找到 assets 或 nodes 字段');
+                }
+
+                if (!rawData.assets || rawData.assets.length === 0) {
+                    throw new Error('数据文件中内容为空');
+                }
+
+                // 构建索引
+                assetIndex.clear();
+                const indexAssets = (assets) => {
+                    assets.forEach(a => {
+                        assetIndex.set(a.address, a);
+                        if (a.methods) a.methods.forEach(m => assetIndex.set(m.address, m));
+                    });
+                };
+                indexAssets(rawData.assets);
+                if (rawData.moduleLibrary) Object.values(rawData.moduleLibrary).forEach(indexAssets);
+
+                loadingText.textContent = '正在渲染图谱...';
+                resetToComponent();
+
+            } catch (e) {
+                console.error(e);
+                loadingText.textContent = `错误: ${e.message} (详见控制台)`;
+            }
+        }
+
+        function setMode(mode) {
+            viewMode = mode;
+            document.getElementById('modeGlobal').classList.toggle('active', mode === 'global');
+            document.getElementById('modeLink').classList.toggle('active', mode === 'link');
+            
+            if (mode === 'global') {
+                resetToComponent();
+            } else {
+                // 切换到链路模式时，默认选中第一个节点作为起点
+                if (rawData.assets.length > 0) {
+                    startLinkTrace(rawData.assets[0].address);
+                }
+            }
+        }
+
+        function startLinkTrace(startAddr) {
+            linkPathNodes.clear();
+            linkPathLinks = [];
+            linkPathNodes.add(startAddr);
+            expandNodeInLinkMode(startAddr);
+            renderGraph(getLinkTraceData());
+        }
+
+        function expandNodeInLinkMode(addr) {
+            // 查找所有以 addr 为起点的 CALLS 依赖
+            (rawData.dependencies || []).forEach(dep => {
+                if (dep.type === 'CALLS' && dep.source.startsWith(addr + '#')) {
+                    const targetClass = dep.target.split('#')[0];
+                    if (!linkPathNodes.has(targetClass)) {
+                        linkPathNodes.add(targetClass);
+                        linkPathLinks.push(dep);
+                        // 递归展开（限制深度防止爆炸，这里先做一层）
+                        // expandNodeInLinkMode(targetClass); 
+                    } else {
+                        linkPathLinks.push(dep);
+                    }
+                }
+            });
+        }
+
+        function getLinkTraceData() {
+            const nodes = [];
+            const links = [];
+            
+            linkPathNodes.forEach(addr => {
+                const asset = assetIndex.get(addr);
+                if (asset) {
+                    nodes.push({
+                        id: asset.address,
+                        name: asset.address.split('#').pop(), // 只显示方法名
+                        category: asset.kind,
+                        symbolSize: 35,
+                        itemStyle: { borderColor: '#fff', borderWidth: 2 }
+                    });
+                }
+            });
+
+            linkPathLinks.forEach(dep => {
+                if (linkPathNodes.has(dep.source) && linkPathNodes.has(dep.target)) {
+                    links.push({
+                        source: dep.source,
+                        target: dep.target,
+                        type: 'CALLS',
+                        lineStyle: { color: '#ffffff', curveness: 0.2, width: 2 }
+                    });
+                }
+            });
+            
+            return { nodes, links };
+        }
+
+        function resetToComponent() {
+            // 🚀 重置时清空历史栈，因为这是主动返回首页
+            historyStack = [];
+            historyIndex = -1;
+            pushHistory(); // 将首页压入栈底
+
+            currentView = 'component';
+            currentClassAddr = null;
+            viewMode = 'global';
+            linkPathNodes.clear();
+            linkPathLinks = [];
+            
+            updateLegendUI();
+            updateBreadcrumb();
+            renderGraph(getComponentGraphData());
+        }
+
+        function drillIntoMethods(classAddr) {
+            pushHistory();
+
+            const asset = assetIndex.get(classAddr);
+            if (!asset || !asset.methods || asset.methods.length === 0) {
+                alert('该类暂无详细方法数据');
+                return;
+            }
+            currentView = 'method';
+            currentClassAddr = classAddr;
+            
+            activeFilters.add('METHOD');
+            activeFilters.add('EXTERNAL_METHOD');
+            activeLinkTypes.add('CALLS');
+            
+            // 🚀 切换面板显隐
+            document.getElementById('componentFilters').style.display = 'none';
+            document.getElementById('methodFilters').style.display = 'block';
+            
+            updateLegendUI();
+            updateTagLegendUI();
+            updateBreadcrumb();
+            renderGraph(getMethodGraphData(classAddr));
+        }
+
+        function resetToComponent() {
+            currentView = 'component';
+            currentClassAddr = null;
+            viewMode = 'global';
+            linkPathNodes.clear();
+            linkPathLinks = [];
+            
+            // 🚀 恢复组件层面板
+            document.getElementById('componentFilters').style.display = 'block';
+            document.getElementById('methodFilters').style.display = 'none';
+            
+            updateLegendUI();
+            updateBreadcrumb();
+            renderGraph(getComponentGraphData());
+        }
+
+        function traceMethodChain(methodAddr) {
+            pushHistory(); // 🚀 记录链路追踪的历史
+            linkPathNodes.clear();
+            linkPathLinks = [];
+            linkPathNodes.add(methodAddr);
+            
+            expandNodeInLinkMode(methodAddr, 'out');
+            expandNodeInLinkMode(methodAddr, 'in');
+            
+            renderGraph(getLinkTraceData());
+            updateBreadcrumb();
+        }
+
+        function expandNodeInLinkMode(addr, direction = 'out') {
+            (rawData.dependencies || []).forEach(dep => {
+                if (dep.type !== 'CALLS') return;
+                
+                let match = false;
+                let nextAddr = null;
+                
+                if (direction === 'out' && dep.source === addr) {
+                    match = true;
+                    nextAddr = dep.target;
+                } else if (direction === 'in' && dep.target === addr) {
+                    match = true;
+                    nextAddr = dep.source;
+                }
+                
+                if (match) {
+                    linkPathLinks.push(dep);
+                    if (!linkPathNodes.has(nextAddr)) {
+                        linkPathNodes.add(nextAddr);
+                        // 递归一层，形成完整链路
+                        expandNodeInLinkMode(nextAddr, direction);
+                    }
+                }
+            });
+        }
+
+        function updateBreadcrumb() {
+            const bcText = document.getElementById('breadcrumbText');
+            const btnBack = document.getElementById('btnBack');
+            const btnForward = document.getElementById('btnForward');
+            
+            // 更新按钮状态
+            btnBack.style.opacity = historyIndex > 0 ? '1' : '0.3';
+            btnForward.style.opacity = historyIndex < historyStack.length - 1 ? '1' : '0.3';
+
+            if (currentView === 'component') {
+                bcText.textContent = '🏛️ 组件依赖视图';
+            } else {
+                const asset = assetIndex.get(currentClassAddr);
+                let text = `⚙️ ${asset ? asset.address.split('.').pop() : currentClassAddr}`;
+                
+                if (viewMode === 'link' && linkPathNodes.size > 0) {
+                    const firstNode = Array.from(linkPathNodes)[0];
+                    const methodAsset = assetIndex.get(firstNode);
+                    if (methodAsset) {
+                        text += ` > 🔗 ${methodAsset.address.split('#').pop()}`;
+                    }
+                }
+                bcText.textContent = text;
+            }
+        }
+
+        // 🚀 历史记录管理
+        function pushHistory() {
+            // 如果当前不在栈顶，截断后面的历史（浏览器行为）
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+            
+            // 🚀 保存更详细的快照：包括链路模式下的具体节点
+            historyStack.push({
+                view: currentView,
+                classAddr: currentClassAddr,
+                mode: viewMode,
+                activeFilters: new Set(activeFilters),
+                activeLinkTypes: new Set(activeLinkTypes),
+                activeTags: new Set(activeTags),
+                linkPathNodes: new Set(linkPathNodes), // 记录链路节点
+                linkPathLinks: [...linkPathLinks]      // 记录链路连线
+            });
+            historyIndex++;
+            updateBreadcrumb();
+        }
+
+        function goBack() {
+            if (historyIndex <= 0) {
+                resetToComponent();
+                return;
+            }
+            historyIndex--;
+            restoreState(historyStack[historyIndex]);
+        }
+
+        function goForward() {
+            if (historyIndex >= historyStack.length - 1) return;
+            historyIndex++;
+            restoreState(historyStack[historyIndex]);
+        }
+
+        function restoreState(state) {
+            currentView = state.view;
+            currentClassAddr = state.classAddr;
+            viewMode = state.mode;
+            activeFilters = state.activeFilters;
+            activeLinkTypes = state.activeLinkTypes;
+            activeTags = state.activeTags;
+            linkPathNodes = state.linkPathNodes || new Set();
+            linkPathLinks = state.linkPathLinks || [];
+            
+            updateLegendUI();
+            
+            if (currentView === 'component') {
+                renderGraph(getComponentGraphData());
+            } else if (viewMode === 'link') {
+                renderGraph(getLinkTraceData());
+            } else {
+                renderGraph(getMethodGraphData(currentClassAddr));
+            }
+            updateBreadcrumb();
+        }
+
+        // --- 视图数据适配器 ---
+
+        function toggleFilter(category) {
+            if (activeFilters.has(category)) activeFilters.delete(category);
+            else activeFilters.add(category);
+            updateLegendUI();
+            refreshGraph();
+        }
+
+        function toggleLinkType(type) {
+            if (activeLinkTypes.has(type)) activeLinkTypes.delete(type);
+            else activeLinkTypes.add(type);
+            updateLegendUI();
+            refreshGraph();
+        }
+
+        function updateLegendUI() {
+            // 🚀 1. 处理节点类型筛选
+            document.querySelectorAll('.legend-item[data-type]').forEach(item => {
+                const type = item.getAttribute('data-type');
+                if (!type) return;
+
+                const isNodeFilter = ['INTERFACE', 'CLASS', 'ABSTRACT_CLASS', 'ENUM', 'EXTERNAL_LIB'].includes(type);
+                const isActive = isNodeFilter ? activeFilters.has(type) : activeLinkTypes.has(type);
+                
+                item.classList.toggle('disabled', !isActive);
+            });
+
+            // 🚀 2. 动态控制“连线关系”和“方法标签”区域的显隐
+            const linkSectionLabel = Array.from(document.querySelectorAll('.legend label')).find(l => l.textContent.includes('连线关系'));
+            const tagSectionLabel = Array.from(document.querySelectorAll('.legend label')).find(l => l.textContent.includes('方法标签'));
+            const tagContainer = document.getElementById('tagLegendContainer');
+
+            if (currentView === 'component') {
+                // 组件层：隐藏 CALLS 连线和所有标签
+                const callsItem = document.querySelector('.legend-item[data-type="CALLS"]');
+                if (callsItem) callsItem.style.display = 'none';
+                if (linkSectionLabel) linkSectionLabel.style.display = 'block'; // 保留标题，但隐藏不相关的项
+                if (tagSectionLabel) tagSectionLabel.style.display = 'none';
+                if (tagContainer) tagContainer.style.display = 'none';
+            } else {
+                // 方法层：显示所有内容
+                const callsItem = document.querySelector('.legend-item[data-type="CALLS"]');
+                if (callsItem) callsItem.style.display = 'flex';
+                if (tagSectionLabel) tagSectionLabel.style.display = 'block';
+                if (tagContainer) tagContainer.style.display = 'block';
+            }
+        }
+
+        function updateTagLegendUI() {
+            const container = document.getElementById('tagLegendContainer');
+            const allTags = ['Query', 'Create', 'Update', 'Delete', 'Locking', 'Async', 'Atomic', 'Lifecycle', 'Config', 'Utility', 'Validation', 'ErrorHandling'];
+            
+            container.innerHTML = '';
+            allTags.forEach(tag => {
+                const div = document.createElement('div');
+                div.className = 'legend-item' + (activeTags.has(tag) ? '' : ' disabled');
+                div.innerHTML = `<div class="legend-dot" style="background:#ed8936"></div><span>${tag}</span>`;
+                div.onclick = () => toggleTag(tag);
+                container.appendChild(div);
+            });
+        }
+
+        function toggleTag(tag) {
+            console.log(`Toggling tag: ${tag}, current active:`, Array.from(activeTags));
+            if (activeTags.has(tag)) activeTags.delete(tag);
+            else activeTags.add(tag);
+            console.log(`After toggle:`, Array.from(activeTags));
+            updateTagLegendUI();
+            refreshGraph();
+        }
+
+        function refreshGraph() {
+            if (currentView === 'component') renderGraph(getComponentGraphData());
+            else renderGraph(getMethodGraphData(currentClassAddr));
+        }
+
+        function getComponentGraphData() {
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map(); 
+
+            // 1. 收集所有内部类节点 (应用节点类型筛选)
+            rawData.assets.forEach(asset => {
+                if (!activeFilters.has(asset.kind)) return;
+
+                // 🚀 孤立节点逻辑：检查该节点是否有任何连线
+                let hasLinks = false;
+                for (const dep of (rawData.dependencies || [])) {
+                    if (dep.source === asset.address || dep.target === asset.address) {
+                        hasLinks = true;
+                        break;
+                    }
+                }
+
+                // 如果开启了“孤立节点”筛选，只显示没连线的；如果没开，只显示有连线的
+                const isIsolated = !hasLinks;
+                if (activeFilters.has('ISOLATED')) {
+                    if (!isIsolated) return; 
+                } else {
+                    if (isIsolated) return;
+                }
+
+                if (!nodeMap.has(asset.address)) {
+                    const node = {
+                        id: asset.address,
+                        name: asset.address.split('.').pop(),
+                        category: asset.kind,
+                        description: asset.description,
+                        arch_tags: asset.arch_tags, // 🚀 注入双语标签
+                        insight_summary: asset.insight_summary, // 🚀 注入洞察摘要
+                        symbolSize: Math.min(40, 15 + (asset.methods?.length || 0) * 2),
+                        value: asset.methods?.length || 0,
+                        itemStyle: { borderColor: '#fff', borderWidth: 1 }
+                    };
+                    nodes.push(node);
+                    nodeMap.set(asset.address, node);
+                }
+            });
+
+            // 2. 处理依赖连线 (应用连线类型筛选)
+            (rawData.dependencies || []).forEach(dep => {
+                let linkType = dep.type;
+                
+                // 🚀 细化实现关系：区分抽象类实现和接口实现
+                if (dep.type === 'IMPLEMENTS') {
+                    const targetAsset = assetIndex.get(dep.target);
+                    if (targetAsset && targetAsset.kind === 'ABSTRACT_CLASS') {
+                        linkType = 'IMPLEMENTS_ABS';
+                    } else {
+                        linkType = 'IMPLEMENTS_INT';
+                    }
+                }
+
+                if (!activeLinkTypes.has(linkType)) return;
+                
+                const sourceExists = nodeMap.has(dep.source);
+                const targetExists = nodeMap.has(dep.target);
+
+                // 🚀 只有当连线的两端节点都存在（即都被筛选器保留）时，才添加该连线
+                if (sourceExists && targetExists) {
+                    links.push({
+                        source: dep.source,
+                        target: dep.target,
+                        type: linkType,
+                        lineStyle: { 
+                            color: linkType === 'EXTENDS' ? '#4299e1' : 
+                                   (linkType === 'IMPLEMENTS_ABS' ? '#9f7aea' : 
+                                   (linkType === 'IMPLEMENTS_INT' ? '#48bb78' : 
+                                   (linkType === 'CALLS' ? '#ffffff' : '#38b2ac'))),
+                            curveness: 0.3, opacity: 0.7
+                        }
+                    });
+                }
+            });
+
+            console.log(`[Component View] Nodes: ${nodes.length}, Links: ${links.length}`);
+            return { nodes, links };
+        }
+
+        function getMethodGraphData(targetClassAddr) {
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map();
+
+            // 1. 添加目标类的方法节点
+            const asset = assetIndex.get(targetClassAddr);
+            if (asset && asset.methods) {
+                asset.methods.forEach(m => {
+                    // 🚀 标签筛选逻辑
+                    if (activeTags.size > 0) {
+                        const mTags = m.tags || [];
+                        if (!mTags.some(t => activeTags.has(t))) return;
+                    }
+
+                    const node = {
+                        id: m.address,
+                        name: m.address.split('#').pop(),
+                        category: 'METHOD',
+                        description: m.description,
+                        tags: m.tags || [], // 注入标签数据
+                        symbolSize: 20,
+                        value: 1
+                    };
+                    nodes.push(node);
+                    nodeMap.set(m.address, node);
+                });
+            }
+
+            // 2. 收集相关的 CALLS 连线
+            (rawData.dependencies || []).forEach(dep => {
+                if (dep.type !== 'CALLS') return; // 方法视图只看调用
+                
+                const isSourceIn = dep.source.startsWith(targetClassAddr + '#');
+                const isTargetIn = dep.target.startsWith(targetClassAddr + '#');
+                
+                if (isSourceIn || isTargetIn) {
+                    const sourceCat = isSourceIn ? 'METHOD' : 'EXTERNAL_METHOD';
+                    const targetCat = isTargetIn ? 'METHOD' : 'EXTERNAL_METHOD';
+                    
+                    if (!nodeMap.has(dep.source)) {
+                        const sNode = { id: dep.source, name: dep.source.split('#').pop(), category: sourceCat, symbolSize: 15, value: 0 };
+                        nodes.push(sNode);
+                        nodeMap.set(dep.source, sNode);
+                    }
+                    if (!nodeMap.has(dep.target)) {
+                        const tNode = { id: dep.target, name: dep.target.split('#').pop(), category: targetCat, symbolSize: 15, value: 0 };
+                        nodes.push(tNode);
+                        nodeMap.set(dep.target, tNode);
+                    }
+                    
+                    if (nodeMap.has(dep.source) && nodeMap.has(dep.target)) {
+                        links.push({
+                            source: dep.source,
+                            target: dep.target,
+                            type: 'CALLS',
+                            lineStyle: { color: '#ffffff', curveness: 0.1, opacity: 0.8 } // 白色连线
+                        });
+                    }
+                }
+            });
+
+            console.log(`[Method View] Nodes: ${nodes.length}, Links: ${links.length}`);
+            return { nodes, links };
+        }
+
+        function renderGraph(data) {
+            const isLarge = data.nodes.length > 500;
+            chart.setOption({
+                backgroundColor: 'transparent',
+                tooltip: { 
+                    trigger: 'item',
+                    confine: true, // 强制限制在容器内
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)', // 强制深色背景
+                    borderColor: '#334155',
+                    textStyle: { color: '#e2e8f0' }, // 强制浅色文字
+                    // 🚀 核心修复：使用 !important 防止 ECharts 内部样式覆盖
+                    extraCssText: 'max-width: 300px !important; white-space: normal !important; word-break: break-word !important; overflow: hidden !important; box-shadow: 0 4px 12px rgba(0,0,0,0.5);',
+                    // 🚀 鲁棒的边界检测：强制坐标不越界
+                    position: function (point, params, dom, rect, size) {
+                        const x = point[0];
+                        const y = point[1];
+                        const viewWidth = size.viewSize[0];
+                        const viewHeight = size.viewSize[1];
+                        const boxWidth = size.contentSize[0];
+                        const boxHeight = size.contentSize[1];
+                        
+                        // 计算最佳位置
+                        let xPos = x + 15;
+                        let yPos = y + 15;
+                        
+                        // 水平钳制
+                        if (xPos + boxWidth > viewWidth) xPos = x - boxWidth - 15;
+                        if (xPos < 0) xPos = 10;
+                        
+                        // 垂直钳制
+                        if (yPos + boxHeight > viewHeight) yPos = y - boxHeight - 15;
+                        if (yPos < 0) yPos = 10;
+                        
+                        return [xPos, yPos];
+                    },
+                    formatter: function(params) {
+                        const d = params.data;
+                        const fullName = d.id || '';
+                        const shortName = d.name || '';
+                        
+                        // 🚀 1. 处理双语标签 (Arch Tags)
+                        let tagsHtml = '';
+                        if (d.arch_tags && d.arch_tags.length > 0) {
+                            tagsHtml = '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">';
+                            d.arch_tags.forEach(tag => {
+                                tagsHtml += `<span style="font-size:10px;padding:2px 6px;background:#2d3748;border:1px solid #4a5568;border-radius:4px;color:#f6ad55;" title="${tag.desc}">${tag.cn}</span>`;
+                            });
+                            tagsHtml += '</div>';
+                        }
+
+                        // 🚀 2. 处理洞察摘要 (Insight Summary)
+                        const insight = d.insight_summary || '';
+                        let desc = (d.description||'').replace(/@\w+|\{.*?\}|<.*?>/g,'').replace(/\s+/g,' ').trim();
+                        desc = desc.length>80 ? desc.substring(0,80)+'...' : desc;
+                        
+                        return `<div style="padding: 4px 0; max-width: 320px;">
+                            <div style="font-size:14px;font-weight:bold;color:${COLOR_MAP[d.category]};margin-bottom:4px;">${shortName}</div>
+                            ${fullName !== shortName ? `<div style="font-size:11px;color:#a0aec0;margin-bottom:6px;word-break:break-all;">${fullName}</div>` : ''}
+                            ${insight ? `<div style="font-size:12px;color:#e2e8f0;line-height:1.5;margin-bottom:6px;padding:6px;background:rgba(66, 153, 225, 0.1);border-left:3px solid #4299e1;">${insight}</div>` : ''}
+                            ${desc ? `<div style="font-size:11px;color:#cbd5e0;line-height:1.4;">${desc}</div>` : ''}
+                            ${tagsHtml}
+                            <div style="margin-top:6px;padding-top:4px;border-top:1px solid #2d3748;font-size:10px;color:#63b3ed;">Type: ${d.category} | Methods: ${d.value || 0}</div>
+                        </div>`;
+                    }
+                },
+                series: [{
+                    type: 'graph', layout: 'force', roam: true, draggable: true,
+                    data: data.nodes.map(n => ({...n, itemStyle: {color: COLOR_MAP[n.category]||'#c9d1d9'}})),
+                    links: data.links.map(l => ({
+                        ...l,
+                        // 🚀 增加方向性箭头
+                        symbol: ['none', 'arrow'], 
+                        symbolSize: [6, 10], // 箭头大小
+                        lineStyle: {
+                            ...l.lineStyle,
+                            curveness: 0.3 // 增加曲度，防止箭头重叠时看不清
+                        }
+                    })),
+                    // 🚀 优化：默认不显示标签，悬停时才显示，减少视觉噪音
+                    label: {
+                        show: false, 
+                        position: 'right', 
+                        color: '#cbd5e0', 
+                        fontSize: 11,
+                        backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                        padding: [2, 4],
+                        borderRadius: 3
+                    },
+                    emphasis: {
+                        focus: 'adjacency',
+                        lineStyle: { opacity: 0.8, width: 2 },
+                        label: { show: true } // 悬停时显示标签
+                    },
+                    force: { repulsion: 300, edgeLength: 100, gravity: 0.05, friction: 0.6 },
+                    animation: !isLarge
+                }]
+            }, true);
+
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        // --- 事件监听 ---
+        chart.on('dblclick', function(params) {
+            if (params.dataType === 'node') {
+                // 🚀 双击节点：目前只用于聚焦，不再进行复杂的视图切换
+                const addr = params.data.id;
+                console.log(`Focused on node: ${addr}`);
+                // 可以在这里增加一些简单的聚焦动画
+            }
+        });
+
+        init();
+        window.addEventListener('resize', () => chart.resize());
+    </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>架构图谱 - 力导向图 (路径优化版)</title>
+    <script src="./echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        #main { width: 100vw; height: 100vh; }
+        
+        .control-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(14, 18, 28, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 16px; border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #a0aec0; z-index: 100; min-width: 260px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        }
+        
+        h3 { margin: 0 0 12px 0; color: #e2e8f0; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+        label { font-size: 11px; color: #718096; display: block; margin-bottom: 6px; }
+        select {
+            width: 100%; background: #1a202c; color: #e2e8f0;
+            border: 1px solid #2d3748; padding: 8px 10px;
+            border-radius: 6px; font-size: 12px; cursor: pointer; outline: none;
+        }
+        select:hover, select:focus { border-color: #4299e1; }
+        
+        .stats { margin-top: 10px; font-size: 10px; color: #718096; display: flex; justify-content: space-between; padding: 6px 8px; background: rgba(26, 32, 44, 0.5); border-radius: 4px; }
+        .legend { margin-top: 10px; font-size: 10px; }
+        .legend-item { display: flex; align-items: center; margin: 5px 0; padding: 2px 0; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+        
+        .loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(11, 15, 25, 0.95); z-index: 200;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #4299e1; font-size: 16px; transition: opacity 0.4s;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid #1a202c;
+            border-top-color: #4299e1; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .hint { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); color: #4a5568; font-size: 11px; background: rgba(14, 18, 28, 0.6); padding: 6px 14px; border-radius: 16px; letter-spacing: 0.5px; }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <h3>🗺️ 力导向图 (路径优化)</h3>
+        <label>选择项目：</label>
+        <select id="projectSelector" onchange="loadProject(this.value)"><option>加载中...</option></select>
+        <div class="stats"><span id="statsNodes">节点：-</span><span id="statsLinks">连线：-</span></div>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#4299e1"></div><span>接口</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#9f7aea"></div><span>抽象类</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#48bb78"></div><span>具体类</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ed8936"></div><span>枚举</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#a0aec0"></div><span>工具类</span></div>
+        </div>
+    </div>
+    
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText">正在初始化...</div>
+    </div>
+    <div class="hint">🖱️ 悬停节点高亮路径 · 滚轮缩放 · 拖拽平移</div>
+    <div id="main"></div>
+
+    <script>
+        const chart = echarts.init(document.getElementById('main'), 'dark');
+        const COLOR_MAP = {
+            'INTERFACE': '#4299e1', 'ABSTRACT_CLASS': '#9f7aea', 'CLASS': '#48bb78',
+            'ENUM': '#ed8936', 'UTILITY': '#a0aec0', 'EXTERNAL': '#4a5568'
+        };
+
+        async function init() {
+            try {
+                const res = await fetch('./data/projects.json?t=' + Date.now());
+                if (!res.ok) throw new Error('无法加载项目索引');
+                const projects = await res.json();
+                
+                const sel = document.getElementById('projectSelector');
+                sel.innerHTML = '';
+                projects.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.file;
+                    opt.textContent = p.name;
+                    sel.appendChild(opt);
+                });
+                
+                if (projects.length) loadProject(projects[0].file);
+            } catch (e) {
+                console.error('初始化失败:', e);
+                document.getElementById('loadingText').textContent = '加载失败: ' + e.message;
+                document.getElementById('loadingText').style.color = '#fc8181';
+            }
+        }
+
+        async function loadProject(file) {
+            if (!file) return;
+            
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.display = 'flex';
+            overlay.style.opacity = '1';
+            document.getElementById('loadingText').textContent = '正在解析数据...';
+            
+            try {
+                const res = await fetch(`./data/${file}?t=${Date.now()}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                
+                document.getElementById('statsNodes').textContent = `节点：${data.nodes.length}`;
+                document.getElementById('statsLinks').textContent = `连线：${data.links.length}`;
+                
+                const isLarge = data.nodes.length > 1000;
+                document.getElementById('loadingText').textContent = isLarge ? '节点较多，正在布局...' : '正在生成图谱...';
+                
+                setTimeout(() => {
+                    const option = {
+                        backgroundColor: 'transparent',
+                        tooltip: { 
+                            trigger: 'item', 
+                            backgroundColor: 'rgba(26, 32, 44, 0.95)', 
+                            borderColor: 'rgba(255, 255, 255, 0.1)', 
+                            borderWidth: 1,
+                            textStyle: { color: '#e2e8f0' },
+                            formatter: function(params) {
+                                if (params.dataType === 'node') {
+                                    const d = params.data;
+                                    let desc = (d.description || '').replace(/@(\w+)/g, '').replace(/\{.*?\}/g, '').replace(/<.*?>/g, '');
+                                    desc = desc.replace(/\s+/g, ' ').trim();
+                                    const shortDesc = desc.length > 30 ? desc.substring(0, 30) + '...' : desc;
+                                    
+                                    return `
+                                        <div style="max-width: 220px; padding: 4px">
+                                            <strong style="color:${d.color}; font-size:13px">${d.name}</strong>
+                                            <div style="margin-top:3px; font-size:11px; line-height:1.4; color:#cbd5e0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">
+                                                ${shortDesc || '<span style="color:#718096">No description</span>'}
+                                            </div>
+                                            <div style="margin-top:4px; font-size:10px; color:#63b3ed; font-weight:500">
+                                                M:${d.methodCount} · F:${d.fieldCount}
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                                return params.name;
+                            }
+                        },
+                        series: [{
+                            type: 'graph', layout: 'force', roam: true, draggable: true,
+                            data: data.nodes.map(n => ({
+                                ...n, itemStyle: { color: n.color || COLOR_MAP[n.category] || '#c9d1d9' }
+                            })),
+                            links: data.links.map(l => ({
+                                ...l,
+                                lineStyle: { 
+                                    color: 'source',  // 连线颜色跟随来源节点
+                                    opacity: 0.08,    // 默认极暗
+                                    width: 1,
+                                    curveness: 0.1
+                                }
+                            })),
+                            label: { show: !isLarge, position: 'right', color: '#a0aec0', fontSize: 10 },
+                            force: { repulsion: 180, edgeLength: 50, gravity: 0.05, friction: 0.75 },
+                            emphasis: { 
+                                focus: 'adjacency',
+                                lineStyle: { opacity: 0.8, width: 2 }  // 悬停时连线高亮
+                            },
+                            animation: !isLarge,
+                            animationDuration: 600
+                        }]
+                    };
+                    chart.setOption(option, true);
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.style.display = 'none', 300);
+                }, 100);
+            } catch (e) {
+                console.error('加载失败:', e);
+                document.getElementById('loadingText').textContent = '错误: ' + e.message;
+                document.getElementById('loadingText').style.color = '#fc8181';
+            }
+        }
+
+        init();
+        window.addEventListener('resize', () => chart.resize());
+    </script>
+</body>
+</html>

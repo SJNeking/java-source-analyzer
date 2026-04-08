@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    # --- 修改点：这里就是你想要的 Container ID / Name ---
+    # 建议起一个更有辨识度的名字，比如 redisson_brain_master
+    container_name: redisson_brain_db
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 123456
+      # 这是容器启动时自动创建的初始数据库名，作为系统管理入口
+      POSTGRES_DB: postgres
+      # 核心：解决跨网段连接信任问题（169.254等地址报错的克星）
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      # 宿主机端口 : 容器内部端口
+      - "15432:5432"
+    volumes:
+      # 数据持久化：左边是宿主机路径，右边是容器内路径
+      - ./db/postgres_data:/var/lib/postgresql/data
+    command: [
+      "postgres",
+      "-c", "max_connections=200",    # 增大并发连接数
+      "-c", "shared_buffers=256MB",   # 增大缓存，加速 JSONB 资产查询
+      "-c", "timezone=Asia/Shanghai"  # 设置容器时区为上海
+    ]
+
+networks:
+  default:
+    name: code_network

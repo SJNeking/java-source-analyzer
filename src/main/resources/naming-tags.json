@@ -1,0 +1,97 @@
+{
+  "description": "基于命名语义的标签体系 - 关注组件、方法和字段的实际命名",
+  "dimensions": {
+    "COMPONENT_ROLE": [
+      {
+        "tag": "Controller",
+        "suffixes": ["Controller", "Servlet", "Handler", "Endpoint"],
+        "description": "请求入口，负责参数校验与路由"
+      },
+      {
+        "tag": "Service",
+        "suffixes": ["Service", "Manager", "Biz"],
+        "description": "业务逻辑核心，处理具体业务流程"
+      },
+      {
+        "tag": "Repository",
+        "suffixes": ["Repository", "Dao", "Mapper", "Store"],
+        "description": "数据访问层，负责数据库交互"
+      },
+      {
+        "tag": "DTO",
+        "suffixes": ["DTO", "VO", "BO", "PO", "Entity"],
+        "description": "数据传输对象或持久化实体"
+      },
+      {
+        "tag": "Utility",
+        "suffixes": ["Util", "Utils", "Helper", "Kit"],
+        "description": "静态工具类，提供通用辅助功能"
+      },
+      {
+        "tag": "Configuration",
+        "suffixes": ["Config", "Properties", "Setting"],
+        "description": "配置信息载体"
+      }
+    ],
+    "METHOD_INTENT": [
+      {
+        "tag": "Query",
+        "prefixes": ["get", "find", "query", "select", "list", "search", "fetch", "load"],
+        "description": "查询操作，用于检索数据"
+      },
+      {
+        "tag": "Write",
+        "prefixes": ["save", "create", "insert", "add", "update", "modify", "set", "store"],
+        "description": "写入操作，用于持久化或修改状态"
+      },
+      {
+        "tag": "Delete",
+        "prefixes": ["delete", "remove", "drop", "clear", "cancel", "destroy"],
+        "description": "删除操作，用于移除数据或资源"
+      },
+      {
+        "tag": "Validation",
+        "prefixes": ["is", "has", "can", "should", "validate", "check", "verify", "exists"],
+        "return_type_hints": ["boolean", "Boolean"],
+        "description": "校验与判断，返回布尔值或状态"
+      },
+      {
+        "tag": "Conversion",
+        "prefixes": ["convert", "transform", "parse", "format", "serialize", "deserialize"],
+        "description": "数据转换与格式化"
+      },
+      {
+        "tag": "Initialization",
+        "prefixes": ["init", "start", "setup", "configure", "bootstrap", "prepare"],
+        "description": "初始化与启动配置"
+      },
+      {
+        "tag": "Execution",
+        "prefixes": ["execute", "run", "perform", "do", "handle", "process"],
+        "description": "核心业务逻辑执行或任务处理"
+      },
+      {
+        "tag": "Listener",
+        "prefixes": ["on"],
+        "description": "事件监听与回调入口"
+      }
+    ],
+    "FIELD_SEMANTIC": [
+      {
+        "tag": "BooleanFlag",
+        "prefixes": ["is", "has", "can", "should"],
+        "description": "布尔类型的状态标记"
+      },
+      {
+        "tag": "Collection",
+        "suffixes": ["List", "Set", "Map", "Array", "Queue"],
+        "description": "集合类型的数据字段"
+      },
+      {
+        "tag": "Constant",
+        "modifiers": ["final", "static"],
+        "description": "静态常量，通常全大写命名"
+      }
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "description": "通用技术标签字典 - 适用于所有 Java 项目",
+  "dimensions": {
+    "CODE_QUALITY": [
+      {
+        "tag": "ThreadSafe",
+        "keywords": ["synchronized", "concurrent", "atomic"],
+        "description": "线程安全，可在多线程环境下直接使用"
+      },
+      {
+        "tag": "Immutable",
+        "keywords": ["final", "immutable"],
+        "description": "不可变对象，天然线程安全且易于缓存"
+      },
+      {
+        "tag": "Deprecated",
+        "annotations": ["@Deprecated"],
+        "description": "已过时，建议寻找替代方案"
+      }
+    ],
+    "DESIGN_PATTERN": [
+      {
+        "tag": "Singleton",
+        "keywords": ["instance", "singleton"],
+        "description": "单例模式，全局唯一实例"
+      },
+      {
+        "tag": "Factory",
+        "keywords": ["factory", "create"],
+        "description": "工厂模式，负责对象的创建与封装"
+      },
+      {
+        "tag": "Builder",
+        "keywords": ["builder"],
+        "description": "建造者模式，用于复杂对象的逐步构建"
+      }
+    ],
+    "PERFORMANCE": [
+      {
+        "tag": "HighPerformance",
+        "keywords": ["fast", "optimized", "cache"],
+        "description": "经过性能优化，适合高频调用"
+      },
+      {
+        "tag": "LazyLoading",
+        "keywords": ["lazy", "init"],
+        "description": "懒加载，延迟初始化以节省资源"
+      }
+    ]
+  }
+}

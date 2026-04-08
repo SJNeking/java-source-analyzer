@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "description": "逆向工程双语标签字典 - Reverse Engineering Bilingual Tag Dictionary",
+  "tags": {
+    "ThreadSafe": {
+      "cn": "线程安全",
+      "en": "Thread-Safe",
+      "desc": "该组件可在多线程环境下安全共享，通常包含 synchronized 或 volatile 修饰符。",
+      "category": "Concurrency"
+    },
+    "Singleton": {
+      "cn": "单例模式",
+      "en": "Singleton Pattern",
+      "desc": "全局唯一存在的实例，通常用于管理共享资源。",
+      "category": "Design Pattern"
+    },
+    "ConnectionPool": {
+      "cn": "连接池",
+      "en": "Connection Pool",
+      "desc": "负责管理数据库连接的获取、复用与释放，以提升性能。",
+      "category": "Resource Management"
+    },
+    "HighComplexity": {
+      "cn": "高复杂度逻辑",
+      "en": "High Complexity Logic",
+      "desc": "包含大量分支或循环的核心业务逻辑，建议重点审查。",
+      "category": "Code Quality"
+    },
+    "EventObserver": {
+      "cn": "事件观察者",
+      "en": "Event Observer",
+      "desc": "实现了 Listener 或 Observer 接口，用于响应系统事件。",
+      "category": "Interaction"
+    },
+    "JDBC-Intensive": {
+      "cn": "数据库密集",
+      "en": "JDBC-Intensive",
+      "desc": "频繁与关系型数据库进行交互的组件。",
+      "category": "Domain Context"
+    },
+    "NIO-Based": {
+      "cn": "NIO驱动",
+      "en": "NIO-Based",
+      "desc": "基于非阻塞 IO (NIO) 的高性能网络或文件处理实现。",
+      "category": "Technical Feature"
+    }
+  }
+}

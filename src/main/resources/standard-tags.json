@@ -1,0 +1,79 @@
+{
+  "description": "全维软件工程标准标签体系 - 适用于所有 Java 框架",
+  "dimensions": {
+    "ARCH_LAYER": [
+      {
+        "tag": "PresentationLayer",
+        "keywords": ["controller", "servlet", "handler", "api"],
+        "description": "负责用户交互与请求接收"
+      },
+      {
+        "tag": "BusinessLogicLayer",
+        "keywords": ["service", "manager", "biz"],
+        "description": "承载核心业务规则与逻辑"
+      },
+      {
+        "tag": "PersistenceLayer",
+        "keywords": ["repository", "dao", "mapper"],
+        "description": "负责数据持久化与数据库交互"
+      }
+    ],
+    "DESIGN_PATTERN": [
+      {
+        "tag": "Singleton",
+        "keywords": ["instance", "singleton"],
+        "annotations": ["@Singleton"],
+        "description": "单例模式，确保全局唯一实例"
+      },
+      {
+        "tag": "Factory",
+        "keywords": ["factory", "creator"],
+        "description": "工厂模式，封装对象创建逻辑"
+      },
+      {
+        "tag": "Proxy",
+        "keywords": ["proxy", "cglib", "jdk"],
+        "description": "代理模式，用于增强或控制访问"
+      },
+      {
+        "tag": "Observer",
+        "keywords": ["listener", "observer", "event"],
+        "description": "观察者模式，实现事件驱动解耦"
+      }
+    ],
+    "CONCURRENCY_CONTRACT": [
+      {
+        "tag": "ThreadSafe",
+        "keywords": ["synchronized", "concurrent", "atomic"],
+        "description": "线程安全，可在多线程间共享"
+      },
+      {
+        "tag": "Immutable",
+        "keywords": ["final", "immutable"],
+        "description": "不可变对象，天然线程安全"
+      },
+      {
+        "tag": "Stateless",
+        "keywords": ["stateless"],
+        "description": "无状态组件，适合高并发共享"
+      }
+    ],
+    "NAMING_SEMANTIC": [
+      {
+        "tag": "UtilityClass",
+        "keywords": ["util", "utils", "helper"],
+        "description": "工具类，通常包含静态方法"
+      },
+      {
+        "tag": "DataTransferObject",
+        "keywords": ["dto", "vo", "pojo"],
+        "description": "数据传输对象，用于层间数据交换"
+      },
+      {
+        "tag": "Configuration",
+        "keywords": ["config", "properties", "setting"],
+        "description": "配置类，管理系统参数"
+      }
+    ]
+  }
+}

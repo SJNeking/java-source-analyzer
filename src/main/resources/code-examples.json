@@ -1,0 +1,12 @@
+{
+  "org.redisson.api.RLock": {
+    "scenario_case": "// 典型用法：防止超卖\nRLock lock = redissonClient.getLock(\"product_stock_101\");\ntry {\n    if (lock.tryLock(10, TimeUnit.SECONDS)) {\n        // 执行业务逻辑\n    }\n} finally {\n    lock.unlock();\n}",
+    "best_practice": "务必在 finally 块中释放锁，建议使用 tryLock 避免死锁。",
+    "related_concepts": ["Mutual Exclusion", "Watchdog Mechanism"]
+  },
+  "org.redisson.api.RRateLimiter": {
+    "scenario_case": "// 典型用法：接口限流\nRRateLimiter limiter = redissonClient.getRateLimiter(\"api_limit\");\nlimiter.trySetRate(RateType.OVERALL, 100, 1, RateIntervalUnit.MINUTES);\nif (limiter.tryAcquire()) {\n    // 处理请求\n}",
+    "best_practice": "根据业务峰值合理设置 rate 和 interval，避免过度限制正常用户。",
+    "related_concepts": ["Token Bucket", "Leaky Bucket"]
+  }
+}
