@@ -624,7 +624,7 @@ public class SourceUniversePro {
                 Paths.get(ctx.getProjectRoot()), projectAssets, relationData);
         rootContainer.put("project_type", projectTypeInfo);
 
-        // 6. 组装并输出资产
+        // 6. 组装并输出资产（含压缩摘要）
         rootContainer.put("assets", globalLibrary);
         rootContainer.put("dependencies", globalDependencies); // 注入依赖数据
         rootContainer.put("project_assets", projectAssets);
@@ -689,7 +689,28 @@ public class SourceUniversePro {
             System.err.println("⚠️ Quality gate evaluation failed: " + e.getMessage());
         }
         
-        // 输出全量文件
+        // Generate compressed summary file
+        try {
+            Map<String, Object> compressedSummary = new LinkedHashMap<>();
+            compressedSummary.put("framework", frameworkName);
+            compressedSummary.put("version", detectedVersion);
+            compressedSummary.put("scan_date", rootContainer.get("scan_date"));
+            compressedSummary.put("total_classes", globalLibrary.size());
+            compressedSummary.put("total_methods", globalLibrary.stream().mapToInt(a -> ((List<?>) a.getOrDefault("methods_full", Collections.emptyList())).size()).sum());
+            compressedSummary.put("total_fields", globalLibrary.stream().mapToInt(a -> ((List<?>) a.getOrDefault("fields_matrix", Collections.emptyList())).size()).sum());
+            compressedSummary.put("quality_issues", qualityIssues.size());
+            compressedSummary.put("technical_debt", debtEstimate);
+            compressedSummary.put("quality_gate", rootContainer.get("quality_gate"));
+            compressedSummary.put("comment_coverage", rootContainer.get("comment_coverage"));
+            compressedSummary.put("project_type", rootContainer.get("project_type"));
+            compressedSummary.put("modules", new ArrayList<>(moduleLibrary.keySet()));
+            compressedSummary.put("dependencies_count", globalDependencies.size());
+            saveAsJson(compressedSummary, outputDir.resolve(String.format("%s_v%s_summary_%s.json", frameworkName, safeVersion, dateStr)).toString());
+        } catch (Exception e) {
+            System.err.println("⚠️ Summary generation failed: " + e.getMessage());
+        }
+
+        // 输出全量文件（包含所有详细信息，可能很大）
         saveAsJson(rootContainer, outputDir.resolve(String.format("%s_v%s_full_%s.json", frameworkName, safeVersion, dateStr)).toString());
         
         // 🚩 新增：输出原始术语表 (用于 Glossary 翻译流程)
