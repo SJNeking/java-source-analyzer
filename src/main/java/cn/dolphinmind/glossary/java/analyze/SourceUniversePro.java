@@ -608,7 +608,7 @@ public class SourceUniversePro {
 
         // 🚀 Phase 2：静态代码质量分析引擎
         System.out.println("\n🔍 正在执行静态代码质量分析...");
-        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig, projectRoot);
+        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig, projectRoot, globalDependencies);
         rootContainer.put("quality_issues", qualityIssues);
         Map<String, Object> qualitySummary = qualityIssues.isEmpty() ? Collections.emptyMap() : buildQualitySummary(qualityIssues);
         rootContainer.put("quality_summary", qualitySummary);
@@ -806,7 +806,8 @@ public class SourceUniversePro {
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> runQualityAnalysis(List<Map<String, Object>> globalLibrary,
                                                                  cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig,
-                                                                 String projectRoot) {
+                                                                 String projectRoot,
+                                                                 List<Map<String, String>> globalDependencies) {
         List<Map<String, Object>> issues = new ArrayList<>();
 
         // Initialize rule engine and register rules based on config
@@ -950,6 +951,13 @@ public class SourceUniversePro {
             cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule archRule =
                     new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureViolationRule();
             ruleIssues.addAll(archRule.analyzeAll(globalLibrary));
+        }
+
+        // Cross-method taint analysis
+        if (rulesConfig.isRuleEnabled("RSPEC-2076-XMETHOD")) {
+            cn.dolphinmind.glossary.java.analyze.quality.rules.CrossMethodTaintRule crossMethodTaint =
+                    new cn.dolphinmind.glossary.java.analyze.quality.rules.CrossMethodTaintRule();
+            ruleIssues.addAll(crossMethodTaint.analyzeAll(globalLibrary, globalDependencies));
         }
 
         // Convert to Map for JSON output
