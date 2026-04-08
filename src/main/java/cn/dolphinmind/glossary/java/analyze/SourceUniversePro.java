@@ -1016,6 +1016,19 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.UnstableDependency());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ArchitectureRules.MissingAbstraction());
 
+        // Maintainability Rules (P3)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.DuplicateCodeBlock());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.ClassNameMismatch());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.ShortVariableName());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.MisleadingComment());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.CommentedOutCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.GenericExceptionCaught());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.ExceptionSwallowed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.InefficientLogging());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.LoggingLevelMismatch());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.UnreachableCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.MagicNumber());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
