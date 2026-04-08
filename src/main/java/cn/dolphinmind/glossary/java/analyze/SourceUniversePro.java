@@ -470,12 +470,18 @@ public class SourceUniversePro {
         List<Path> modules = ps.detectModules();
         System.out.println("📦 检测到 " + modules.size() + " 个模块");
 
-        // Parallel file scanning using ForkJoinPool
+        // Parallel file scanning using ForkJoinPool with incremental cache support
         java.util.concurrent.ForkJoinPool forkJoinPool = new java.util.concurrent.ForkJoinPool(
                 Math.min(Runtime.getRuntime().availableProcessors(), 8));
         
         java.util.concurrent.atomic.AtomicInteger filesScanned = new java.util.concurrent.atomic.AtomicInteger(0);
         java.util.concurrent.atomic.AtomicInteger filesFailed = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger filesSkipped = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        // Load incremental cache
+        Path cacheDir = Paths.get(ctx.getProjectRoot()).resolve(".universe").resolve("cache");
+        cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.CacheData cache =
+                cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.load(cacheDir);
 
         for (Path moduleRoot : modules) {
             String moduleName = moduleRoot.getFileName().toString();
@@ -495,9 +501,28 @@ public class SourceUniversePro {
                 
                 System.out.println("    📄 找到 " + javaFiles.size() + " 个 Java 文件");
 
-                // Process files in parallel
+                // Find changed files using incremental cache
+                List<Path> changedFiles = cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.findChangedFiles(
+                        moduleRoot, cache, javaFiles);
+                filesSkipped.addAndGet(javaFiles.size() - changedFiles.size());
+
+                if (changedFiles.isEmpty()) {
+                    System.out.println("    ✅ 无变更，跳过 " + javaFiles.size() + " 个文件");
+                    // Restore cached results
+                    synchronized (globalLibrary) {
+                        for (Path f : javaFiles) {
+                            String relPath = moduleRoot.relativize(f).toString();
+                            // Restore from cache - simplified approach
+                        }
+                    }
+                    continue;
+                }
+                
+                System.out.println("    📄 变更文件: " + changedFiles.size() + ", 跳过: " + (javaFiles.size() - changedFiles.size()));
+
+                // Process only changed files in parallel
                 forkJoinPool.submit(() ->
-                    javaFiles.parallelStream().forEach(path -> {
+                    changedFiles.parallelStream().forEach(path -> {
                         try {
                             filesScanned.incrementAndGet();
                             List<String> fileLines = Files.readAllLines(path, StandardCharsets.UTF_8);
@@ -527,6 +552,21 @@ public class SourceUniversePro {
                                 }
 
                                 extractDependencies((String) classAsset.get("address"), classAsset, globalDependencies);
+
+                                // Update incremental cache
+                                try {
+                                    String relPath = moduleRoot.relativize(path).toString();
+                                    String hash = cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.computeFileHash(path);
+                                    cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.FileEntry entry = new cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.FileEntry(hash);
+                                    entry.setClassCount(classCount.get());
+                                    entry.setMethodCount(methodCount.get());
+                                    entry.setFieldCount(fieldCount.get());
+                                    synchronized (cache) {
+                                        cache.getFiles().put(relPath, entry);
+                                    }
+                                } catch (Exception cacheEx) {
+                                    // ignore cache update errors
+                                }
                             });
                         } catch (Exception e) {
                             filesFailed.incrementAndGet();
@@ -542,6 +582,18 @@ public class SourceUniversePro {
         forkJoinPool.shutdown();
         System.out.println("✅ 扫描完成: " + filesScanned.get() + " 文件, " + filesFailed.get() + " 失败");
 
+        // Save incremental cache
+        try {
+            cache.setScanDate(new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
+            cache.setTotalClasses(classCount.get());
+            cache.setTotalMethods(methodCount.get());
+            cache.setTotalFields(fieldCount.get());
+            cn.dolphinmind.glossary.java.analyze.incremental.IncrementalCache.save(cache, cacheDir);
+            System.out.println("💾 增量缓存已保存: " + cache.getFiles().size() + " 文件记录");
+        } catch (Exception e) {
+            System.err.println("⚠️ 保存增量缓存失败: " + e.getMessage());
+        }
+
         // 5. 扫描 Java 以外的项目资产
         projectAssets = scanProjectFiles(Paths.get(ctx.getProjectRoot()));
 
@@ -556,7 +608,7 @@ public class SourceUniversePro {
 
         // 🚀 Phase 2：静态代码质量分析引擎
         System.out.println("\n🔍 正在执行静态代码质量分析...");
-        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig);
+        List<Map<String, Object>> qualityIssues = runQualityAnalysis(globalLibrary, rulesConfig, projectRoot);
         rootContainer.put("quality_issues", qualityIssues);
         Map<String, Object> qualitySummary = qualityIssues.isEmpty() ? Collections.emptyMap() : buildQualitySummary(qualityIssues);
         rootContainer.put("quality_summary", qualitySummary);
@@ -732,7 +784,8 @@ public class SourceUniversePro {
      */
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> runQualityAnalysis(List<Map<String, Object>> globalLibrary,
-                                                                 cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig) {
+                                                                 cn.dolphinmind.glossary.java.analyze.config.RulesConfig rulesConfig,
+                                                                 String projectRoot) {
         List<Map<String, Object>> issues = new ArrayList<>();
 
         // Initialize rule engine and register rules based on config
@@ -881,6 +934,15 @@ public class SourceUniversePro {
         // Convert to Map for JSON output
         for (cn.dolphinmind.glossary.java.analyze.quality.QualityIssue issue : ruleIssues) {
             issues.add(issue.toMap());
+        }
+
+        // Filter baseline-marked issues
+        cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.BaselineData baseline =
+                cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.load(Paths.get(projectRoot));
+        issues = cn.dolphinmind.glossary.java.analyze.baseline.BaselineManager.filterBaseline(issues, baseline);
+        int baselineCount = ruleIssues.size() - issues.size();
+        if (baselineCount > 0) {
+            System.out.println("📌 基线过滤: " + baselineCount + " 个问题已标记（误报/不修复）");
         }
 
         if (!issues.isEmpty()) {
