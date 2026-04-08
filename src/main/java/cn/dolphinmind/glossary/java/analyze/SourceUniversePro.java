@@ -1029,6 +1029,19 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.UnreachableCode());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MaintainabilityRules.MagicNumber());
 
+        // Concurrency Rules (P4)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.SynchronizedOnPrimitive());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.StaticMutableNotThreadSafe());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.InconsistentLockOrdering());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.LockNotReleased());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.CheckThenActRace());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.DoubleCheckedLocking());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.SharedFieldWithoutVolatile());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.NonAtomicCompoundAction());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.UnsafeLazyInit());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.UnboundedThreadPool());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.ThreadSleepInCode());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
