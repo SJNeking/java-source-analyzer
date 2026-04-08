@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
  */
 public class ParserRegistry {
 
-    private static final List<FileParser> PARSERS = Arrays.asList(
+    private static final List<FileParser> PARSERS = new ArrayList<>(Arrays.asList(
             new PomXmlParser(),
             new ConfigFileParser(),
             new SqlFileParser(),
@@ -23,7 +23,7 @@ public class ParserRegistry {
             new LogConfigParser(),
             new DockerComposeParser(),
             new ShellScriptParser()
-    );
+    ));
 
     /**
      * Find the first parser that supports the given file

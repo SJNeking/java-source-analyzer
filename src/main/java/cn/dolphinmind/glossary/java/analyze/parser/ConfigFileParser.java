@@ -1,5 +1,8 @@
 package cn.dolphinmind.glossary.java.analyze.parser;
 
+import org.yaml.snakeyaml.Yaml;
+
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,10 +18,10 @@ public class ConfigFileParser implements FileParser {
 
     @Override
     public boolean supports(Path file) {
-        String name = file.getFileName().toString();
-        return name.equals("application.yml") || name.equals("application.yaml") ||
-               name.equals("application.properties") || name.equals("bootstrap.yml") ||
-               name.equals("bootstrap.yaml");
+        String name = file.getFileName().toString().toLowerCase();
+        // Support environment-specific configs: application-dev.yml, application-prod.yml, etc.
+        return name.matches("application.*\\.(yml|yaml|properties)") ||
+               name.matches("bootstrap.*\\.(yml|yaml)");
     }
 
     @Override
@@ -30,7 +33,7 @@ public class ConfigFileParser implements FileParser {
             boolean isProperties = fileName.endsWith(".properties");
 
             FileAsset asset = new FileAsset(
-                    relativize(file, projectRoot).toString(),
+                    relativize(file, projectRoot),
                     isProperties ? FileAsset.AssetType.PROPERTIES_CONFIG : FileAsset.AssetType.YAML_CONFIG
             );
 
@@ -43,7 +46,8 @@ public class ConfigFileParser implements FileParser {
             asset.putMeta("server_port", configItems.getOrDefault("server.port", ""));
             asset.putMeta("datasource_url", configItems.getOrDefault("spring.datasource.url", ""));
             asset.putMeta("datasource_driver", configItems.getOrDefault("spring.datasource.driver-class-name", ""));
-            asset.putMeta("redis_host", configItems.getOrDefault("spring.redis.host", configItems.getOrDefault("spring.redis.host", "")));
+            asset.putMeta("redis_host", configItems.getOrDefault("spring.redis.host",
+                    configItems.getOrDefault("spring.redis.cluster.nodes", "")));
             asset.putMeta("active_profiles", configItems.getOrDefault("spring.profiles.active", ""));
             asset.putMeta("application_name", configItems.getOrDefault("spring.application.name", ""));
             asset.putMeta("log_level", configItems.getOrDefault("logging.level.root", ""));
@@ -55,9 +59,11 @@ public class ConfigFileParser implements FileParser {
 
             assets.add(asset);
         } catch (Exception e) {
+            String fileName = file.getFileName().toString();
+            boolean isProperties = fileName.endsWith(".properties");
             FileAsset asset = new FileAsset(
-                    relativize(file, projectRoot).toString(),
-                    FileAsset.AssetType.YAML_CONFIG
+                    relativize(file, projectRoot),
+                    isProperties ? FileAsset.AssetType.PROPERTIES_CONFIG : FileAsset.AssetType.YAML_CONFIG
             );
             asset.putMeta("error", e.getMessage());
             assets.add(asset);
@@ -70,8 +76,37 @@ public class ConfigFileParser implements FileParser {
         return FileAsset.AssetType.YAML_CONFIG;
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, String> extractYamlConfig(String content) {
         Map<String, String> config = new LinkedHashMap<>();
+        try {
+            Yaml yaml = new Yaml();
+            Object obj = yaml.load(new StringReader(content));
+            if (obj instanceof Map) {
+                flattenYaml((Map<String, Object>) obj, config, "");
+            }
+        } catch (Exception e) {
+            // Fallback to line-by-line if SnakeYAML fails
+            config.put("_parse_error", e.getMessage());
+            fallbackYamlParse(content, config);
+        }
+        return config;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void flattenYaml(Map<String, Object> map, Map<String, String> result, String prefix) {
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+            Object value = entry.getValue();
+            if (value instanceof Map) {
+                flattenYaml((Map<String, Object>) value, result, key);
+            } else if (value != null) {
+                result.put(key, value.toString());
+            }
+        }
+    }
+
+    private void fallbackYamlParse(String content, Map<String, String> config) {
         String[] lines = content.split("\n");
         String currentPrefix = "";
 
@@ -79,34 +114,23 @@ public class ConfigFileParser implements FileParser {
             String trimmed = line.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) continue;
 
-            // Count leading spaces to determine nesting level
             int indent = line.length() - line.trim().length();
-            if (indent == 0) {
-                currentPrefix = "";
-            }
+            if (indent == 0) currentPrefix = "";
 
             int colonIdx = trimmed.indexOf(':');
             if (colonIdx > 0) {
                 String key = trimmed.substring(0, colonIdx).trim();
                 String value = trimmed.substring(colonIdx + 1).trim();
-
                 String fullKey = currentPrefix.isEmpty() ? key : currentPrefix + "." + key;
 
                 if (!value.isEmpty() && !value.startsWith("#")) {
-                    // Remove inline comments
                     int commentIdx = value.indexOf('#');
-                    if (commentIdx > 0) {
-                        value = value.substring(0, commentIdx).trim();
-                    }
+                    if (commentIdx > 0) value = value.substring(0, commentIdx).trim();
                     config.put(fullKey, value);
-
-                    if (indent == 0) {
-                        currentPrefix = key;
-                    }
+                    if (indent == 0) currentPrefix = key;
                 }
             }
         }
-        return config;
     }
 
     private Map<String, String> extractPropertiesConfig(String content) {

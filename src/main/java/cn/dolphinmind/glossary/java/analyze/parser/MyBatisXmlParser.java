@@ -18,7 +18,11 @@ public class MyBatisXmlParser implements FileParser {
     @Override
     public boolean supports(Path file) {
         String name = file.getFileName().toString().toLowerCase();
-        return name.endsWith("mapper.xml") || name.endsWith("mapping.xml");
+        return name.endsWith("mapper.xml") || name.endsWith("mapping.xml") ||
+               name.endsWith("dao.xml") || name.endsWith("-mapper.xml") ||
+               name.endsWith("-dao.xml") ||
+               (name.endsWith(".xml") && file.getParent() != null &&
+                (file.getParent().toString().contains("mapper") || file.getParent().toString().contains("mybatis")));
     }
 
     @Override

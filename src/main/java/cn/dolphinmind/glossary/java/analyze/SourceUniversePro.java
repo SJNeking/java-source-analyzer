@@ -44,6 +44,9 @@ public class SourceUniversePro {
     private static final AtomicInteger fieldCount = new AtomicInteger(0);
     private static final AtomicInteger commentFound = new AtomicInteger(0);
 
+    // 🚀 用于去重的依赖集合
+    private static final java.util.Set<String> seenDependencies = Collections.synchronizedSet(new HashSet<>());
+
     // 🚀 用于模式分析的统计数据集
     private static final List<String> allClassNames = Collections.synchronizedList(new ArrayList<>());
     private static final List<String> allMethodNames = Collections.synchronizedList(new ArrayList<>());
@@ -89,13 +92,16 @@ public class SourceUniversePro {
 
         // 加载全局基础字典 (Global Base Dictionary)
         try {
-            java.io.File baseDictFile = new java.io.File("/Users/mingxilv/learn/java-source-analyzer/src/main/resources/cleaned-english-chinese-mapping.json");
-            if (baseDictFile.exists()) {
-                JsonObject dictObj = JsonParser.parseReader(new FileReader(baseDictFile)).getAsJsonObject();
+            java.net.URL resource = SourceUniversePro.class.getClassLoader().getResource("cleaned-english-chinese-mapping.json");
+            if (resource != null) {
+                JsonObject dictObj = JsonParser.parseReader(
+                        new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8)).getAsJsonObject();
                 for (String key : dictObj.keySet()) {
                     globalBaseDictionary.put(key.toLowerCase(), dictObj.get(key).getAsString());
                 }
                 System.out.println("✅ 全局基础字典加载成功: " + globalBaseDictionary.size() + " 个通用词条");
+            } else {
+                System.err.println("⚠️ cleaned-english-chinese-mapping.json not found on classpath");
             }
         } catch (Exception e) {
             System.err.println("⚠️ 全局基础字典加载失败: " + e.getMessage());
@@ -415,9 +421,15 @@ public class SourceUniversePro {
         // 🚀 MVP: 加载项目专属字典
         loadProjectGlossary(projectRoot);
 
-        // 4. 初始化多模块解算器 (切换为纯 AST 模式以解决解析失败问题)
-        StaticJavaParser.getParserConfiguration()
-                .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);
+        // 4. 🚀 关键修复：配置 JavaParser Symbol Solver
+        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
+        typeSolver.add(new JavaParserTypeSolver(new java.io.File(ctx.getProjectRoot())));
+        try { registerSubModules(typeSolver, ctx.getProjectRoot()); } catch (Exception ignored) {}
+
+        com.github.javaparser.ParserConfiguration config = new com.github.javaparser.ParserConfiguration();
+        config.setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);
+        config.setSymbolResolver(new com.github.javaparser.symbolsolver.JavaSymbolSolver(typeSolver));
+        StaticJavaParser.setConfiguration(config);
 
         Path outputDir = Paths.get(outputDirPath);
         Files.createDirectories(outputDir);
@@ -833,9 +845,17 @@ public class SourceUniversePro {
         node.put("constructor_matrix", resolveConstructorsAligned(fileLines, type, address));
         node.put("method_matrix", resolveMethodsAligned(fileLines, type, address));
 
-        // 递归处理内部类
+        // 🚀 修复：递归处理内部类并收集结果到返回值的 inner_classes 字段
+        List<Map<String, Object>> innerClasses = new ArrayList<>();
         type.getMembers().stream().filter(m -> m instanceof TypeDeclaration)
-                .forEach(m -> processTypeEnhanced((TypeDeclaration<?>) m, pkg, address, fileLines, ctx, globalDeps));
+                .forEach(m -> {
+                    Map<String, Object> innerClass = processTypeEnhanced((TypeDeclaration<?>) m, pkg, address, fileLines, ctx, globalDeps);
+                    if (innerClass != null) {
+                        classCount.incrementAndGet();
+                        innerClasses.add(innerClass);
+                    }
+                });
+        node.put("inner_classes", innerClasses);
 
         return node;
     }
@@ -926,12 +946,16 @@ public class SourceUniversePro {
                 // 构建目标方法地址
                 String targetAddr = targetClass + "#" + targetMethod;
 
-                // 记录 CALLS 依赖到全局列表
-                Map<String, String> callDep = new LinkedHashMap<>();
-                callDep.put("source", fullAddr);
-                callDep.put("target", targetAddr);
-                callDep.put("type", "CALLS");
-                globalDeps.add(callDep);
+                // 记录 CALLS 依赖到全局列表（去重）
+                String depKey = fullAddr + "→" + targetAddr + ":CALLS";
+                if (!seenDependencies.contains(depKey)) {
+                    seenDependencies.add(depKey);
+                    Map<String, String> callDep = new LinkedHashMap<>();
+                    callDep.put("source", fullAddr);
+                    callDep.put("target", targetAddr);
+                    callDep.put("type", "CALLS");
+                    globalDeps.add(callDep);
+                }
             } catch (Exception ignored) {
                 // 忽略无法解析的调用（如动态代理、Lambda、反射等）
             }
@@ -1201,13 +1225,19 @@ public class SourceUniversePro {
             // @throws / @exception
             else if (line.startsWith("@throws") || line.startsWith("@exception")) {
                 Map<String, String> throwsEntry = new LinkedHashMap<>();
-                String rest = line.split("\\s+", 2)[1];
-                int spaceIdx = rest.indexOf(' ');
-                if (spaceIdx > 0) {
-                    throwsEntry.put("exception", rest.substring(0, spaceIdx));
-                    throwsEntry.put("description", rest.substring(spaceIdx + 1).trim());
+                String[] parts = line.split("\\s+", 2);
+                if (parts.length > 1) {
+                    String rest = parts[1];
+                    int spaceIdx = rest.indexOf(' ');
+                    if (spaceIdx > 0) {
+                        throwsEntry.put("exception", rest.substring(0, spaceIdx));
+                        throwsEntry.put("description", rest.substring(spaceIdx + 1).trim());
+                    } else {
+                        throwsEntry.put("exception", rest);
+                        throwsEntry.put("description", "");
+                    }
                 } else {
-                    throwsEntry.put("exception", rest);
+                    throwsEntry.put("exception", "");
                     throwsEntry.put("description", "");
                 }
                 throwsList.add(throwsEntry);
@@ -1809,7 +1839,7 @@ public class SourceUniversePro {
         String lowerName = className.toLowerCase();
         String fullAddress = pkg + "." + className;
 
-        JsonObject dimensions = frameworkTags.getAsJsonObject("dimensions");
+        JsonObject dimensions = dictionary.getAsJsonObject("dimensions");
         for (String dim : dimensions.keySet()) {
             JsonArray rules = dimensions.getAsJsonArray(dim);
             java.util.Set<String> matchedTags = new java.util.HashSet<>();
@@ -2223,24 +2253,33 @@ public class SourceUniversePro {
     }
 
     /**
-     * 自动从 pom.xml 提取版本号 (支持多模块与占位符)
+     * 自动从 pom.xml 提取版本号 (带最大深度保护)
      */
     private static String extractVersion(String projectRoot) {
+        return extractVersionRecursive(projectRoot, 0);
+    }
+
+    private static String extractVersionRecursive(String projectRoot, int depth) {
+        if (depth > 10) return "version-unresolved";
+
         try {
             Path currentPath = Paths.get(projectRoot);
             Path pomPath = currentPath.resolve("pom.xml");
-
-            // 1. 尝试从当前或根目录的 pom.xml 获取
             String version = fetchVersionFromPom(pomPath);
-            
-            // 2. 如果没找到，且不在根目录，尝试向上递归查找
-            if ((version == null || version.contains("$")) && !currentPath.equals(currentPath.getRoot())) {
-                return extractVersion(currentPath.getParent().toString());
+
+            if (version != null && !version.contains("$")) {
+                return version;
             }
 
-            return (version != null && !version.contains("$")) ? version : "3.x.x-manual";
+            // 向上递归查找
+            Path parent = currentPath.getParent();
+            if (parent != null && !parent.equals(currentPath)) {
+                return extractVersionRecursive(parent.toString(), depth + 1);
+            }
+
+            return version != null ? version : "version-unresolved";
         } catch (Exception e) {
-            return "3.x.x-fallback";
+            return "version-error";
         }
     }
 

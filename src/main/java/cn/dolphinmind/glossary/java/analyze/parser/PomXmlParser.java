@@ -1,5 +1,14 @@
 package cn.dolphinmind.glossary.java.analyze.parser;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -82,7 +91,42 @@ public class PomXmlParser implements FileParser {
     }
 
     private String extractXmlValue(String xml, String tagName) {
-        // First try to get from root level (not inside parent, dependencies, etc.)
+        // Use DOM parser for robust XML parsing
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(xml)));
+
+            // Search at any level (root, children, etc.)
+            NodeList nodes = doc.getElementsByTagName(tagName);
+            for (int i = 0; i < nodes.getLength(); i++) {
+                Element el = (Element) nodes.item(i);
+                // Skip if inside <parent> block
+                if (isInParentBlock(el)) continue;
+                String text = el.getTextContent();
+                if (text != null && !text.trim().isEmpty()) {
+                    return text.trim();
+                }
+            }
+        } catch (Exception e) {
+            // Fallback to regex
+            return extractXmlValueRegex(xml, tagName);
+        }
+        return "";
+    }
+
+    private boolean isInParentBlock(Element el) {
+        Node parent = el.getParentNode();
+        while (parent != null) {
+            if ("parent".equals(parent.getNodeName())) return true;
+            parent = parent.getParentNode();
+        }
+        return false;
+    }
+
+    private String extractXmlValueRegex(String xml, String tagName) {
         Pattern pattern = Pattern.compile("^\\s*<" + tagName + ">([^<]+)</" + tagName + ">", Pattern.MULTILINE);
         Matcher matcher = pattern.matcher(xml);
         if (matcher.find()) {
@@ -92,10 +136,23 @@ public class PomXmlParser implements FileParser {
     }
 
     private String extractXmlParentValue(String xml, String tagName) {
-        Pattern pattern = Pattern.compile("<parent>.*?<" + tagName + ">([^<]+)</" + tagName + ">", Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(xml);
-        if (matcher.find()) {
-            return matcher.group(1).trim();
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(xml)));
+
+            NodeList parents = doc.getElementsByTagName("parent");
+            if (parents.getLength() > 0) {
+                Element parent = (Element) parents.item(0);
+                NodeList tags = parent.getElementsByTagName(tagName);
+                if (tags.getLength() > 0) {
+                    return tags.item(0).getTextContent().trim();
+                }
+            }
+        } catch (Exception e) {
+            // Fallback
         }
         return "";
     }

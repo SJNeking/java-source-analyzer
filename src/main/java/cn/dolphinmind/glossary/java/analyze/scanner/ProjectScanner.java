@@ -125,10 +125,10 @@ public class ProjectScanner {
         String pathStr = path.toString();
         String sep = java.io.File.separator;
 
-        // Check excluded directories
-        for (String excludedDir : EXCLUDED_DIRS) {
-            if (pathStr.contains(sep + excludedDir + sep) ||
-                pathStr.endsWith(sep + excludedDir)) {
+        // Check excluded directories - match any path component
+        String[] pathParts = pathStr.split(java.util.regex.Pattern.quote(sep));
+        for (String part : pathParts) {
+            if (EXCLUDED_DIRS.contains(part)) {
                 return true;
             }
         }

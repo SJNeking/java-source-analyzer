@@ -76,17 +76,37 @@ public class SqlFileParser implements FileParser {
 
     private List<Map<String, Object>> extractTables(String sql) {
         List<Map<String, Object>> tables = new ArrayList<>();
-        Pattern createPattern = Pattern.compile(
-                "CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:`?(\\w+)`?\\.)?`?(\\w+)`?\\s*\\((.*?)\\);",
-                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-        Matcher matcher = createPattern.matcher(sql);
+        // Find CREATE TABLE statements with proper nested parenthesis handling
+        Pattern startPattern = Pattern.compile(
+                "CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:`?(\\w+)`?\\.)?`?(\\w+)`?\\s*\\(",
+                Pattern.CASE_INSENSITIVE);
+        Matcher startMatcher = startPattern.matcher(sql);
 
-        while (matcher.find()) {
+        while (startMatcher.find()) {
+            String schema = startMatcher.group(1);
+            String tableName = startMatcher.group(2);
+            int bodyStart = startMatcher.end();
+
+            // Find matching closing parenthesis by counting
+            int depth = 1;
+            int bodyEnd = -1;
+            for (int i = bodyStart; i < sql.length() && i < bodyStart + 50000; i++) {
+                char c = sql.charAt(i);
+                if (c == '(') depth++;
+                else if (c == ')') {
+                    depth--;
+                    if (depth == 0) {
+                        bodyEnd = i;
+                        break;
+                    }
+                }
+            }
+
+            if (bodyEnd == -1) continue;
+
+            String columns = sql.substring(bodyStart, bodyEnd);
+
             Map<String, Object> table = new LinkedHashMap<>();
-            String schema = matcher.group(1);
-            String tableName = matcher.group(2);
-            String columns = matcher.group(3);
-
             table.put("schema", schema != null ? schema : "");
             table.put("table_name", tableName);
 
