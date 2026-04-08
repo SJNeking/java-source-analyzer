@@ -11,6 +11,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.comments.Comment;
+
 import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.comments.JavadocComment;
@@ -700,6 +701,18 @@ public class SourceUniversePro {
             System.out.println("✅ 发现 " + qualityIssues.size() + " 个代码质量问题");
         } else {
             System.out.println("✅ 未发现代码质量问题");
+        }
+
+        // 🚀 核心分析引擎：入口点发现 + 调用链追踪 + 包结构地图 + 类型定义导航 + 数据流追踪
+        System.out.println("\n=== 核心分析引擎 ===");
+        try {
+            cn.dolphinmind.glossary.java.analyze.core.CoreAnalysisEngine coreEngine =
+                    new cn.dolphinmind.glossary.java.analyze.core.CoreAnalysisEngine();
+            Map<String, Object> coreResult = coreEngine.analyze(Paths.get(config.getSourceRoot()));
+            rootContainer.put("core_analysis", coreResult);
+        } catch (Exception e) {
+            System.err.println("⚠️ 核心分析失败: " + e.getMessage());
+            e.printStackTrace();
         }
 
         // Save glossary
