@@ -3,8 +3,8 @@ package cn.dolphinmind.glossary.java.analyze.core;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.expr.*;
-import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 
 import java.io.IOException;
@@ -12,24 +12,13 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Core Feature 5: Data Flow Tracer
+ * Core Feature 5: Data Flow Tracer (JavaParser-based)
  *
- * Traces key variables from input to output through method calls.
- * Answers:
- * - "这个参数传到了哪里？"
- * - "这个返回值是从哪里来的？"
- * - "关键数据 (user, order, request) 经过了哪些方法？"
- *
- * This is a simplified data flow analysis that tracks:
- * 1. Parameter usage within a method
- * 2. Parameter passing through method calls
- * 3. Return value flow
+ * Traces how method parameters flow through internal method calls.
+ * Answers: "这个参数传到了哪些方法？"
  */
 public class DataFlowTracer {
 
-    /**
-     * A single data flow path.
-     */
     public static class DataFlow {
         private final String variable;
         private final String sourceMethod;
@@ -70,128 +59,126 @@ public class DataFlowTracer {
     }
 
     /**
-     * Trace data flow for a specific method.
-     * Tracks how parameters flow through method calls.
+     * Build a mapping of method signatures to their bodies for data flow analysis.
      */
-    public List<DataFlow> traceMethod(String className, String methodName, String filePath) throws IOException {
+    public Map<String, MethodDeclaration> indexMethods(Path projectRoot) throws IOException {
+        Map<String, MethodDeclaration> methodIndex = new LinkedHashMap<>();
+
+        Files.walk(projectRoot)
+                .filter(p -> p.toString().endsWith(".java"))
+                .filter(p -> p.toString().contains("src"))
+                .filter(p -> !p.toString().contains("test") && !p.toString().contains("target"))
+                .forEach(path -> {
+                    try {
+                        CompilationUnit cu = StaticJavaParser.parse(path);
+                        String pkg = cu.getPackageDeclaration()
+                                .map(pd -> pd.getNameAsString()).orElse("");
+
+                        for (ClassOrInterfaceDeclaration classDecl : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+                            String fullClass = (pkg.isEmpty() ? "" : pkg + ".") + classDecl.getNameAsString();
+                            for (MethodDeclaration method : classDecl.getMethods()) {
+                                String key = fullClass + "#" + method.getNameAsString();
+                                methodIndex.put(key, method);
+                            }
+                        }
+                    } catch (Exception e) {}
+                });
+
+        return methodIndex;
+    }
+
+    /**
+     * Trace data flow for a specific method.
+     * Tracks how each parameter is used: passed to other methods, returned, assigned to fields.
+     */
+    public List<DataFlow> traceMethod(Map<String, MethodDeclaration> methodIndex,
+                                       String className, String methodName) {
         List<DataFlow> flows = new ArrayList<>();
+        String methodKey = className + "#" + methodName;
+        MethodDeclaration method = methodIndex.get(methodKey);
+        if (method == null) return flows;
 
-        try {
-            String content = new String(Files.readAllBytes(Paths.get(filePath)));
-            CompilationUnit cu = StaticJavaParser.parse(content);
-
-            // Find the method
-            Optional<MethodDeclaration> methodOpt = cu.findAll(MethodDeclaration.class).stream()
-                    .filter(m -> m.getNameAsString().equals(methodName))
-                    .findFirst();
-
-            if (!methodOpt.isPresent()) return flows;
-
-            MethodDeclaration method = methodOpt.get();
-
-            // Track each parameter
-            method.getParameters().forEach(param -> {
-                String paramName = param.getNameAsString();
-                String paramType = param.getTypeAsString();
-                List<String> path = new ArrayList<>();
-
-                traceVariable(method, paramName, paramType, path, new HashSet<>(), flows, className);
-            });
-        } catch (Exception e) {
-            // ignore parse errors
+        for (com.github.javaparser.ast.body.Parameter param : method.getParameters()) {
+            String paramName = param.getNameAsString();
+            String paramType = param.getTypeAsString();
+            traceParam(method, paramName, paramType, className, methodIndex,
+                    new ArrayList<>(), new HashSet<>(), flows);
         }
 
         return flows;
     }
 
-    /**
-     * Trace a variable through method body.
-     */
-    private void traceVariable(MethodDeclaration method, String varName, String varType,
-                                List<String> path, Set<String> visited, List<DataFlow> flows,
-                                String currentClass) {
+    private void traceParam(MethodDeclaration method, String paramName, String paramType,
+                             String currentClass, Map<String, MethodDeclaration> methodIndex,
+                             List<String> path, Set<String> visited, List<DataFlow> flows) {
         String methodKey = currentClass + "#" + method.getNameAsString();
-        if (visited.contains(methodKey)) {
-            // Cycle detected
-            path.add(methodKey + "(cycle)");
-            flows.add(new DataFlow(varName, path.get(0), new ArrayList<>(path),
-                    methodKey, "Cycle detected"));
-            return;
-        }
-
+        if (visited.contains(methodKey) || path.size() > 8) return;
         visited.add(methodKey);
         path.add(methodKey);
 
-        // Check if variable is used in method calls
+        // Track where param is used
         method.findAll(MethodCallExpr.class).forEach(call -> {
-            // Check if variable is passed as argument
+            // Check if param is passed as argument
             call.getArguments().forEach(arg -> {
-                if (arg instanceof NameExpr && ((NameExpr) arg).getNameAsString().equals(varName)) {
+                if (arg instanceof NameExpr && ((NameExpr) arg).getNameAsString().equals(paramName)) {
                     String targetMethod = call.getNameAsString();
                     String targetClass = call.getScope()
-                            .map(s -> capitalize(s.toString().replaceAll("this\\.", "")))
+                            .map(s -> capitalize(s.toString()))
                             .orElse(currentClass);
+                    String calleeKey = targetClass + "#" + targetMethod;
 
-                    traceMethodCall(targetClass, targetMethod, varName, varType,
-                            new ArrayList<>(path), new HashSet<>(visited), flows);
+                    flows.add(new DataFlow(paramName, path.get(0), new ArrayList<>(path),
+                            calleeKey, "Parameter passed as argument to " + calleeKey));
+
+                    // Continue tracing into callee if it's indexed
+                    MethodDeclaration callee = methodIndex.get(calleeKey);
+                    if (callee != null) {
+                        traceParam(callee, paramName, paramType, targetClass, methodIndex,
+                                new ArrayList<>(path), new HashSet<>(visited), flows);
+                    }
                 }
             });
         });
 
-        // Check if variable is returned
+        // Check if param is returned
         method.findAll(ReturnStmt.class).forEach(ret -> {
             ret.getExpression().ifPresent(expr -> {
-                if (expr instanceof NameExpr && ((NameExpr) expr).getNameAsString().equals(varName)) {
-                    flows.add(new DataFlow(varName, path.get(0), new ArrayList<>(path),
-                            methodKey, "Variable returned"));
+                if (expr instanceof NameExpr && ((NameExpr) expr).getNameAsString().equals(paramName)) {
+                    flows.add(new DataFlow(paramName, path.get(0), new ArrayList<>(path),
+                            methodKey, "Parameter returned"));
                 }
             });
         });
 
-        // Check if variable is passed to field assignment
+        // Check if param is assigned to a field
         method.findAll(AssignExpr.class).forEach(assign -> {
-            Expression target = assign.getTarget();
-            if (target instanceof FieldAccessExpr) {
-                FieldAccessExpr fieldAccess = (FieldAccessExpr) target;
-                Expression scope = fieldAccess.getScope();
-                if (scope instanceof NameExpr && ((NameExpr) scope).getNameAsString().equals(varName)) {
-                    flows.add(new DataFlow(varName, path.get(0), new ArrayList<>(path),
-                            fieldAccess.getNameAsString(), "Variable assigned to field"));
+            if (assign.getTarget() instanceof FieldAccessExpr) {
+                FieldAccessExpr fa = (FieldAccessExpr) assign.getTarget();
+                if (fa.getScope() instanceof NameExpr &&
+                    ((NameExpr) fa.getScope()).getNameAsString().equals(paramName)) {
+                    flows.add(new DataFlow(paramName, path.get(0), new ArrayList<>(path),
+                            fa.getNameAsString(), "Parameter assigned to field " + fa.getNameAsString()));
                 }
             }
         });
     }
 
-    private void traceMethodCall(String targetClass, String targetMethod, String varName,
-                                   String varType, List<String> path, Set<String> visited,
-                                   List<DataFlow> flows) {
-        // In a real implementation, this would load the target method and continue tracing
-        // For now, we just record the call
-        path.add(targetClass + "#" + targetMethod);
-
-        flows.add(new DataFlow(varName, path.get(0), new ArrayList<>(path),
-                targetClass + "#" + targetMethod, "Variable passed as argument"));
-    }
-
     private String capitalize(String s) {
         if (s == null || s.isEmpty()) return s;
+        if (s.equals("this")) return "";
         return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
-    /**
-     * Print data flows in a readable format.
-     */
     public void printFlows(List<DataFlow> flows) {
         if (flows.isEmpty()) {
-            System.out.println("  (no data flow found)");
+            System.out.println("  (未找到数据流)");
             return;
         }
-
-        System.out.println("\n=== 数据流追踪 ===");
+        System.out.println("\n=== 数据流追踪 (" + flows.size() + " 条) ===");
         int shown = 0;
         for (DataFlow flow : flows) {
-            if (shown >= 20) {
-                System.out.println("  ... 还有 " + (flows.size() - 20) + " 条数据流");
+            if (shown >= 15) {
+                System.out.println("  ... 还有 " + (flows.size() - 15) + " 条");
                 break;
             }
             System.out.println("  " + flow.toArrowString());
@@ -199,13 +186,11 @@ public class DataFlowTracer {
         }
     }
 
-    /**
-     * Export data flows as JSON-compatible map.
-     */
     public Map<String, Object> export(List<DataFlow> flows) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("total_flows", flows.size());
-        map.put("flows", flows.stream().map(DataFlow::toMap).collect(java.util.stream.Collectors.toList()));
+        map.put("flows", flows.stream().map(DataFlow::toMap)
+                .collect(java.util.stream.Collectors.toList()));
         return map;
     }
 }

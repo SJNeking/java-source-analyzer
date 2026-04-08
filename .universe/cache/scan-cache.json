@@ -1,0 +1,393 @@
+{
+  "scanDate": "2026-04-09T05:26:52",
+  "analyzerVersion": "1.0-M5",
+  "files": {
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/cfg/CFGEdge.java": {
+      "hash": "f77854bed630f69ad7c4b4f0c704129b9065e308927e5b9bb11618827fdb8ade",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/orchestrate/ScanResult.java": {
+      "hash": "a3466db008f363278643bc2c6f6bab64eeede383585dbdd67cf2052c5c93d1b9",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/ArchitectureViolationRule.java": {
+      "hash": "3d0c9ba33bcf0c46dedafb01f3b5cc2b2abb3dacd652e462bbf1882423d3de2f",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/report/QualityGate.java": {
+      "hash": "5a4db143773a6896e5f80522ebceb303eb765e4cdbb289007184ac722c07f533",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/TypeDefinitionNavigator.java": {
+      "hash": "ec4dc8e5c2ca629ca2bb8c2025bd00cd94d0d47658269043aad3c081fa9d6cf8",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/ShellScriptParser.java": {
+      "hash": "2edb4947970a38e3c80ddd39c88e4b187bccc6c44347e77c3c494901c83e07bf",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/SpringBeanAnalysisRule.java": {
+      "hash": "75928fb7dfa6c0fd53e0d9ba8602fd34e32b87da64a8e4a6ee2066ae7f02a05d",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/report/IncrementalAnalyzer.java": {
+      "hash": "14c80d45de79fbc75bf93b328cd04f99f1c67a8919634742a2dfaaa892d85724",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/cfg/ControlFlowGraph.java": {
+      "hash": "372abb3cd50dbbf05e198f991e260c41d04db014fd1515b948f4123a88229de1",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/dataflow/DataFlowGraph.java": {
+      "hash": "63b04d6126c8163077c1cfc5566098dd13968c895224e374120f0faa63a3bb3e",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/PomXmlParser.java": {
+      "hash": "f69ee3c02785c000a9527d70425b3bbc65a8d1dcee9cc4836086846bc40d4b1b",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CoreAnalysisEngine.java": {
+      "hash": "373a1240b05dae42ea1ac579fa3384a2ed421a04760d5c85b37de0b3e2aba0c2",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/DockerComposeParser.java": {
+      "hash": "b023ae41e70303a348ee210b0d8e6c527f6fc35a5bc08adef032f32a503ba7dd",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/ExceptionHandlingPath.java": {
+      "hash": "3fd90d2da4e094f07166e84254fe7dd9f6ddfeeeb641bbae9ca29ae258d258fa",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/report/TechnicalDebtEstimator.java": {
+      "hash": "bb4f57f1cc050066e28391b23ce5ab5e6941a919bbebb60c6d01c7aad0a1dc97",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/DockerfileParser.java": {
+      "hash": "03ae9bac07ec1fca57d0b9cdb952505c60005a7d4fd8d8f9a25d7932a561f382",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/orchestrate/AnalysisOrchestrator.java": {
+      "hash": "9afd24024bae318f99ca0bc52f7e3365c6f600a255fa8fe2888a8b9956b50f85",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/cfg/CFGNode.java": {
+      "hash": "03994046da2fe0ea96bf1c3d47fb4f8c72465f0fc6b62a46db3be3b308d79ac8",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/ConfigFileParser.java": {
+      "hash": "679f33889c54f9ec425981b73045e6058d3d7670f982c9d8c25897e89a5bbdab",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/PackageStructureMapper.java": {
+      "hash": "eda436907c2cbf553260cf7a9b1dd10c391de3467841d9b4967dd0a526578af7",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/relation/RelationEngine.java": {
+      "hash": "41a57641a2185007f3a223f526526c6897c707f59e3877546430d8b62a6766de",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/SqlFileParser.java": {
+      "hash": "a15808f58b44c71d2e19c40bd8799b8782230d635ce4e493f7c6eca63d0338e6",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/relation/AssetRelation.java": {
+      "hash": "b95891524e3f7930c7a7c9bc626fa4ffb4fbdc9a10ee9eb4de51d4daa29ffabf",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/report/SarifGenerator.java": {
+      "hash": "095a809a5465bc164b1cb7d5200fe1ad1b47cfbdd7bc82e0bc762c66f6fa6ac3",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/LogConfigParser.java": {
+      "hash": "0a4ba2e994255b74d02cda92a3ee6bcab9edf79f0d3edaca7cf29d5dba04be19",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/MyBatisXmlParser.java": {
+      "hash": "e14002c7f2ecb48eda68c645316b34cad400c76566ee25c9ac5a350a7427e48c",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/FileParser.java": {
+      "hash": "db08c2c54f75d2552b42f6f0b4188e493ded7776782fdabc42b840208d4b5a05",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/DataFlowTracer.java": {
+      "hash": "321083b9be6b7a1e50366e830f72a65cdae4e910cf5bf43cba949447531b08f0",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/CallChainTracer.java": {
+      "hash": "41f3a8c307f5df3901cc75e5d79c749af48f454f0509d5d524867708e100cc07",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/Severity.java": {
+      "hash": "fafc06599565aac9af6a9762c264a6a51bd6938bce772ab87d8a879a34c22033",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/QualityIssue.java": {
+      "hash": "c87946c70fbea08b3dcc18ab14a96d1897254dfd1e0c568d3c0325c7dc2525bf",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/cfg/CFGBuilder.java": {
+      "hash": "e1063fc2ea83553e73139cc4ef4d909f8729ce4b5890eb66ae6ce71606adf60f",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/MarkdownParser.java": {
+      "hash": "57e8252f33959194a4f1cdcb5137913e5146fd451564db33ec349b8f0c2eed90",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/report/HtmlReportGenerator.java": {
+      "hash": "ee91213c9eb709fa39c7626cbd35339a19dd8f95eef312ca22cb73678037cae9",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/ParserRegistry.java": {
+      "hash": "d7698edca19b52de0ffef14d2753a6b751e0df3ba8c32078d3fec86938e3b65b",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/dataflow/DFGNode.java": {
+      "hash": "9560d1c6db989cb99ef5d40ca5ac1f6cbbdbecba9f277d4ca15696d55602f87e",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/DuplicateCodeDetector.java": {
+      "hash": "f3091ceb5cb3b42e5d6cd830512225861395eef717b8ac5ae2e8236ec7d466a9",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/parser/FileAsset.java": {
+      "hash": "7e4502b2a06d90ded4effeb8b4a362ac24438c085cd42b5ed9d689082f614602",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/arch/ArchitectureAnalyzer.java": {
+      "hash": "65d0b3ff9b0020952a19056f52da851daa1cfa758df85da536829513b33df683",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/ScannerContext.java": {
+      "hash": "a2895f41fde020ae082feeb4d74cb707617bb23a3b87e4609742e17f5d349582",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/TrueCyclomaticComplexity.java": {
+      "hash": "290840e75587111e58e9125888a8178c53171374e63f037b1ac8479aa69e59c6",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/core/EntryPointDiscovery.java": {
+      "hash": "98af6a5c7a332077711cf20c66ca55dbc7801c5c421123a23a2942843f7cdd96",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/config/RulesConfig.java": {
+      "hash": "ce3bbff35b7495314d0a0473dfa7bf83f2da342318292e34e70552a4712c4324",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/dataflow/TaintEngine.java": {
+      "hash": "01d1d0865fe0866fefbc91cade5ab91f980bbf0f99b570a29ed1e658c954d9aa",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/TaintFlowRule.java": {
+      "hash": "97211feda00443d99059d4bba90544e9adf77a8f9fa15fc7b3ca2931d8626168",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/dataflow/DFGEdge.java": {
+      "hash": "994e55791c49476ff389efe3e9f134b98b04f26ab400cbc7d42d36ba852ff11b",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/QualityRule.java": {
+      "hash": "98c9bc114983cb208144e5116d03312610954fb6f274ac61b08191e41eff3899",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/dataflow/CrossMethodTaintAnalyzer.java": {
+      "hash": "bfe9daa461dcd65ad7b37629255b1a7ebfa19bb42cc8b84bd2a31c5070d65375",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/ResourceLeakPath.java": {
+      "hash": "cf2fb249d432ae103c123648a3fdf6aef2b3c5c9c367cf99730df67961a01cb4",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/incremental/IncrementalCache.java": {
+      "hash": "25ff7618ab6c23a0702a6cd5bd4c335bbf7a3a84d4cbe0b27941a3a09a56090f",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/UnreachableCode.java": {
+      "hash": "efd003925729e2b1659ebe9be60eb73e7cd1b703dc3bfdf54b3dc7bcbc2ec270",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/RuleEngine.java": {
+      "hash": "7bc81c67ad4baca27f15bebc2c13faa72f34f6b1eec0f0c363415f94b54f46c1",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/spring/SpringBean.java": {
+      "hash": "c363527d676ace89baaae35966b0478794db275301cf3b5f7fe5e6793ed22ca6",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/AbstractMethodRule.java": {
+      "hash": "cf9e64f0ae25930261c0c33ce53fb43d7d8ab971a54f0c3fa46b493c1e9ab0aa",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/orchestrate/AnalysisConfig.java": {
+      "hash": "ff1891564b5591802c5ff8d833991760d46bd512ed184f6ef9719b646835225c",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/CrossMethodTaintRule.java": {
+      "hash": "7791e44630d0a633b655b0f44a4e635ffb0291e7d37be3a215cd598efa0d50ad",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/scanner/ProjectScanner.java": {
+      "hash": "e1293a9b38dbbd05ba7a69946dc9b2717622a6ab8b96d19fb5336bfd85407765",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/translate/SemanticTranslator.java": {
+      "hash": "5cdce7efb0b5c9aa867b422f842f0399503110ea757a0776b234420534ceaac8",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/scanner/ProjectTypeDetector.java": {
+      "hash": "391889a865e1feba0aac99f1251c070208680fe4cee2458fd441fd2b244ffdbc",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/baseline/BaselineManager.java": {
+      "hash": "bec2915c57d19ca945c45033619e6f4dc709d34be9d85452f433e0c6679b8c60",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/spring/SpringBeanGraph.java": {
+      "hash": "766014776863d37b9a74f8d7329d300d469828586d19c8e8424925152b584385",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/orchestrate/AnalysisPipeline.java": {
+      "hash": "d709feb470cd85ed9ea2b2dedf262d406ef5d1be78b12a751548567a1823e78c",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/SourceUniversePro.java": {
+      "hash": "8d122d327926658c74ac4874160d1e24f932bc085011e67531619bd385cd3697",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    },
+    "src/main/java/cn/dolphinmind/glossary/java/analyze/quality/rules/AllRules.java": {
+      "hash": "07026220579d0658ec9175c78a29ee5dcb733047ca3c6b15ee8466b5a7edcb8d",
+      "classCount": 0,
+      "methodCount": 0,
+      "fieldCount": 0
+    }
+  },
+  "totalClasses": 0,
+  "totalMethods": 0,
+  "totalFields": 0
+}

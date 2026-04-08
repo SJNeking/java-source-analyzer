@@ -1,35 +1,38 @@
 package cn.dolphinmind.glossary.java.analyze.core;
 
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.EnumDeclaration;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Core Feature 3: Package Structure Mapper
+ * Core Feature 3: Package Structure Mapper (JavaParser-based)
  *
- * Automatically generates a project's package structure with layer inference.
- * Answers:
- * - What are the main packages?
- * - What layer does each package belong to? (controller, service, repository, etc.)
- * - How many classes per package?
- * - What are the dependencies between packages?
+ * Uses JavaParser AST to build accurate package structure with layer inference.
  */
 public class PackageStructureMapper {
 
-    /**
-     * A single package node in the structure.
-     */
     public static class PackageNode {
         private final String packageName;
-        private final String layer;
+        private final String fullPackageName;
+        private String layer;
         private final List<String> classes = new ArrayList<>();
         private final Map<String, PackageNode> subPackages = new LinkedHashMap<>();
         private final Set<String> dependencies = new LinkedHashSet<>();
 
-        public PackageNode(String packageName) {
+        public PackageNode(String packageName, String fullPackageName) {
             this.packageName = packageName;
-            this.layer = inferLayer(packageName);
+            this.fullPackageName = fullPackageName;
+            this.layer = inferLayer(fullPackageName);
+        }
+
+        public PackageNode(String packageName) {
+            this(packageName, packageName);
         }
 
         public String getPackageName() { return packageName; }
@@ -40,22 +43,22 @@ public class PackageStructureMapper {
 
         public int getTotalClassCount() {
             int count = classes.size();
-            for (PackageNode sub : subPackages.values()) {
-                count += sub.getTotalClassCount();
-            }
+            for (PackageNode sub : subPackages.values()) count += sub.getTotalClassCount();
             return count;
         }
 
-        public void addClass(String className) {
-            classes.add(className);
-        }
+        public void addClass(String className) { classes.add(className); }
+        public void addClasses(List<String> classNames) { classes.addAll(classNames); }
 
         public PackageNode getOrCreateSubPackage(String subName) {
-            return subPackages.computeIfAbsent(subName, PackageNode::new);
+            String fullFull = fullPackageName.isEmpty() ? subName : fullPackageName + "." + subName;
+            return subPackages.computeIfAbsent(subName, k -> new PackageNode(k, fullFull));
         }
 
         public void addDependency(String targetPackage) {
-            if (!targetPackage.equals(packageName)) {
+            if (!targetPackage.equals(packageName) && !targetPackage.startsWith("java.") &&
+                !targetPackage.startsWith("javax.") && !targetPackage.startsWith("org.slf4j") &&
+                !targetPackage.startsWith("org.apache.log4j")) {
                 dependencies.add(targetPackage);
             }
         }
@@ -70,74 +73,101 @@ public class PackageStructureMapper {
                 map.put("sub_packages", subPackages.values().stream()
                         .map(PackageNode::toMap).collect(Collectors.toList()));
             }
-            if (!classes.isEmpty()) {
-                map.put("classes", classes);
-            }
-            if (!dependencies.isEmpty()) {
-                map.put("dependencies", dependencies);
-            }
+            if (!classes.isEmpty()) map.put("classes", classes);
+            if (!dependencies.isEmpty()) map.put("dependencies", dependencies);
             return map;
         }
     }
 
     /**
-     * Build package structure from a project.
+     * Build package structure using JavaParser AST (accurate, not regex-based).
      */
     public PackageNode build(Path projectRoot) throws IOException {
-        Map<String, PackageNode> packageMap = new LinkedHashMap<>();
+        Map<String, PackageNode> allPackages = new LinkedHashMap<>();
 
         Files.walk(projectRoot)
                 .filter(p -> p.toString().endsWith(".java"))
                 .filter(p -> p.toString().contains("src"))
-                .filter(p -> !p.toString().contains("test"))
-                .filter(p -> !p.toString().contains("target"))
+                .filter(p -> !p.toString().contains("test") && !p.toString().contains("target"))
                 .forEach(path -> {
                     try {
-                        String content = new String(Files.readAllBytes(path));
-                        String packageName = extractPackage(content);
-                        String className = extractClassName(content);
-                        String fullClassName = (packageName.isEmpty() ? "" : packageName + ".") + className;
+                        CompilationUnit cu = StaticJavaParser.parse(path);
+                        String packageName = cu.getPackageDeclaration()
+                                .map(pd -> pd.getNameAsString()).orElse("");
+                        String filePath = projectRoot.relativize(path).toString();
+
+                        // Find all type declarations
+                        List<String> classNames = new ArrayList<>();
+                        for (ClassOrInterfaceDeclaration c : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+                            classNames.add(c.getNameAsString());
+                        }
+                        for (EnumDeclaration e : cu.findAll(EnumDeclaration.class)) {
+                            classNames.add(e.getNameAsString());
+                        }
 
                         // Add to package tree
-                        PackageNode root = getOrCreateRoot(packageMap, packageName);
-                        addClassToTree(root, packageName, className);
+                        String rootPkg = packageName.isEmpty() ? "(default)" : packageName.split("\\.")[0];
+                        PackageNode root = allPackages.computeIfAbsent(rootPkg, PackageNode::new);
 
-                        // Extract dependencies (import statements)
-                        List<String> imports = extractImports(content);
-                        for (String imp : imports) {
-                            String impPackage = extractPackageFromImport(imp);
-                            root.addDependency(impPackage);
+                        if (packageName.isEmpty()) {
+                            root.addClasses(classNames);
+                        } else {
+                            String[] parts = packageName.split("\\.");
+                            PackageNode current = root;
+                            for (int i = 1; i < parts.length; i++) {
+                                current = current.getOrCreateSubPackage(parts[i]);
+                            }
+                            current.addClasses(classNames);
                         }
+
+                        // Extract dependencies from imports
+                        cu.getImports().forEach(importDecl -> {
+                            String impPkg = importDecl.getNameAsString();
+                            int lastDot = impPkg.lastIndexOf('.');
+                            if (lastDot > 0) {
+                                String pkg = impPkg.substring(0, lastDot);
+                                if (!packageName.isEmpty()) {
+                                    root.addDependency(pkg);
+                                }
+                            }
+                        });
                     } catch (Exception e) {
-                        // ignore
+                        // ignore parse errors
                     }
                 });
 
-        // Return the root node
-        return packageMap.values().isEmpty() ? new PackageNode("default") : packageMap.values().iterator().next();
+        // If only one root package, return it; otherwise merge
+        if (allPackages.size() == 1) {
+            return allPackages.values().iterator().next();
+        }
+
+        // Merge into a synthetic root
+        PackageNode merged = new PackageNode("(project root)");
+        for (PackageNode node : allPackages.values()) {
+            merged.getSubPackages().put(node.getPackageName(), node);
+            merged.getDependencies().addAll(node.getDependencies());
+        }
+        return merged;
     }
 
-    /**
-     * Infer the architectural layer from package name.
-     */
     public static String inferLayer(String packageName) {
         String lower = packageName.toLowerCase();
         if (lower.contains(".controller") || lower.contains(".web") || lower.contains(".rest") || lower.contains(".api"))
             return "CONTROLLER";
-        if (lower.contains(".service") || lower.contains(".biz") || lower.contains(".domain"))
+        if (lower.contains(".service") || lower.contains(".biz"))
             return "SERVICE";
         if (lower.contains(".repository") || lower.contains(".mapper") || lower.contains(".dao") ||
             lower.contains(".jpa") || lower.contains(".jdbc"))
             return "REPOSITORY";
-        if (lower.contains(".entity") || lower.contains(".model") || lower.contains(".domain.entity") ||
-            lower.contains(".po") || lower.contains(".pojo") || lower.contains(".bean"))
+        if (lower.contains(".entity") || lower.contains(".model") || lower.contains(".pojo") ||
+            lower.contains(".bean") || lower.contains(".domain") || lower.endsWith(".po"))
             return "ENTITY";
         if (lower.contains(".dto") || lower.contains(".vo") || lower.contains(".request") ||
             lower.contains(".response") || lower.contains(".command") || lower.contains(".query"))
             return "DTO";
         if (lower.contains(".config") || lower.contains(".configuration"))
             return "CONFIG";
-        if (lower.contains(".util") || lower.contains(".common") || lower.contains(".helper"))
+        if (lower.contains(".util") || lower.contains(".common") || lower.contains(".helper") || lower.contains(".metrics"))
             return "UTIL";
         if (lower.contains(".listener") || lower.contains(".consumer") || lower.contains(".handler"))
             return "HANDLER";
@@ -147,14 +177,12 @@ public class PackageStructureMapper {
             return "MIDDLEWARE";
         if (lower.contains(".exception") || lower.contains(".error"))
             return "EXCEPTION";
-        if (lower.contains(".app") || lower.contains(".starter") || lower.endsWith(".main"))
-            return "APPLICATION";
+        if (lower.contains(".pool") || lower.contains(".core") || lower.contains(".internal") ||
+            lower.contains(".impl") || lower.contains(".proxy"))
+            return "CORE";
         return "OTHER";
     }
 
-    /**
-     * Print the package structure as a tree.
-     */
     public void printTree(PackageNode root) {
         printNode(root, "", true);
     }
@@ -172,73 +200,19 @@ public class PackageStructureMapper {
         }
     }
 
-    /**
-     * Export as JSON-compatible map.
-     */
     public Map<String, Object> export(PackageNode root) {
         return root.toMap();
     }
 
-    // ---- Private helpers ----
-
-    private PackageNode getOrCreateRoot(Map<String, PackageNode> packageMap, String packageName) {
-        String rootPkg = packageName.isEmpty() ? "default" : packageName.split("\\.")[0];
-        return packageMap.computeIfAbsent(rootPkg, PackageNode::new);
+    public Map<String, Integer> summarizeLayers(PackageNode root) {
+        Map<String, Integer> layers = new LinkedHashMap<>();
+        countLayers(root, layers);
+        return layers;
     }
 
-    private void addClassToTree(PackageNode root, String packageName, String className) {
-        if (packageName.isEmpty()) {
-            root.addClass(className);
-            return;
-        }
-
-        String[] parts = packageName.split("\\.");
-        PackageNode current = root;
-        for (int i = 1; i < parts.length; i++) {
-            current = current.getOrCreateSubPackage(parts[i]);
-        }
-        current.addClass(className);
-    }
-
-    private String extractPackage(String content) {
-        int idx = content.indexOf("package ");
-        if (idx < 0) return "";
-        int semiIdx = content.indexOf(';', idx);
-        if (semiIdx < 0) return "";
-        return content.substring(idx + 8, semiIdx).trim();
-    }
-
-    private String extractClassName(String content) {
-        for (String prefix : Arrays.asList("public class ", "public interface ", "public abstract class ",
-                                            "class ", "interface ", "abstract class ", "enum ")) {
-            int idx = content.indexOf(prefix);
-            if (idx >= 0) {
-                int start = idx + prefix.length();
-                int end = content.indexOf(' ', start);
-                if (end < 0) end = content.indexOf('{', start);
-                if (end > start) return content.substring(start, end).trim();
-            }
-        }
-        return "Unknown";
-    }
-
-    private List<String> extractImports(String content) {
-        List<String> imports = new ArrayList<>();
-        String[] lines = content.split("\n");
-        for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("import ") && !trimmed.contains("static")) {
-                int semiIdx = trimmed.indexOf(';');
-                if (semiIdx > 0) {
-                    imports.add(trimmed.substring(7, semiIdx).trim());
-                }
-            }
-        }
-        return imports;
-    }
-
-    private String extractPackageFromImport(String imp) {
-        int lastDot = imp.lastIndexOf('.');
-        return lastDot > 0 ? imp.substring(0, lastDot) : imp;
+    private void countLayers(PackageNode node, Map<String, Integer> layers) {
+        String layer = node.getLayer();
+        if (!layer.isEmpty()) layers.merge(layer, node.getTotalClassCount(), Integer::sum);
+        for (PackageNode sub : node.getSubPackages().values()) countLayers(sub, layers);
     }
 }

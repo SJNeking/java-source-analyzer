@@ -10,21 +10,13 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Core Feature 2: Call Chain Tracer
+ * Core Feature 2: Call Chain Tracer (JavaParser-based, internal-only)
  *
- * From any entry point (main, @RequestMapping, @EventListener, etc.),
- * traces the complete call chain: A→B→C→D
- *
- * This is the key feature for understanding any Java project:
- * "用户下单" 的完整调用链是什么？
- * "定时任务" 调了哪些方法？
- * "消息消费" 的处理流程是什么？
+ * Builds call graph ONLY for internal project classes.
+ * External library calls (java.*, javax.*, org.*, com.*) are EXCLUDED.
  */
 public class CallChainTracer {
 
-    /**
-     * A single call chain from entry point to leaf methods.
-     */
     public static class CallChain {
         private final String entryPoint;
         private final List<String> chain;
@@ -39,11 +31,7 @@ public class CallChainTracer {
         public String getEntryPoint() { return entryPoint; }
         public List<String> getChain() { return Collections.unmodifiableList(chain); }
         public int getDepth() { return depth; }
-
-        public String toArrowString() {
-            return String.join(" → ", chain);
-        }
-
+        public String toArrowString() { return String.join(" → ", chain); }
         public Map<String, Object> toMap() {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("entry_point", entryPoint);
@@ -54,96 +42,132 @@ public class CallChainTracer {
         }
     }
 
-    /**
-     * The call graph for an entire project.
-     */
     public static class CallGraph {
+        // Adjacency list: caller → set of internal callees
         private final Map<String, Set<String>> adjacencyList = new LinkedHashMap<>();
-        private final Map<String, String> methodToFile = new LinkedHashMap<>();
+        // Set of all known internal class names (simple + full)
+        private final Set<String> internalClasses = new HashSet<>();
 
-        public void addMethod(String className, String methodName, String filePath) {
-            String key = className + "#" + methodName;
-            methodToFile.put(key, filePath);
-            adjacencyList.putIfAbsent(key, new LinkedHashSet<>());
+        public void registerClass(String fullClassName) {
+            internalClasses.add(fullClassName);
+            int lastDot = fullClassName.lastIndexOf('.');
+            if (lastDot > 0) internalClasses.add(fullClassName.substring(lastDot + 1));
         }
 
         public void addCall(String caller, String callee) {
-            adjacencyList.computeIfAbsent(caller, k -> new LinkedHashSet<>()).add(callee);
+            // Only add if callee is an internal class
+            if (isInternalClass(callee)) {
+                adjacencyList.computeIfAbsent(caller, k -> new LinkedHashSet<>()).add(callee);
+            }
         }
 
-        public Map<String, Set<String>> getAdjacencyList() {
-            return Collections.unmodifiableMap(adjacencyList);
+        private boolean isInternalClass(String callee) {
+            String className = callee.contains("#") ? callee.substring(0, callee.indexOf('#')) : callee;
+            return internalClasses.contains(className);
         }
 
-        public Map<String, String> getMethodToFile() {
-            return Collections.unmodifiableMap(methodToFile);
-        }
-
+        public Map<String, Set<String>> getAdjacencyList() { return Collections.unmodifiableMap(adjacencyList); }
         public int getNodeCount() { return adjacencyList.size(); }
-        public int getEdgeCount() {
-            return adjacencyList.values().stream().mapToInt(Set::size).sum();
-        }
+        public int getEdgeCount() { return adjacencyList.values().stream().mapToInt(Set::size).sum(); }
     }
 
     /**
-     * Build the complete call graph for a project.
+     * Build call graph from all Java files in project.
+     * Only tracks calls between INTERNAL project classes.
      */
     public CallGraph buildCallGraph(Path projectRoot) throws IOException {
         CallGraph graph = new CallGraph();
 
+        // First pass: register all internal classes
         Files.walk(projectRoot)
                 .filter(p -> p.toString().endsWith(".java"))
                 .filter(p -> p.toString().contains("src"))
-                .filter(p -> !p.toString().contains("test"))
-                .filter(p -> !p.toString().contains("target"))
+                .filter(p -> !p.toString().contains("test") && !p.toString().contains("target"))
                 .forEach(path -> {
                     try {
                         CompilationUnit cu = StaticJavaParser.parse(path);
-                        String className = cu.getPrimaryTypeName().orElse("Unknown");
-                        String filePath = projectRoot.relativize(path).toString();
+                        String pkg = cu.getPackageDeclaration()
+                                .map(pd -> pd.getNameAsString()).orElse("");
+                        for (com.github.javaparser.ast.body.ClassOrInterfaceDeclaration c : cu.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class)) {
+                            String full = (pkg.isEmpty() ? "" : pkg + ".") + c.getNameAsString();
+                            graph.registerClass(full);
+                        }
+                    } catch (Exception e) {}
+                });
 
-                        cu.findAll(MethodDeclaration.class).forEach(method -> {
-                            String methodName = method.getNameAsString();
-                            graph.addMethod(className, methodName, filePath);
+        // Second pass: build call edges (only internal)
+        Files.walk(projectRoot)
+                .filter(p -> p.toString().endsWith(".java"))
+                .filter(p -> p.toString().contains("src"))
+                .filter(p -> !p.toString().contains("test") && !p.toString().contains("target"))
+                .forEach(path -> {
+                    try {
+                        CompilationUnit cu = StaticJavaParser.parse(path);
+                        String pkg = cu.getPackageDeclaration()
+                                .map(pd -> pd.getNameAsString()).orElse("");
+                        String currentClass = pkg.isEmpty() ? "Unknown" : pkg;
 
-                            // Extract method calls
-                            method.findAll(MethodCallExpr.class).forEach(call -> {
-                                String targetClass = call.getScope()
-                                        .map(s -> extractTypeName(s.toString()))
-                                        .orElse(className);
-                                String targetMethod = call.getNameAsString();
-                                graph.addCall(className + "#" + methodName,
-                                        targetClass + "#" + targetMethod);
-                            });
-                        });
-                    } catch (Exception e) {
-                        // ignore parse errors
-                    }
+                        for (com.github.javaparser.ast.body.ClassOrInterfaceDeclaration classDecl : cu.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class)) {
+                            String className = classDecl.getNameAsString();
+                            String fullClassName = (pkg.isEmpty() ? "" : pkg + ".") + className;
+
+                            for (MethodDeclaration method : classDecl.getMethods()) {
+                                String callerKey = fullClassName + "#" + method.getNameAsString();
+
+                                method.findAll(MethodCallExpr.class).forEach(call -> {
+                                    String methodName = call.getNameAsString();
+                                    // Try to resolve the scope to a class name
+                                    String targetClass = call.getScope()
+                                            .map(s -> {
+                                                String scopeStr = s.toString();
+                                                // Handle "this.xxx" → current class
+                                                if (scopeStr.equals("this")) return fullClassName;
+                                                // Handle variable name → guess class from type
+                                                return resolveVariableType(cu, scopeStr, fullClassName);
+                                            })
+                                            .orElse(fullClassName); // No scope = same class
+
+                                    String calleeKey = targetClass + "#" + methodName;
+                                    graph.addCall(callerKey, calleeKey);
+                                });
+                            }
+                        }
+                    } catch (Exception e) {}
                 });
 
         return graph;
     }
 
     /**
-     * Trace call chains from a specific entry point.
-     * Limits depth to prevent infinite loops in recursive calls.
+     * Try to resolve a variable name to its type/class.
+     * This is a simplified heuristic without full symbol resolution.
      */
+    private String resolveVariableType(CompilationUnit cu, String varName, String currentClass) {
+        // Check imports for the type
+        for (com.github.javaparser.ast.ImportDeclaration imp : cu.getImports()) {
+            String impName = imp.getNameAsString();
+            if (impName.toLowerCase().contains(varName.toLowerCase())) {
+                return impName;
+            }
+        }
+        // If we can't resolve, assume it's an internal class (capitalize first letter)
+        if (!varName.isEmpty()) {
+            return Character.toUpperCase(varName.charAt(0)) + varName.substring(1);
+        }
+        return currentClass;
+    }
+
     public List<CallChain> traceFrom(CallGraph graph, String entryPoint, int maxDepth) {
         List<CallChain> chains = new ArrayList<>();
         traceDFS(graph, entryPoint, new ArrayList<>(), new HashSet<>(), chains, maxDepth);
         return chains;
     }
 
-    /**
-     * Trace call chains from multiple entry points.
-     */
     public Map<String, List<CallChain>> traceAll(CallGraph graph, List<String> entryPoints, int maxDepth) {
         Map<String, List<CallChain>> result = new LinkedHashMap<>();
         for (String ep : entryPoints) {
             List<CallChain> chains = traceFrom(graph, ep, maxDepth);
-            if (!chains.isEmpty()) {
-                result.put(ep, chains);
-            }
+            if (!chains.isEmpty()) result.put(ep, chains);
         }
         return result;
     }
@@ -151,10 +175,10 @@ public class CallChainTracer {
     private void traceDFS(CallGraph graph, String current, List<String> path,
                           Set<String> visited, List<CallChain> chains, int maxDepth) {
         if (path.size() > maxDepth) return;
-        if (visited.contains(current) && path.size() > 0) {
-            // Found a cycle - record the chain up to the cycle
+
+        if (visited.contains(current) && !path.isEmpty()) {
             List<String> chainWithCycle = new ArrayList<>(path);
-            chainWithCycle.add(current + "(recursive)");
+            chainWithCycle.add(current + "(循环)");
             chains.add(new CallChain(path.get(0), chainWithCycle));
             return;
         }
@@ -164,7 +188,6 @@ public class CallChainTracer {
 
         Set<String> callees = graph.getAdjacencyList().getOrDefault(current, Collections.emptySet());
         if (callees.isEmpty() || path.size() >= maxDepth) {
-            // Leaf method or max depth reached
             chains.add(new CallChain(path.get(0), new ArrayList<>(path)));
         } else {
             for (String callee : callees) {
@@ -175,33 +198,18 @@ public class CallChainTracer {
         path.remove(path.size() - 1);
     }
 
-    /**
-     * Extract simple type name from a scope expression.
-     * e.g., "userService" → "UserService", "this.userService" → "UserService"
-     */
-    private String extractTypeName(String scope) {
-        // Handle "this.xxx" → "xxx"
-        if (scope.startsWith("this.")) {
-            scope = scope.substring(5);
-        }
-        // Capitalize first letter: "userService" → "UserService"
-        if (!scope.isEmpty()) {
-            return Character.toUpperCase(scope.charAt(0)) + scope.substring(1);
-        }
-        return scope;
-    }
-
-    /**
-     * Print call chains in a readable format.
-     */
     public void printChains(Map<String, List<CallChain>> allChains) {
+        if (allChains.isEmpty()) {
+            System.out.println("  (未找到入口点调用链)");
+            return;
+        }
         System.out.println("\n=== 调用链路追踪 ===");
         for (Map.Entry<String, List<CallChain>> entry : allChains.entrySet()) {
             System.out.println("\n入口: " + entry.getKey() + " (" + entry.getValue().size() + " 条链路)");
             int shown = 0;
             for (CallChain chain : entry.getValue()) {
                 if (shown >= 10) {
-                    System.out.println("  ... 还有 " + (entry.getValue().size() - 10) + " 条链路");
+                    System.out.println("  ... 还有 " + (entry.getValue().size() - 10) + " 条");
                     break;
                 }
                 System.out.println("  " + chain.toArrowString());

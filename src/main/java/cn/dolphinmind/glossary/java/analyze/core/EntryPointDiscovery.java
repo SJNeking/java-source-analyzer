@@ -2,59 +2,44 @@ package cn.dolphinmind.glossary.java.analyze.core;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.*;
-import com.github.javaparser.ast.NodeList;
 
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 
 /**
- * Core Feature 1: Entry Point Discovery
+ * Core Feature 1: Entry Point Discovery (JavaParser-based, not regex)
  *
- * Automatically finds all entry points in a Java project:
+ * Uses JavaParser AST to accurately find:
  * - main() methods
- * - @RequestMapping / @GetMapping / @PostMapping / etc.
- * - @EventListener
- * - @Scheduled
- * - @PostConstruct
- * - @Scheduled
- * - JMS/Kafka consumers
- * - Quartz jobs
- *
- * This is the starting point for understanding any Java project.
+ * - @RequestMapping / @GetMapping / @PostMapping etc.
+ * - @EventListener, @Scheduled, @PostConstruct
+ * - @KafkaListener, @JmsListener, @RabbitListener
  */
 public class EntryPointDiscovery {
 
     public enum EntryPointType {
-        MAIN_METHOD,           // public static void main(String[])
-        REST_CONTROLLER,       // @RequestMapping + method
-        WEB_SOCKET,            // @OnMessage
-        EVENT_LISTENER,        // @EventListener
-        SCHEDULED_TASK,        // @Scheduled
-        POST_CONSTRUCT,        // @PostConstruct
-        MESSAGE_CONSUMER,      // @JmsListener / @KafkaListener / @RabbitListener
-        COMMAND_HANDLER,       // @CommandHandler
-        SERVLET,               // HttpServlet.doGet/doPost
-        JSP_SERVLET,           // extends HttpServlet
-        FILTER,                // implements Filter
-        STARTUP_RUNNER,        // ApplicationRunner / CommandLineRunner
-        UNKNOWN
+        MAIN_METHOD, REST_CONTROLLER, EVENT_LISTENER,
+        SCHEDULED_TASK, POST_CONSTRUCT, MESSAGE_CONSUMER
     }
 
     public static class EntryPoint {
         private final String className;
+        private final String packageName;
         private final String methodName;
         private final String filePath;
         private final EntryPointType type;
-        private final String pathOrTopic;  // URL path, topic name, etc.
-        private final String httpMethod;   // GET, POST, etc. (for REST)
+        private final String pathOrTopic;
+        private final String httpMethod;
         private final int line;
 
-        public EntryPoint(String className, String methodName, String filePath,
+        public EntryPoint(String className, String packageName, String methodName, String filePath,
                           EntryPointType type, String pathOrTopic, String httpMethod, int line) {
             this.className = className;
+            this.packageName = packageName;
             this.methodName = methodName;
             this.filePath = filePath;
             this.type = type;
@@ -64,33 +49,31 @@ public class EntryPointDiscovery {
         }
 
         public String getClassName() { return className; }
+        public String getPackageName() { return packageName; }
         public String getMethodName() { return methodName; }
         public String getFilePath() { return filePath; }
         public EntryPointType getType() { return type; }
         public String getPathOrTopic() { return pathOrTopic; }
         public String getHttpMethod() { return httpMethod; }
         public int getLine() { return line; }
+        public String getFullClassName() {
+            return (packageName.isEmpty() ? "" : packageName + ".") + className;
+        }
 
         public String getSummary() {
             switch (type) {
-                case REST_CONTROLLER:
-                    return httpMethod + " " + pathOrTopic + " → " + className + "#" + methodName;
-                case MAIN_METHOD:
-                    return className + ".main()";
-                case EVENT_LISTENER:
-                    return "Event → " + className + "#" + methodName;
-                case SCHEDULED_TASK:
-                    return "Scheduled → " + className + "#" + methodName + "(" + pathOrTopic + ")";
-                case MESSAGE_CONSUMER:
-                    return "Message[" + pathOrTopic + "] → " + className + "#" + methodName;
-                default:
-                    return className + "#" + methodName + " (" + type + ")";
+                case REST_CONTROLLER: return httpMethod + " " + pathOrTopic + " → " + getFullClassName() + "#" + methodName;
+                case MAIN_METHOD: return getFullClassName() + ".main()";
+                case EVENT_LISTENER: return "Event → " + getFullClassName() + "#" + methodName;
+                case SCHEDULED_TASK: return "Scheduled → " + getFullClassName() + "#" + methodName + "(" + pathOrTopic + ")";
+                case MESSAGE_CONSUMER: return "Message[" + pathOrTopic + "] → " + getFullClassName() + "#" + methodName;
+                default: return getFullClassName() + "#" + methodName + " (" + type + ")";
             }
         }
 
         public Map<String, Object> toMap() {
             Map<String, Object> map = new LinkedHashMap<>();
-            map.put("class", className);
+            map.put("class", getFullClassName());
             map.put("method", methodName);
             map.put("file", filePath);
             map.put("type", type.name());
@@ -102,75 +85,73 @@ public class EntryPointDiscovery {
         }
     }
 
-    /**
-     * Discover all entry points in a project.
-     */
     public List<EntryPoint> discover(Path projectRoot) throws IOException {
         List<EntryPoint> entries = new ArrayList<>();
 
         Files.walk(projectRoot)
                 .filter(p -> p.toString().endsWith(".java"))
                 .filter(p -> p.toString().contains("src"))
-                .filter(p -> !p.toString().contains("test"))
-                .filter(p -> !p.toString().contains("target"))
+                .filter(p -> !p.toString().contains("test") && !p.toString().contains("target"))
                 .forEach(path -> {
                     try {
                         CompilationUnit cu = StaticJavaParser.parse(path);
-                        String className = extractClassName(cu);
+                        String packageName = cu.getPackageDeclaration()
+                                .map(pd -> pd.getNameAsString()).orElse("");
                         String filePath = projectRoot.relativize(path).toString();
 
-                        cu.findAll(MethodDeclaration.class).forEach(method -> {
-                            List<AnnotationExpr> annotations = method.getAnnotations();
-                            String methodSig = annotations.toString();
+                        for (ClassOrInterfaceDeclaration classDecl : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+                            String className = classDecl.getNameAsString();
 
-                            // REST Controller
-                            if (methodSig.contains("RequestMapping") || methodSig.contains("GetMapping") ||
-                                methodSig.contains("PostMapping") || methodSig.contains("PutMapping") ||
-                                methodSig.contains("DeleteMapping") || methodSig.contains("PatchMapping")) {
-                                String httpMethod = extractHttpMethod(annotations);
-                                String urlPath = extractRequestMappingPath(annotations);
-                                entries.add(new EntryPoint(className, method.getNameAsString(), filePath,
-                                        EntryPointType.REST_CONTROLLER, urlPath, httpMethod,
-                                        method.getBegin().map(p -> p.line).orElse(0)));
-                            }
-                            // Event Listener
-                            else if (methodSig.contains("EventListener")) {
-                                entries.add(new EntryPoint(className, method.getNameAsString(), filePath,
-                                        EntryPointType.EVENT_LISTENER, "", "",
-                                        method.getBegin().map(p -> p.line).orElse(0)));
-                            }
-                            // Scheduled Task
-                            else if (methodSig.contains("Scheduled")) {
-                                String cron = extractCronExpression(annotations);
-                                entries.add(new EntryPoint(className, method.getNameAsString(), filePath,
-                                        EntryPointType.SCHEDULED_TASK, cron, "",
-                                        method.getBegin().map(p -> p.line).orElse(0)));
-                            }
-                            // PostConstruct
-                            else if (methodSig.contains("PostConstruct")) {
-                                entries.add(new EntryPoint(className, method.getNameAsString(), filePath,
-                                        EntryPointType.POST_CONSTRUCT, "", "",
-                                        method.getBegin().map(p -> p.line).orElse(0)));
-                            }
-                            // Message Consumer
-                            else if (methodSig.contains("JmsListener") || methodSig.contains("KafkaListener") ||
-                                     methodSig.contains("RabbitListener") || methodSig.contains("StreamListener")) {
-                                String topic = extractTopic(annotations);
-                                entries.add(new EntryPoint(className, method.getNameAsString(), filePath,
-                                        EntryPointType.MESSAGE_CONSUMER, topic, "",
-                                        method.getBegin().map(p -> p.line).orElse(0)));
-                            }
-                        });
+                            for (MethodDeclaration method : classDecl.getMethods()) {
+                                String mName = method.getNameAsString();
+                                List<AnnotationExpr> anns = method.getAnnotations();
+                                String annStr = anns.toString();
+                                int line = method.getBegin().map(p -> p.line).orElse(0);
 
-                        // main() method
-                        cu.findAll(MethodDeclaration.class).stream()
-                                .filter(m -> m.getNameAsString().equals("main"))
-                                .filter(m -> m.isPublic() && m.isStatic())
-                                .filter(m -> m.getParameters().size() == 1)
-                                .forEach(m -> entries.add(new EntryPoint(className, "main", filePath,
-                                        EntryPointType.MAIN_METHOD, "", "",
-                                        m.getBegin().map(p -> p.line).orElse(0))));
+                                // REST Controller
+                                if (hasAnnotation(anns, "RequestMapping", "GetMapping", "PostMapping",
+                                        "PutMapping", "DeleteMapping", "PatchMapping")) {
+                                    String http = extractHttpMethod(anns);
+                                    String urlPath = extractPathValue(anns);
+                                    entries.add(new EntryPoint(className, packageName, mName, filePath,
+                                            EntryPointType.REST_CONTROLLER, urlPath, http, line));
+                                }
+                                // Event Listener
+                                else if (hasAnnotation(anns, "EventListener")) {
+                                    entries.add(new EntryPoint(className, packageName, mName, filePath,
+                                            EntryPointType.EVENT_LISTENER, "", "", line));
+                                }
+                                // Scheduled
+                                else if (hasAnnotation(anns, "Scheduled")) {
+                                    String cron = extractCron(anns);
+                                    entries.add(new EntryPoint(className, packageName, mName, filePath,
+                                            EntryPointType.SCHEDULED_TASK, cron, "", line));
+                                }
+                                // PostConstruct
+                                else if (hasAnnotation(anns, "PostConstruct")) {
+                                    entries.add(new EntryPoint(className, packageName, mName, filePath,
+                                            EntryPointType.POST_CONSTRUCT, "", "", line));
+                                }
+                                // Message Consumer
+                                else if (hasAnnotation(anns, "JmsListener", "KafkaListener", "RabbitListener", "StreamListener")) {
+                                    String topic = extractTopic(anns);
+                                    entries.add(new EntryPoint(className, packageName, mName, filePath,
+                                            EntryPointType.MESSAGE_CONSUMER, topic, "", line));
+                                }
+                            }
 
+                            // main() method
+                            for (MethodDeclaration m : classDecl.getMethods()) {
+                                if ("main".equals(m.getNameAsString()) &&
+                                    m.isPublic() && m.isStatic() &&
+                                    m.getParameters().size() == 1 &&
+                                    m.getParameter(0).getTypeAsString().equals("String[]")) {
+                                    entries.add(new EntryPoint(className, packageName, "main", filePath,
+                                            EntryPointType.MAIN_METHOD, "", "",
+                                            m.getBegin().map(p -> p.line).orElse(0)));
+                                }
+                            }
+                        }
                     } catch (Exception e) {
                         // ignore parse errors
                     }
@@ -179,29 +160,31 @@ public class EntryPointDiscovery {
         return entries;
     }
 
-    private String extractClassName(CompilationUnit cu) {
-        return cu.getPrimaryTypeName().orElse("Unknown");
+    private boolean hasAnnotation(List<AnnotationExpr> anns, String... names) {
+        Set<String> nameSet = new HashSet<>(Arrays.asList(names));
+        for (AnnotationExpr ann : anns) {
+            if (nameSet.contains(ann.getNameAsString())) return true;
+        }
+        return false;
     }
 
-    private String extractHttpMethod(List<AnnotationExpr> annotations) {
-        for (AnnotationExpr ann : annotations) {
-            String name = ann.getNameAsString();
-            if ("GetMapping".equals(name)) return "GET";
-            if ("PostMapping".equals(name)) return "POST";
-            if ("PutMapping".equals(name)) return "PUT";
-            if ("DeleteMapping".equals(name)) return "DELETE";
-            if ("PatchMapping".equals(name)) return "PATCH";
-            if ("RequestMapping".equals(name)) {
-                // Try to extract method from @RequestMapping(method = RequestMethod.GET)
+    private String extractHttpMethod(List<AnnotationExpr> anns) {
+        for (AnnotationExpr ann : anns) {
+            String n = ann.getNameAsString();
+            if ("GetMapping".equals(n)) return "GET";
+            if ("PostMapping".equals(n)) return "POST";
+            if ("PutMapping".equals(n)) return "PUT";
+            if ("DeleteMapping".equals(n)) return "DELETE";
+            if ("PatchMapping".equals(n)) return "PATCH";
+            if ("RequestMapping".equals(n)) {
                 if (ann instanceof NormalAnnotationExpr) {
-                    NodeList<MemberValuePair> pairs = ((NormalAnnotationExpr) ann).getPairs();
-                    for (MemberValuePair pair : pairs) {
+                    for (MemberValuePair pair : ((NormalAnnotationExpr) ann).getPairs()) {
                         if ("method".equals(pair.getNameAsString())) {
-                            String val = pair.getValue().toString();
-                            if (val.contains("GET")) return "GET";
-                            if (val.contains("POST")) return "POST";
-                            if (val.contains("PUT")) return "PUT";
-                            if (val.contains("DELETE")) return "DELETE";
+                            String v = pair.getValue().toString();
+                            if (v.contains("GET")) return "GET";
+                            if (v.contains("POST")) return "POST";
+                            if (v.contains("PUT")) return "PUT";
+                            if (v.contains("DELETE")) return "DELETE";
                         }
                     }
                 }
@@ -211,76 +194,70 @@ public class EntryPointDiscovery {
         return "";
     }
 
-    private String extractRequestMappingPath(List<AnnotationExpr> annotations) {
-        for (AnnotationExpr ann : annotations) {
-            String name = ann.getNameAsString();
-            if (name.endsWith("Mapping")) {
-                if (ann instanceof NormalAnnotationExpr) {
-                    NodeList<MemberValuePair> pairs = ((NormalAnnotationExpr) ann).getPairs();
-                    for (MemberValuePair pair : pairs) {
+    private String extractPathValue(List<AnnotationExpr> anns) {
+        for (AnnotationExpr ann : anns) {
+            String n = ann.getNameAsString();
+            if (n.endsWith("Mapping")) {
+                Expression val = null;
+                if (ann instanceof SingleMemberAnnotationExpr) {
+                    val = ((SingleMemberAnnotationExpr) ann).getMemberValue();
+                } else if (ann instanceof NormalAnnotationExpr) {
+                    for (MemberValuePair pair : ((NormalAnnotationExpr) ann).getPairs()) {
                         if ("value".equals(pair.getNameAsString()) || "path".equals(pair.getNameAsString())) {
-                            return extractStringLiteral(pair.getValue());
+                            val = pair.getValue();
+                            break;
                         }
                     }
-                } else if (ann instanceof SingleMemberAnnotationExpr) {
-                    return extractStringLiteral(((SingleMemberAnnotationExpr) ann).getMemberValue());
                 }
+                if (val != null) return extractString(val);
             }
         }
         return "";
     }
 
-    private String extractCronExpression(List<AnnotationExpr> annotations) {
-        for (AnnotationExpr ann : annotations) {
+    private String extractCron(List<AnnotationExpr> anns) {
+        for (AnnotationExpr ann : anns) {
             if ("Scheduled".equals(ann.getNameAsString())) {
+                Expression val = null;
                 if (ann instanceof SingleMemberAnnotationExpr) {
-                    return extractStringLiteral(((SingleMemberAnnotationExpr) ann).getMemberValue());
+                    val = ((SingleMemberAnnotationExpr) ann).getMemberValue();
                 } else if (ann instanceof NormalAnnotationExpr) {
-                    NodeList<MemberValuePair> pairs = ((NormalAnnotationExpr) ann).getPairs();
-                    for (MemberValuePair pair : pairs) {
-                        if ("cron".equals(pair.getNameAsString())) {
-                            return extractStringLiteral(pair.getValue());
-                        }
+                    for (MemberValuePair pair : ((NormalAnnotationExpr) ann).getPairs()) {
+                        if ("cron".equals(pair.getNameAsString())) { val = pair.getValue(); break; }
                     }
                 }
+                if (val != null) return extractString(val);
             }
         }
         return "";
     }
 
-    private String extractTopic(List<AnnotationExpr> annotations) {
-        for (AnnotationExpr ann : annotations) {
-            String name = ann.getNameAsString();
-            if (name.contains("Listener")) {
+    private String extractTopic(List<AnnotationExpr> anns) {
+        for (AnnotationExpr ann : anns) {
+            String n = ann.getNameAsString();
+            if (n.contains("Listener")) {
+                Expression val = null;
                 if (ann instanceof SingleMemberAnnotationExpr) {
-                    return extractStringLiteral(((SingleMemberAnnotationExpr) ann).getMemberValue());
+                    val = ((SingleMemberAnnotationExpr) ann).getMemberValue();
                 } else if (ann instanceof NormalAnnotationExpr) {
-                    NodeList<MemberValuePair> pairs = ((NormalAnnotationExpr) ann).getPairs();
-                    for (MemberValuePair pair : pairs) {
-                        if ("value".equals(pair.getNameAsString()) || "topic".equals(pair.getNameAsString()) ||
-                            "queues".equals(pair.getNameAsString())) {
-                            return extractStringLiteral(pair.getValue());
+                    for (MemberValuePair pair : ((NormalAnnotationExpr) ann).getPairs()) {
+                        String pn = pair.getNameAsString();
+                        if ("value".equals(pn) || "topic".equals(pn) || "queues".equals(pn)) {
+                            val = pair.getValue(); break;
                         }
                     }
                 }
+                if (val != null) return extractString(val);
             }
         }
         return "";
     }
 
-    private String extractStringLiteral(Expression expr) {
-        if (expr instanceof StringLiteralExpr) {
-            return ((StringLiteralExpr) expr).getValue();
-        }
-        if (expr instanceof FieldAccessExpr) {
-            return expr.toString();
-        }
+    private String extractString(Expression expr) {
+        if (expr instanceof StringLiteralExpr) return ((StringLiteralExpr) expr).getValue();
         return expr.toString();
     }
 
-    /**
-     * Group entry points by type for summary.
-     */
     public Map<EntryPointType, List<EntryPoint>> groupByType(List<EntryPoint> entries) {
         Map<EntryPointType, List<EntryPoint>> grouped = new LinkedHashMap<>();
         for (EntryPoint ep : entries) {
@@ -289,20 +266,11 @@ public class EntryPointDiscovery {
         return grouped;
     }
 
-    /**
-     * Print entry points in a readable format.
-     */
     public void printSummary(List<EntryPoint> entries) {
-        Map<EntryPointType, List<EntryPoint>> grouped = groupByType(entries);
-        System.out.println("\n=== 项目入口点发现 ===");
-        System.out.println("共发现 " + entries.size() + " 个入口点\n");
-
-        for (Map.Entry<EntryPointType, List<EntryPoint>> group : grouped.entrySet()) {
-            System.out.println("【" + group.getKey().name() + "】(" + group.getValue().size() + " 个)");
-            for (EntryPoint ep : group.getValue()) {
-                System.out.println("  " + ep.getSummary());
-            }
-            System.out.println();
-        }
+        System.out.println("\n=== 入口点发现 (" + entries.size() + " 个) ===");
+        groupByType(entries).forEach((type, eps) -> {
+            System.out.println("\n【" + type.name() + "】" + eps.size() + " 个");
+            for (EntryPoint ep : eps) System.out.println("  " + ep.getSummary());
+        });
     }
 }

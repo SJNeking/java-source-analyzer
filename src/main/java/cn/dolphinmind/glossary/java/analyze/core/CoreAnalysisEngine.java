@@ -1,21 +1,15 @@
 package cn.dolphinmind.glossary.java.analyze.core;
 
+import com.github.javaparser.ast.body.MethodDeclaration;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 
 /**
- * Core Analysis Engine
+ * Core Analysis Engine - ties together the 5 core features.
  *
- * Ties together the 5 core features for understanding any Java project:
- * 1. 入口点发现 - EntryPointDiscovery
- * 2. 调用链路追踪 - CallChainTracer
- * 3. 类型定义导航 - TypeDefinitionNavigator
- * 4. 包结构地图 - PackageStructureMapper
- * 5. 数据流追踪 - DataFlowTracer
- *
- * This is the key integration point that makes the project useful for
- * quickly understanding any Java codebase.
+ * All features use JavaParser AST (not regex/string parsing).
  */
 public class CoreAnalysisEngine {
 
@@ -25,51 +19,46 @@ public class CoreAnalysisEngine {
     private final TypeDefinitionNavigator typeNavigator = new TypeDefinitionNavigator();
     private final DataFlowTracer dataFlowTracer = new DataFlowTracer();
 
-    /**
-     * Run all core analyses on a project.
-     */
     public Map<String, Object> analyze(Path projectRoot) throws IOException {
         System.out.println("\n=== 核心分析引擎启动 ===");
 
-        // 1. Package Structure
-        System.out.println("\n📦 正在分析包结构...");
+        // 1. Package Structure (JavaParser-based)
+        System.out.println("📦 正在分析包结构...");
         PackageStructureMapper.PackageNode packageTree = packageMapper.build(projectRoot);
 
-        // 2. Entry Points
+        // 2. Entry Points (JavaParser-based)
         System.out.println("🔍 正在发现入口点...");
         List<EntryPointDiscovery.EntryPoint> entryPoints = entryPointDiscovery.discover(projectRoot);
 
-        // 3. Type Definition Index
+        // 3. Type Definition Index (JavaParser-based)
         System.out.println("📚 正在构建类型定义索引...");
         typeNavigator.buildIndex(projectRoot);
 
-        // 4. Call Graph & Chain Tracing
+        // 4. Call Graph (JavaParser-based, internal-only)
         System.out.println("🔗 正在构建调用图...");
         CallChainTracer.CallGraph callGraph = callChainTracer.buildCallGraph(projectRoot);
 
         // Trace chains from entry points
         List<String> entryPointKeys = new ArrayList<>();
         for (EntryPointDiscovery.EntryPoint ep : entryPoints) {
-            entryPointKeys.add(ep.getClassName() + "#" + ep.getMethodName());
+            entryPointKeys.add(ep.getFullClassName() + "#" + ep.getMethodName());
         }
         Map<String, List<CallChainTracer.CallChain>> callChains =
                 callChainTracer.traceAll(callGraph, entryPointKeys, 5);
 
-        // 5. Data Flow (trace from first few entry points for performance)
+        // 5. Data Flow (JavaParser-based, limited to first few entry points)
         System.out.println("🌊 正在追踪数据流...");
+        Map<String, MethodDeclaration> methodIndex = dataFlowTracer.indexMethods(projectRoot);
         List<DataFlowTracer.DataFlow> dataFlows = new ArrayList<>();
         int flowCount = 0;
         for (EntryPointDiscovery.EntryPoint ep : entryPoints) {
-            if (flowCount >= 5) break; // Limit to first 5 entry points
-            String filePath = projectRoot.resolve(ep.getFilePath()).toString();
+            if (flowCount >= 5) break;
             try {
                 List<DataFlowTracer.DataFlow> epFlows = dataFlowTracer.traceMethod(
-                        ep.getClassName(), ep.getMethodName(), filePath);
+                        methodIndex, ep.getFullClassName(), ep.getMethodName());
                 dataFlows.addAll(epFlows);
                 flowCount++;
-            } catch (Exception e) {
-                // ignore
-            }
+            } catch (Exception e) {}
         }
 
         // Build result
@@ -77,8 +66,8 @@ public class CoreAnalysisEngine {
 
         // Package structure
         Map<String, Object> pkgInfo = new LinkedHashMap<>();
-        pkgInfo.put("layer_summary", summarizeLayers(packageTree));
-        pkgInfo.put("tree", packageTree.toMap());
+        pkgInfo.put("layer_summary", packageMapper.summarizeLayers(packageTree));
+        pkgInfo.put("tree", packageMapper.export(packageTree));
         result.put("package_structure", pkgInfo);
 
         // Entry points
@@ -89,21 +78,18 @@ public class CoreAnalysisEngine {
                         e -> e.getKey().name(),
                         e -> e.getValue().stream().map(EntryPointDiscovery.EntryPoint::toMap)
                                 .collect(java.util.stream.Collectors.toList()))));
-        entryInfo.put("entry_points", entryPoints.stream()
-                .map(EntryPointDiscovery.EntryPoint::toMap)
-                .collect(java.util.stream.Collectors.toList()));
         result.put("entry_points", entryInfo);
 
         // Call graph
         Map<String, Object> callInfo = new LinkedHashMap<>();
         callInfo.put("node_count", callGraph.getNodeCount());
         callInfo.put("edge_count", callGraph.getEdgeCount());
-        callInfo.put("chains_from_entry", callChains.entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().stream().limit(5)
-                                .map(CallChainTracer.CallChain::toMap)
-                                .collect(java.util.stream.Collectors.toList()))));
+        Map<String, Object> chainsOutput = new LinkedHashMap<>();
+        for (Map.Entry<String, List<CallChainTracer.CallChain>> e : callChains.entrySet()) {
+            chainsOutput.put(e.getKey(), e.getValue().stream().limit(10)
+                    .map(CallChainTracer.CallChain::toMap).collect(java.util.stream.Collectors.toList()));
+        }
+        callInfo.put("chains_from_entry", chainsOutput);
         result.put("call_graph", callInfo);
 
         // Type definitions
@@ -118,47 +104,23 @@ public class CoreAnalysisEngine {
         return result;
     }
 
-    private Map<String, Integer> summarizeLayers(PackageStructureMapper.PackageNode root) {
-        Map<String, Integer> layers = new LinkedHashMap<>();
-        countLayers(root, layers);
-        return layers;
-    }
-
-    private void countLayers(PackageStructureMapper.PackageNode node, Map<String, Integer> layers) {
-        String layer = node.getLayer();
-        if (!layer.isEmpty()) {
-            layers.merge(layer, node.getTotalClassCount(), Integer::sum);
-        }
-        for (PackageStructureMapper.PackageNode sub : node.getSubPackages().values()) {
-            countLayers(sub, layers);
-        }
-    }
-
-    /**
-     * Print a readable summary of the core analysis.
-     */
     public void printSummary(List<EntryPointDiscovery.EntryPoint> entryPoints,
                               PackageStructureMapper.PackageNode packageTree,
                               Map<String, List<CallChainTracer.CallChain>> callChains,
                               List<DataFlowTracer.DataFlow> dataFlows) {
         // Entry points
         System.out.println("\n=== 项目解构报告 ===");
-        System.out.println("\n📍 入口点: " + entryPoints.size() + " 个");
-        entryPointDiscovery.groupByType(entryPoints).forEach((type, eps) -> {
-            System.out.println("  " + type.name() + ": " + eps.size() + " 个");
-        });
+        entryPointDiscovery.printSummary(entryPoints);
 
         // Package structure
         System.out.println("\n📦 包结构:");
         packageMapper.printTree(packageTree);
 
         // Call chains
-        if (!callChains.isEmpty()) {
-            callChainTracer.printChains(callChains);
-        }
+        callChainTracer.printChains(callChains);
 
         // Type definitions
-        System.out.println("\n📚 类型定义: 已索引 " + typeNavigator.export().get("total_types") + " 个类型");
+        System.out.println("\n📚 类型定义: 已索引 " + typeNavigator.getTotalTypes() + " 个类型");
 
         // Data flows
         if (!dataFlows.isEmpty()) {
