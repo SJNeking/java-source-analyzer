@@ -1,48 +1,14 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>cn.dolphinmind</groupId>
   <artifactId>glossary-java-source-analyzer</artifactId>
-  <version>1.0</version>
   <name>java-source-analyzer</name>
+  <version>1.0</version>
   <url>http://maven.apache.org</url>
-  <packaging>jar</packaging>
-
-
-  <dependencies>
-    <dependency>
-      <groupId>com.github.javaparser</groupId>
-      <artifactId>javaparser-symbol-solver-core</artifactId>
-      <version>3.27.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.13.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <version>42.3.8</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>5.13.4</version>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
-
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
@@ -51,7 +17,6 @@
         </configuration>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.5.1</version>
         <executions>
@@ -62,7 +27,7 @@
             </goals>
             <configuration>
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                <transformer>
                   <mainClass>cn.dolphinmind.glossary.java.analyze.SourceUniversePro</mainClass>
                 </transformer>
               </transformers>
@@ -82,4 +47,38 @@
       </plugin>
     </plugins>
   </build>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>hamcrest-core</artifactId>
+          <groupId>org.hamcrest</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.13.4</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>junit-jupiter-api</artifactId>
+          <groupId>org.junit.jupiter</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>junit-jupiter-params</artifactId>
+          <groupId>org.junit.jupiter</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>junit-jupiter-engine</artifactId>
+          <groupId>org.junit.jupiter</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
 </project>

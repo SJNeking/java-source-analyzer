@@ -1,0 +1,20 @@
+{
+  "sourceuniversepro": "SourceUniversePro",
+  "mybatisxmlparser": "MyBatisXmlParser",
+  "shellscriptparser": "ShellScriptParser",
+  "dockercomposeparser": "DockerComposeParser",
+  "parserregistry": "ParserRegistry",
+  "markdownparser": "MarkdownParser",
+  "projecttypedetector": "ProjectTypeDetector",
+  "fileparser": "文件Parser",
+  "pomxmlparser": "PomXmlParser",
+  "logconfigparser": "Log配置Parser",
+  "relationengine": "RelationEngine",
+  "assetrelation": "AssetRelation",
+  "fileasset": "文件Asset",
+  "dockerfileparser": "DockerfileParser",
+  "configfileparser": "配置文件Parser",
+  "sqlfileparser": "Sql文件Parser",
+  "scannercontext": "ScannerContext",
+  "projectscanner": "ProjectScanner"
+}

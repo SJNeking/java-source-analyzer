@@ -130,12 +130,16 @@ function populateProjectSelector(selectorId, projects, onChange) {
 function updateStatsDisplay(data) {
     const statsNodes = document.getElementById('statsNodes');
     const statsLinks = document.getElementById('statsLinks');
+    const statsZoom = document.getElementById('statsZoom');
     
     if (statsNodes) {
-        statsNodes.textContent = `节点：${data.nodes.length}`;
+        statsNodes.textContent = data.nodes.length;
     }
     if (statsLinks) {
-        statsLinks.textContent = `连线：${data.links.length}`;
+        statsLinks.textContent = data.links.length;
+    }
+    if (statsZoom) {
+        statsZoom.textContent = '100%';
     }
 }
 

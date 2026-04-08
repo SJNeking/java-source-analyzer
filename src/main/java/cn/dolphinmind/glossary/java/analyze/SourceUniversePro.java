@@ -5,6 +5,10 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.comments.Comment;
+import com.github.javaparser.ast.comments.JavadocComment;
+import com.github.javaparser.ast.comments.Comment;
+import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.stmt.ThrowStmt;
@@ -58,7 +62,8 @@ public class SourceUniversePro {
         try {
             java.net.URL resource = SourceUniversePro.class.getClassLoader().getResource("tag-dictionary.json");
             if (resource != null) {
-                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(new FileReader(resource.getPath()));
+                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
+                        new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8));
                 reader.setStrictness(com.google.gson.Strictness.LENIENT);
                 tagDictionary = JsonParser.parseReader(reader).getAsJsonObject();
                 System.out.println("✅ 动态标签字典加载成功: " + tagDictionary.getAsJsonObject("tags").size() + " 个标签");
@@ -71,7 +76,8 @@ public class SourceUniversePro {
         try {
             java.net.URL resource = SourceUniversePro.class.getClassLoader().getResource("tech-instruction-set.json");
             if (resource != null) {
-                JsonObject dictObj = JsonParser.parseReader(new FileReader(resource.getPath())).getAsJsonObject();
+                JsonObject dictObj = JsonParser.parseReader(
+                        new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8)).getAsJsonObject();
                 for (String key : dictObj.keySet()) {
                     techInstructionSet.put(key.toLowerCase(), dictObj.get(key).getAsString());
                 }
@@ -347,37 +353,78 @@ public class SourceUniversePro {
     }
 
     public static void main(String[] args) throws Exception {
-        // 1. 加载动态标签字典并初始化内存缓存
+        // 1. 解析命令行参数
+        String projectRoot = null;
+        String outputDirPath = null;
+        String artifactName = null;
+        String version = null;
+        String internalPkgPrefix = "java";
+
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "--sourceRoot":
+                    if (i + 1 < args.length) projectRoot = args[++i];
+                    break;
+                case "--outputDir":
+                    if (i + 1 < args.length) outputDirPath = args[++i];
+                    break;
+                case "--artifactName":
+                    if (i + 1 < args.length) artifactName = args[++i];
+                    break;
+                case "--version":
+                    if (i + 1 < args.length) version = args[++i];
+                    break;
+                case "--internalPkgPrefix":
+                    if (i + 1 < args.length) internalPkgPrefix = args[++i];
+                    break;
+                case "--help":
+                    printUsage();
+                    return;
+                default:
+                    if (projectRoot == null) {
+                        projectRoot = args[i];
+                    }
+                    break;
+            }
+        }
+
+        // 默认值
+        if (projectRoot == null) {
+            projectRoot = "/Users/mingxilv/WebDevelopment/gitcode/dev-proj/s-pay-mall/s-pay-mall-ddd/source-proj/jdk8-src";
+            System.out.println("⚠️  未指定 --sourceRoot，使用默认路径: " + projectRoot);
+        }
+        if (outputDirPath == null) {
+            outputDirPath = System.getProperty("user.dir") + "/dev-ops/output";
+            System.out.println("⚠️  未指定 --outputDir，使用默认路径: " + outputDirPath);
+        }
+
+        // 2. 加载动态标签字典并初始化内存缓存
         loadTagDictionary();
         initTagLibrary();
-        
-        // 2. 加载命名语义标签和案例库
+
+        // 3. 加载命名语义标签和案例库
         loadNamingTags();
         loadCodeExamples();
 
-        // 🚩 严格控制：在此处定义你的扫描上下文
-        String projectRoot = "/Users/mingxilv/WebDevelopment/gitcode/dev-proj/s-pay-mall/s-pay-mall-ddd/source-proj/jdk8-src";
         ScannerContext ctx = new ScannerContext(
-                projectRoot,      // 项目根路径
-                "java",            // 内部包名前缀
-                "1.0"                   // 版本号
+                projectRoot,
+                internalPkgPrefix,
+                version != null ? version : "1.0"
         );
 
         // 🚀 MVP: 加载项目专属字典
         loadProjectGlossary(projectRoot);
 
-        // 1. 初始化多模块解算器 (切换为纯 AST 模式以解决解析失败问题)
+        // 4. 初始化多模块解算器 (切换为纯 AST 模式以解决解析失败问题)
         StaticJavaParser.getParserConfiguration()
                 .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.JAVA_8);
 
-        // 🚩 定义输出路径 - 统一指向 dev-ops/output 目录
-        String outputDirPath = "/Users/mingxilv/learn/java-source-analyzer/dev-ops/output";
         Path outputDir = Paths.get(outputDirPath);
-        Files.createDirectories(outputDir); // 确保目录存在
+        Files.createDirectories(outputDir);
 
         // 2. 自动检测框架名称和版本号
         String frameworkName = extractFrameworkName(ctx.getProjectRoot());
-        String version = extractVersion(ctx.getProjectRoot());
+        String detectedVersion = version != null ? version : extractVersion(ctx.getProjectRoot());
         
         printLine('=', 80);
         System.out.println("🚀 " + frameworkName.toUpperCase() + " SEMANTIC DICTIONARY BUILDER | 语义字典构建引擎启动");
@@ -387,12 +434,13 @@ public class SourceUniversePro {
         // 3. 创建根容器，注入元数据
         Map<String, Object> rootContainer = new LinkedHashMap<>();
         rootContainer.put("framework", frameworkName);
-        rootContainer.put("version", version);
+        rootContainer.put("version", detectedVersion);
         rootContainer.put("scan_date", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
 
         List<Map<String, Object>> globalLibrary = new ArrayList<>();
         Map<String, List<Map<String, Object>>> moduleLibrary = new LinkedHashMap<>();
         List<Map<String, String>> globalDependencies = new ArrayList<>(); // 存储依赖连线
+        Map<String, Object> projectAssets = new LinkedHashMap<>();
 
         // 4. 深度扫描与词汇提取
         System.out.println("🚀 正在全量遍历代码，提取语义词汇...");
@@ -423,7 +471,13 @@ public class SourceUniversePro {
                             
                             Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
                             if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
-                            
+
+                            // 🚀 新增: 提取 import 依赖
+                            classAsset.put("import_dependencies", extractImportDependencies(cu));
+
+                            // 🚀 新增: 提取注解参数
+                            classAsset.put("annotation_params", extractAnnotationParams(type));
+
                             globalLibrary.add(classAsset);
                             moduleLibrary.computeIfAbsent(moduleName, k -> new ArrayList<>()).add(classAsset);
                             
@@ -436,10 +490,34 @@ public class SourceUniversePro {
                     }
                 });
 
-        // 5. 组装并输出资产
+        // 5. 扫描 Java 以外的项目资产
+        projectAssets = scanProjectFiles(Paths.get(ctx.getProjectRoot()));
+
+        // 🚀 新增：跨文件关联引擎
+        cn.dolphinmind.glossary.java.analyze.relation.RelationEngine relationEngine =
+                new cn.dolphinmind.glossary.java.analyze.relation.RelationEngine();
+        Map<String, Object> relationData = new LinkedHashMap<>();
+        relationData.put("assets", globalLibrary);
+        List<cn.dolphinmind.glossary.java.analyze.relation.AssetRelation> relations =
+                relationEngine.discoverRelations(relationData, projectAssets);
+        rootContainer.put("cross_file_relations", relationEngine.toMap());
+
+        // 🚀 新增：注释覆盖率指标
+        Map<String, Object> coverageMetrics = calculateCommentCoverage(globalLibrary);
+        rootContainer.put("comment_coverage", coverageMetrics);
+
+        // 🚀 新增：项目类型检测
+        cn.dolphinmind.glossary.java.analyze.scanner.ProjectTypeDetector typeDetector =
+                new cn.dolphinmind.glossary.java.analyze.scanner.ProjectTypeDetector();
+        Map<String, Object> projectTypeInfo = typeDetector.detect(
+                Paths.get(ctx.getProjectRoot()), projectAssets, relationData);
+        rootContainer.put("project_type", projectTypeInfo);
+
+        // 6. 组装并输出资产
         rootContainer.put("assets", globalLibrary);
         rootContainer.put("dependencies", globalDependencies); // 注入依赖数据
-        String safeVersion = version.replaceAll("[^a-zA-Z0-9.-]", "_");
+        rootContainer.put("project_assets", projectAssets);
+        String safeVersion = detectedVersion.replaceAll("[^a-zA-Z0-9.-]", "_");
         String dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
         
         // 输出全量文件
@@ -475,6 +553,121 @@ public class SourceUniversePro {
         saveProjectGlossary();
 
         printReport();
+    }
+
+    /**
+     * 提取 import 依赖列表
+     */
+    private static List<String> extractImportDependencies(CompilationUnit cu) {
+        List<String> imports = new ArrayList<>();
+        cu.getImports().forEach(importDecl -> {
+            imports.add(importDecl.getNameAsString());
+        });
+        return imports;
+    }
+
+    /**
+     * 提取注解参数
+     */
+    private static List<Map<String, Object>> extractAnnotationParams(TypeDeclaration<?> type) {
+        List<Map<String, Object>> annotations = new ArrayList<>();
+        type.getAnnotations().forEach(annotation -> {
+            Map<String, Object> ann = new LinkedHashMap<>();
+            ann.put("name", annotation.getNameAsString());
+
+            // Extract parameters
+            List<Map<String, String>> params = new ArrayList<>();
+            annotation.getChildNodes().forEach(node -> {
+                if (node instanceof com.github.javaparser.ast.expr.MemberValuePair) {
+                    com.github.javaparser.ast.expr.MemberValuePair mvp =
+                            (com.github.javaparser.ast.expr.MemberValuePair) node;
+                    Map<String, String> param = new LinkedHashMap<>();
+                    param.put("key", mvp.getNameAsString());
+                    param.put("value", mvp.getValue().toString());
+                    params.add(param);
+                }
+            });
+            if (!params.isEmpty()) {
+                ann.put("parameters", params);
+            }
+            annotations.add(ann);
+        });
+        return annotations;
+    }
+
+    /**
+     * 提取包层级结构
+     */
+    private static List<String> extractPackageHierarchy(String pkg) {
+        List<String> hierarchy = new ArrayList<>();
+        String[] parts = pkg.split("\\.");
+        StringBuilder current = new StringBuilder();
+        for (String part : parts) {
+            if (current.length() > 0) current.append(".");
+            current.append(part);
+            hierarchy.add(current.toString());
+        }
+        return hierarchy;
+    }
+
+    /**
+     * 计算注释覆盖率指标
+     */
+    private static Map<String, Object> calculateCommentCoverage(List<Map<String, Object>> globalLibrary) {
+        Map<String, Object> coverage = new LinkedHashMap<>();
+
+        int totalClasses = globalLibrary.size();
+        int classesWithComments = 0;
+        int totalMethods = 0;
+        int methodsWithComments = 0;
+        int totalFields = 0;
+        int fieldsWithComments = 0;
+
+        for (Map<String, Object> classAsset : globalLibrary) {
+            // Class comment
+            String desc = (String) classAsset.getOrDefault("description", "");
+            if (!desc.isEmpty() && !desc.equals("暂无描述")) {
+                classesWithComments++;
+            }
+
+            // Methods
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> methods = (List<Map<String, Object>>)
+                    classAsset.getOrDefault("methods_full", Collections.emptyList());
+            for (Map<String, Object> method : methods) {
+                totalMethods++;
+                String methodDesc = (String) method.getOrDefault("description", "");
+                if (!methodDesc.isEmpty() && !methodDesc.equals("暂无描述")) {
+                    methodsWithComments++;
+                }
+            }
+
+            // Fields
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> fieldsMatrix = (List<Map<String, Object>>)
+                    classAsset.getOrDefault("fields_matrix", Collections.emptyList());
+            for (Map<String, Object> field : fieldsMatrix) {
+                totalFields++;
+                String fieldDesc = (String) field.getOrDefault("description", "");
+                if (!fieldDesc.isEmpty()) {
+                    fieldsWithComments++;
+                }
+            }
+        }
+
+        coverage.put("total_classes", totalClasses);
+        coverage.put("classes_with_comments", classesWithComments);
+        coverage.put("class_comment_coverage_pct", totalClasses > 0 ? Math.round(classesWithComments * 1000.0 / totalClasses) / 10.0 : 0);
+
+        coverage.put("total_methods", totalMethods);
+        coverage.put("methods_with_comments", methodsWithComments);
+        coverage.put("method_comment_coverage_pct", totalMethods > 0 ? Math.round(methodsWithComments * 1000.0 / totalMethods) / 10.0 : 0);
+
+        coverage.put("total_fields", totalFields);
+        coverage.put("fields_with_comments", fieldsWithComments);
+        coverage.put("field_comment_coverage_pct", totalFields > 0 ? Math.round(fieldsWithComments * 1000.0 / totalFields) / 10.0 : 0);
+
+        return coverage;
     }
 
     /**
@@ -530,7 +723,13 @@ public class SourceUniversePro {
 
         node.put("address", address);
         node.put("kind", getKind(type));
-        node.put("description", bruteForceComment(fileLines, type));
+
+        // 🚀 结构化注释提取 (类级别)
+        Map<String, Object> classCommentDetails = extractCommentDetails(fileLines, type);
+        node.put("description", classCommentDetails.getOrDefault("summary", ""));
+        node.put("comment_details", classCommentDetails);
+
+        node.put("source_file", type.findCompilationUnit().flatMap(CompilationUnit::getStorage).map(s -> s.getPath().toString()).orElse(""));
         node.put("modifiers", resolveMods(type.getModifiers()));
         node.put("class_generics", resolveTypeParameters(type));
         
@@ -547,13 +746,13 @@ public class SourceUniversePro {
         // 🚀 注入架构与行为标签 (AI Agent 核心索引)
         node.put("arch_tags", resolveBilingualTags(extractArchTags(type, fileLines)));
         
-        // 🚀 注入方法级语义分析
-        node.put("methods", resolveMethodsSemanticEnhanced(type, fileLines));
-        
+        // 🚀 注入方法级语义分析 (完整方法列表，包含源码体)
+        node.put("methods_full", resolveMethodsSemanticEnhanced(type, fileLines));
+
         // 🚀 注入域上下文与调用链 (认知地图的核心)
         node.put("domain_context", extractDomainContext(pkg));
         node.put("call_graph_summary", extractCallGraphSummary(type));
-        
+
         // 迭代进化：记录未识别的类后缀
         if (compRoles.isEmpty()) {
             String className = type.getNameAsString();
@@ -565,20 +764,20 @@ public class SourceUniversePro {
                 unrecognizedClassSuffixes.merge(suffix, 1, Integer::sum);
             }
         }
-        
+
         // 🚀 注入方法意图标签与字段语义标签
-        node.put("methods", resolveMethodsEnhanced(type, fileLines));
+        node.put("methods_intent", resolveMethodsEnhanced(type, fileLines));
         node.put("fields", resolveFieldsEnhanced(type));
-        
+
         // 🚀 注入动态增强层 (场景案例与最佳实践)
         node.put("enhancement", getEnhancementData(address));
-        
+
         // 🚀 注入 AI 教学指南 (约束与场景)
         node.put("ai_guidance", extractAIGuidance(type, fileLines));
-        
+
         // 🚀 预留 AI 进化层存储空间
         node.put("ai_evolution", new LinkedHashMap<>());
-        
+
         // 🚀 注入洞察摘要 (翻译后的核心描述)
         String rawDesc = bruteForceComment(fileLines, type);
         node.put("insight_summary", translateAndSummarize(rawDesc));
@@ -644,18 +843,34 @@ public class SourceUniversePro {
     /**
      * 增强版方法提取：整合物理注释、修饰符、泛型、返回值、异常、调用链等完整信息
      */
-    private static Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr, 
+    private static Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
                                                               NodeList<Parameter> params, List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
         Map<String, Object> m = new LinkedHashMap<>();
         String fullAddr = baseAddr + "(" + params.stream().map(p -> p.getType().asString()).collect(Collectors.joining(",")) + ")";
-        
+
         m.put("address", fullAddr);
-        m.put("description", bruteForceComment(fileLines, d));
+        m.put("name", d.getNameAsString());
+
+        // 🚀 结构化注释提取 (替代 bruteForceComment)
+        Map<String, Object> commentDetails = extractCommentDetails(fileLines, d);
+        m.put("description", commentDetails.getOrDefault("summary", ""));
+        m.put("comment_details", commentDetails);
+
         m.put("modifiers", resolveMods(d.getModifiers()));
-        
+        m.put("line_start", d.getBegin().map(p -> p.line).orElse(0));
+        m.put("line_end", d.getEnd().map(p -> p.line).orElse(0));
+        m.put("signature", d.getDeclarationAsString(false, false, false));
+
+        // 🚀 方法源码体提取
+        m.put("source_code", extractNodeSource(fileLines, d, true));
+        m.put("body_code", extractCallableBody(d));
+        m.put("code_summary", summarizeMethodBody(d));
+        m.put("key_statements", extractKeyStatements(d));
+        m.put("line_count", calculateLineCount(d));
+
         // 🚀 注入智能标签
         m.put("tags", extractMethodTags(d.getNameAsString(), d instanceof MethodDeclaration ? ((MethodDeclaration)d).getType().asString() : "void"));
-        
+
         if (d instanceof MethodDeclaration) {
             MethodDeclaration md = (MethodDeclaration) d;
             m.put("is_override", checkIsOverride(md));
@@ -663,13 +878,13 @@ public class SourceUniversePro {
             m.put("return_type_path", getSemanticPath(md.getType()));
             m.put("throws_matrix", md.getThrownExceptions().stream().map(SourceUniversePro::getSemanticPath).collect(Collectors.toList()));
         }
-        
+
         m.put("internal_throws", d.findAll(ThrowStmt.class).stream().map(t -> t.getExpression().toString()).distinct().collect(Collectors.toList()));
         m.put("parameters_inventory", resolveParametersInventory(params));
-        
+
         // 🚀 核心增强：提取方法调用链并注入全局依赖
         extractMethodCalls(d, classAddr, fullAddr, globalDeps);
-        
+
         return m;
     }
 
@@ -683,34 +898,34 @@ public class SourceUniversePro {
                 .anyMatch(m -> m.getKeyword() == com.github.javaparser.ast.Modifier.Keyword.PUBLIC);
         boolean isProtected = method.getModifiers().stream()
                 .anyMatch(m -> m.getKeyword() == com.github.javaparser.ast.Modifier.Keyword.PROTECTED);
-        
+
         if (!isPublic && !isProtected) {
             return; // 忽略 private/default 方法的内部调用
         }
-        
+
         method.findAll(MethodCallExpr.class).forEach(call -> {
             try {
                 // 利用 JavaSymbolSolver 解析被调用的方法声明
                 com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration resolved = call.resolve();
                 String targetClass = resolved.declaringType().getQualifiedName();
                 String targetMethod = resolved.getName();
-                
+
                 // 🚩 过滤 2: 忽略 JDK、Javax、SLF4J 等外部库
-                if (targetClass.startsWith("java.") || targetClass.startsWith("javax.") || 
+                if (targetClass.startsWith("java.") || targetClass.startsWith("javax.") ||
                     targetClass.startsWith("jdk.") || targetClass.startsWith("org.slf4j") ||
                     targetClass.startsWith("org.apache.log4j")) {
                     return;
                 }
-                
+
                 // 🚩 过滤 3: 忽略当前类内部的自调用（聚焦跨组件交互）
                 String sourceClass = classAddr.split("#")[0];
                 if (targetClass.equals(sourceClass)) {
                     return;
                 }
-                
+
                 // 构建目标方法地址
                 String targetAddr = targetClass + "#" + targetMethod;
-                
+
                 // 记录 CALLS 依赖到全局列表
                 Map<String, String> callDep = new LinkedHashMap<>();
                 callDep.put("source", fullAddr);
@@ -724,35 +939,417 @@ public class SourceUniversePro {
     }
 
     /**
+     * 提取方法体的源码文本 (带行号范围)
+     */
+    private static String extractCallableBody(CallableDeclaration<?> d) {
+        if (d instanceof MethodDeclaration) {
+            java.util.Optional<com.github.javaparser.ast.stmt.BlockStmt> opt = ((MethodDeclaration) d).getBody();
+            if (!opt.isPresent()) return "";
+            return opt.get().toString();
+        } else if (d instanceof ConstructorDeclaration) {
+            com.github.javaparser.ast.stmt.BlockStmt body = ((ConstructorDeclaration) d).getBody();
+            if (body == null) return "";
+            return body.toString();
+        }
+        return "";
+    }
+
+    /**
+     * 计算方法体的行数
+     */
+    private static int calculateLineCount(CallableDeclaration<?> d) {
+        String body = extractCallableBody(d);
+        if (body.isEmpty()) return 0;
+        return body.split("\n").length;
+    }
+
+    /**
+     * 获取方法体 BlockStmt (仅供内部方法使用)
+     */
+    private static com.github.javaparser.ast.stmt.BlockStmt getCallableBody(CallableDeclaration<?> d) {
+        if (d instanceof MethodDeclaration) {
+            return ((MethodDeclaration) d).getBody().orElse(null);
+        }
+        if (d instanceof ConstructorDeclaration) {
+            return ((ConstructorDeclaration) d).getBody();
+        }
+        return null;
+    }
+
+    /**
+     * 提取方法体中的关键语句 (if/throw/return/调用外部服务等)
+     */
+    private static List<Map<String, String>> extractKeyStatements(CallableDeclaration<?> d) {
+        List<Map<String, String>> statements = new ArrayList<>();
+        com.github.javaparser.ast.stmt.BlockStmt body = getCallableBody(d);
+        if (body == null) return statements;
+
+        // 1. 提取 if 条件分支
+        body.findAll(com.github.javaparser.ast.stmt.IfStmt.class).forEach(ifStmt -> {
+            Map<String, String> stmt = new LinkedHashMap<>();
+            stmt.put("type", "CONDITION");
+            stmt.put("condition", ifStmt.getCondition().toString());
+            stmt.put("line", ifStmt.getBegin().map(p -> p.line).orElse(0) + "");
+            statements.add(stmt);
+        });
+
+        // 2. 提取 throw 语句
+        body.findAll(ThrowStmt.class).forEach(throwStmt -> {
+            Map<String, String> stmt = new LinkedHashMap<>();
+            stmt.put("type", "THROW");
+            stmt.put("exception", throwStmt.getExpression().toString());
+            stmt.put("line", throwStmt.getBegin().map(p -> p.line).orElse(0) + "");
+            statements.add(stmt);
+        });
+
+        // 3. 提取 return 语句
+        body.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).forEach(retStmt -> {
+            Map<String, String> stmt = new LinkedHashMap<>();
+            stmt.put("type", "RETURN");
+            stmt.put("value", retStmt.getExpression().map(Object::toString).orElse("void"));
+            stmt.put("line", retStmt.getBegin().map(p -> p.line).orElse(0) + "");
+            statements.add(stmt);
+        });
+
+        // 4. 提取外部服务调用 (方法调用)
+        body.findAll(MethodCallExpr.class).forEach(call -> {
+            try {
+                String scope = call.getScope().map(Object::toString).orElse("");
+                if (!scope.isEmpty() && !scope.equals("this") && !scope.equals("super")) {
+                    Map<String, String> stmt = new LinkedHashMap<>();
+                    stmt.put("type", "EXTERNAL_CALL");
+                    stmt.put("target", scope + "." + call.getNameAsString());
+                    stmt.put("line", call.getBegin().map(p -> p.line).orElse(0) + "");
+                    statements.add(stmt);
+                }
+            } catch (Exception ignored) {
+                // 忽略无法解析的调用
+            }
+        });
+
+        // 5. 提取同步块
+        body.findAll(com.github.javaparser.ast.stmt.SynchronizedStmt.class).forEach(syncStmt -> {
+            Map<String, String> stmt = new LinkedHashMap<>();
+            stmt.put("type", "SYNCHRONIZED");
+            stmt.put("expression", syncStmt.getExpression().toString());
+            stmt.put("line", syncStmt.getBegin().map(p -> p.line).orElse(0) + "");
+            statements.add(stmt);
+        });
+
+        return statements;
+    }
+
+    /**
+     * 方法体摘要：提取方法体的业务语义摘要
+     */
+    private static String summarizeMethodBody(CallableDeclaration<?> d) {
+        com.github.javaparser.ast.stmt.BlockStmt body = getCallableBody(d);
+        if (body == null) return "无方法体 (abstract/native)";
+        List<String> summaries = new ArrayList<>();
+
+        // 1. 检测异常处理
+        if (!body.findAll(com.github.javaparser.ast.stmt.CatchClause.class).isEmpty()) {
+            summaries.add("包含异常处理逻辑");
+        }
+
+        // 2. 检测条件分支
+        int ifCount = body.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
+        if (ifCount > 0) {
+            summaries.add(ifCount + " 个条件分支");
+        }
+
+        // 3. 检测循环
+        int loopCount = body.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).size() +
+                        body.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size() +
+                        body.findAll(com.github.javaparser.ast.stmt.ForStmt.class).size();
+        if (loopCount > 0) {
+            summaries.add(loopCount + " 个循环结构");
+        }
+
+        // 4. 检测方法调用
+        int callCount = body.findAll(MethodCallExpr.class).size();
+        if (callCount > 0) {
+            summaries.add(callCount + " 次方法调用");
+        }
+
+        // 5. 检测同步
+        if (!body.findAll(com.github.javaparser.ast.stmt.SynchronizedStmt.class).isEmpty()) {
+            summaries.add("使用同步块");
+        }
+
+        // 6. 检测返回
+        int returnCount = body.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).size();
+        if (returnCount > 0) {
+            summaries.add(returnCount + " 个返回点");
+        }
+
+        if (summaries.isEmpty()) {
+            return "简单方法体";
+        }
+        return String.join(", ", summaries);
+    }
+
+    /**
      * 物理注释提取：从源码行中暴力抓取注释块
      */
     private static String bruteForceComment(List<String> lines, Node node) {
-        return node.getBegin().map(begin -> {
-            int currentLine = begin.line - 1;
-            StringBuilder sb = new StringBuilder();
-            boolean foundEnd = false;
-            for (int i = currentLine - 1; i >= 0 && (currentLine - i) < 15; i--) {
-                String line = lines.get(i).trim();
-                if (line.startsWith("@") && !line.contains("/*")) continue;
-                if (line.isEmpty()) continue;
-                if (line.endsWith("*/")) foundEnd = true;
-                if (foundEnd) {
-                    sb.insert(0, line + " ");
-                    if (line.startsWith("/**") || line.startsWith("/*")) break;
-                }
-            }
-            return cleanText(sb.toString());
-        }).orElse("");
+        Map<String, Object> comment = extractCommentDetails(lines, node);
+        return Objects.toString(comment.getOrDefault("summary", ""), "");
     }
 
     /**
      * 清理注释文本：移除标记符号和多余空白
      */
     private static String cleanText(String text) {
+        if (text == null) return "";
         return text.replaceAll("/\\*\\*|\\*/|\\*|/\\*", "")
-                .replaceAll("(?m)^\\s*@.*$", "")
                 .replaceAll("<[^>]*>", "")
+                .replaceAll("\\r", "")
                 .replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * 结构化注释提取：提取 Javadoc 的各个部分
+     */
+    private static Map<String, Object> extractCommentDetails(List<String> lines, Node node) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("summary", "");
+        result.put("description", "");
+        result.put("params", new ArrayList<Map<String, String>>());
+        result.put("return_description", "");
+        result.put("throws", new ArrayList<Map<String, String>>());
+        result.put("deprecated", "");
+        result.put("since", "");
+        result.put("author", "");
+        result.put("see", new ArrayList<String>());
+        result.put("semantic_notes", new ArrayList<String>());
+        result.put("raw_comment", "");
+
+        if (node == null) return result;
+
+        // 1. 获取节点关联的注释
+        Optional<Comment> commentOpt = node.getComment();
+        if (commentOpt.isPresent()) {
+            Comment comment = commentOpt.get();
+            String rawComment = comment.getContent();
+            result.put("raw_comment", rawComment);
+
+            // 清理并提取主描述
+            String cleaned = cleanText(rawComment);
+            // 提取第一句作为摘要
+            int dotIndex = cleaned.indexOf('.');
+            if (dotIndex > 0) {
+                result.put("summary", cleaned.substring(0, dotIndex + 1).trim());
+            } else {
+                result.put("summary", cleaned.length() > 100 ? cleaned.substring(0, 100) + "..." : cleaned);
+            }
+            result.put("description", cleaned);
+
+            // 提取 Javadoc 标签
+            extractJavadocTags(rawComment, result);
+
+            // 提取语义关键词
+            extractSemanticNotes(cleaned, result);
+        }
+
+        // 2. 如果没有关联注释，尝试向上暴力查找
+        if (result.get("raw_comment").toString().isEmpty()) {
+            String bfComment = bruteForceCommentFromLines(lines, node);
+            if (!bfComment.isEmpty()) {
+                result.put("raw_comment", bfComment);
+                String cleaned = cleanText(bfComment);
+                result.put("summary", cleaned.length() > 100 ? cleaned.substring(0, 100) + "..." : cleaned);
+                result.put("description", cleaned);
+                extractJavadocTags(bfComment, result);
+                extractSemanticNotes(cleaned, result);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 从原始注释文本中提取 Javadoc 标签 (@param, @return, @throws, etc.)
+     */
+    private static void extractJavadocTags(String rawComment, Map<String, Object> result) {
+        String[] lines = rawComment.split("\n");
+        List<Map<String, String>> params = (List<Map<String, String>>) result.get("params");
+        List<Map<String, String>> throwsList = (List<Map<String, String>>) result.get("throws");
+        List<String> seeList = (List<String>) result.get("see");
+
+        for (String line : lines) {
+            line = line.trim().replaceFirst("^\\*+", "").trim();
+
+            // @param
+            if (line.startsWith("@param")) {
+                Map<String, String> param = new LinkedHashMap<>();
+                String rest = line.substring(6).trim();
+                int spaceIdx = rest.indexOf(' ');
+                if (spaceIdx > 0) {
+                    param.put("name", rest.substring(0, spaceIdx));
+                    param.put("description", rest.substring(spaceIdx + 1).trim());
+                } else {
+                    param.put("name", rest);
+                    param.put("description", "");
+                }
+                params.add(param);
+            }
+            // @return
+            else if (line.startsWith("@return")) {
+                result.put("return_description", line.substring(7).trim());
+            }
+            // @throws / @exception
+            else if (line.startsWith("@throws") || line.startsWith("@exception")) {
+                Map<String, String> throwsEntry = new LinkedHashMap<>();
+                String rest = line.split("\\s+", 2)[1];
+                int spaceIdx = rest.indexOf(' ');
+                if (spaceIdx > 0) {
+                    throwsEntry.put("exception", rest.substring(0, spaceIdx));
+                    throwsEntry.put("description", rest.substring(spaceIdx + 1).trim());
+                } else {
+                    throwsEntry.put("exception", rest);
+                    throwsEntry.put("description", "");
+                }
+                throwsList.add(throwsEntry);
+            }
+            // @deprecated
+            else if (line.startsWith("@deprecated")) {
+                result.put("deprecated", line.substring(11).trim());
+            }
+            // @since
+            else if (line.startsWith("@since")) {
+                result.put("since", line.substring(6).trim());
+            }
+            // @author
+            else if (line.startsWith("@author")) {
+                result.put("author", line.substring(7).trim());
+            }
+            // @see
+            else if (line.startsWith("@see")) {
+                seeList.add(line.substring(4).trim());
+            }
+        }
+    }
+
+    /**
+     * 从注释中提取语义说明 (线程安全、性能、约束等)
+     */
+    private static void extractSemanticNotes(String cleanedComment, Map<String, Object> result) {
+        List<String> semanticNotes = (List<String>) result.get("semantic_notes");
+        String lowerComment = cleanedComment.toLowerCase();
+
+        if (lowerComment.contains("thread-safe") || lowerComment.contains("线程安全")) {
+            semanticNotes.add("Thread-Safe");
+        }
+        if (lowerComment.contains("not thread-safe") || lowerComment.contains("非线程安全")) {
+            semanticNotes.add("Not Thread-Safe");
+        }
+        if (lowerComment.contains("must be closed") || lowerComment.contains("必须关闭")) {
+            semanticNotes.add("Must Be Closed");
+        }
+        if (lowerComment.contains("deprecated") || lowerComment.contains("废弃")) {
+            semanticNotes.add("Deprecated");
+        }
+        if (lowerComment.contains("for internal use only") || lowerComment.contains("仅供内部使用")) {
+            semanticNotes.add("Internal Use Only");
+        }
+        if (lowerComment.contains("do not call") || lowerComment.contains("不要调用")) {
+            semanticNotes.add("Do Not Call Directly");
+        }
+        if (lowerComment.contains("idempotent") || lowerComment.contains("幂等")) {
+            semanticNotes.add("Idempotent");
+        }
+        if (lowerComment.contains("nullable") || lowerComment.contains("可为空")) {
+            semanticNotes.add("Nullable");
+        }
+        if (lowerComment.contains("not null") || lowerComment.contains("不能为空")) {
+            semanticNotes.add("Not Null");
+        }
+        if (lowerComment.contains("synchronized") || lowerComment.contains("同步")) {
+            semanticNotes.add("Synchronized");
+        }
+        if (lowerComment.contains("performance") || lowerComment.contains("性能")) {
+            semanticNotes.add("Performance Note");
+        }
+    }
+
+    /**
+     * 从源码行中暴力查找注释块 (向上查找)
+     */
+    private static String bruteForceCommentFromLines(List<String> lines, Node node) {
+        if (node == null || !node.getBegin().isPresent()) return "";
+        int startLine = node.getBegin().get().line - 1; // 0-indexed
+
+        StringBuilder sb = new StringBuilder();
+        boolean inComment = false;
+        boolean found = false;
+
+        // 向上查找 10 行
+        for (int i = startLine; i >= Math.max(0, startLine - 10); i--) {
+            String line = lines.get(i).trim();
+            if (line.startsWith("*/")) {
+                inComment = true;
+                found = true;
+                continue;
+            }
+            if (found) {
+                if (line.startsWith("/**") || line.startsWith("/*")) {
+                    sb.insert(0, line);
+                    break;
+                }
+                sb.insert(0, line + "\n");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * 从源码行中提取节点的源码文本
+     */
+    private static String extractNodeSource(List<String> fileLines, Node node, boolean includeBody) {
+        if (node == null || !node.getBegin().isPresent() || !node.getEnd().isPresent()) return "";
+        int startLine = node.getBegin().get().line - 1; // 0-indexed
+        int endLine = node.getEnd().get().line - 1;
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = Math.max(0, startLine); i <= Math.min(endLine, fileLines.size() - 1); i++) {
+            sb.append(fileLines.get(i)).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    /**
+     * 扫描 Java 项目中的非 Java 文件资产 (使用新解析器框架)
+     */
+    private static Map<String, Object> scanProjectFiles(Path projectRoot) {
+        Map<String, Object> assets = new LinkedHashMap<>();
+
+        try {
+            cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner scanner =
+                    new cn.dolphinmind.glossary.java.analyze.scanner.ProjectScanner(projectRoot);
+            scanner.scan();
+
+            // Group by type
+            for (Map.Entry<cn.dolphinmind.glossary.java.analyze.parser.FileAsset.AssetType,
+                         List<cn.dolphinmind.glossary.java.analyze.parser.FileAsset>> entry :
+                    scanner.getAssetsByType().entrySet()) {
+                List<Map<String, Object>> typeAssets = new ArrayList<>();
+                for (cn.dolphinmind.glossary.java.analyze.parser.FileAsset asset : entry.getValue()) {
+                    typeAssets.add(asset.toMap());
+                }
+                assets.put(entry.getKey().name().toLowerCase(), typeAssets);
+            }
+
+            // Add summary
+            assets.put("scan_summary", scanner.getSummary());
+            assets.put("errors", scanner.getScanErrors());
+
+        } catch (IOException e) {
+            System.err.println("⚠️ 扫描项目文件失败: " + e.getMessage());
+        }
+
+        return assets;
     }
 
     /**
@@ -1093,7 +1690,10 @@ public class SourceUniversePro {
      */
     private static List<Map<String, Object>> resolveMethodsEnhanced(TypeDeclaration<?> type, List<String> fileLines) {
         List<Map<String, Object>> methods = new ArrayList<>();
+        if (namingTags == null || !namingTags.has("dimensions")) return methods;
+
         JsonArray intentRules = namingTags.getAsJsonObject("dimensions").getAsJsonArray("METHOD_INTENT");
+        if (intentRules == null) return methods;
 
         for (MethodDeclaration method : type.getMethods()) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -1155,7 +1755,10 @@ public class SourceUniversePro {
      */
     private static List<Map<String, Object>> resolveFieldsEnhanced(TypeDeclaration<?> type) {
         List<Map<String, Object>> fields = new ArrayList<>();
+        if (namingTags == null || !namingTags.has("dimensions")) return fields;
+
         JsonArray fieldRules = namingTags.getAsJsonObject("dimensions").getAsJsonArray("FIELD_SEMANTIC");
+        if (fieldRules == null) return fields;
 
         for (FieldDeclaration field : type.getFields()) {
             for (VariableDeclarator var : field.getVariables()) {
@@ -1250,10 +1853,13 @@ public class SourceUniversePro {
         try {
             java.net.URL resource = SourceUniversePro.class.getClassLoader().getResource("naming-tags.json");
             if (resource != null) {
-                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(new FileReader(resource.getPath()));
+                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
+                        new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8));
                 reader.setStrictness(com.google.gson.Strictness.LENIENT);
                 namingTags = JsonParser.parseReader(reader).getAsJsonObject();
                 System.out.println("✅ 命名语义标签加载成功");
+            } else {
+                System.err.println("⚠️ naming-tags.json not found on classpath");
             }
         } catch (Exception e) {
             System.err.println("⚠️ 命名语义标签加载失败: " + e.getMessage());
@@ -1267,7 +1873,8 @@ public class SourceUniversePro {
         try {
             java.net.URL resource = SourceUniversePro.class.getClassLoader().getResource("tag-dictionary.json");
             if (resource != null) {
-                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(new FileReader(resource.getPath()));
+                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
+                        new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8));
                 reader.setStrictness(com.google.gson.Strictness.LENIENT);
                 frameworkTags = JsonParser.parseReader(reader).getAsJsonObject();
                 System.out.println("✅ 框架专属标签加载成功: " + frameworkTags.get("framework").getAsString());
@@ -1284,7 +1891,8 @@ public class SourceUniversePro {
         try {
             java.net.URL resource = SourceUniversePro.class.getClassLoader().getResource("code-examples.json");
             if (resource != null) {
-                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(new FileReader(resource.getPath()));
+                com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
+                        new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8));
                 reader.setStrictness(com.google.gson.Strictness.LENIENT);
                 codeExamples = JsonParser.parseReader(reader).getAsJsonObject();
                 System.out.println("✅ 代码案例库加载成功: " + codeExamples.size() + " 个案例");
@@ -1669,6 +2277,22 @@ public class SourceUniversePro {
         }
         
         return null;
+    }
+
+    private static void printUsage() {
+        System.out.println("Usage: java -jar glossary-java-source-analyzer.jar [OPTIONS]");
+        System.out.println();
+        System.out.println("Options:");
+        System.out.println("  --sourceRoot <path>        Path to the Java project root directory to scan");
+        System.out.println("  --outputDir <path>         Output directory for JSON results (default: ./dev-ops/output)");
+        System.out.println("  --artifactName <name>      Artifact name override (default: auto-detected from pom.xml)");
+        System.out.println("  --version <version>        Version string (default: auto-detected from pom.xml)");
+        System.out.println("  --internalPkgPrefix <prefix> Internal package prefix (default: java)");
+        System.out.println("  --help                     Show this help message");
+        System.out.println();
+        System.out.println("Examples:");
+        System.out.println("  java -jar glossary.jar --sourceRoot /path/to/project");
+        System.out.println("  java -jar glossary.jar --sourceRoot /path/to/project --outputDir /tmp/output --version 2.0");
     }
 
     private static void registerSubModules(CombinedTypeSolver solver, String root) throws IOException {
