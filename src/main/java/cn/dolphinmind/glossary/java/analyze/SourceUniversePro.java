@@ -1828,38 +1828,37 @@ public class SourceUniversePro {
     }
 
     /**
-     * 🚀 方法级语义增强：AST 深度推理
+     * 🚀 方法级语义增强：使用完整方法提取（包含源码体/注释/调用链）
      */
     private static java.util.List<Map<String, Object>> resolveMethodsSemanticEnhanced(TypeDeclaration<?> type, List<String> fileLines) {
         java.util.List<Map<String, Object>> methods = new ArrayList<>();
-        for (MethodDeclaration method : type.getMethods()) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("name", method.getNameAsString());
-            m.put("return_type", method.getTypeAsString());
-            m.put("description", translateAndSummarize(bruteForceComment(fileLines, method)));
-            
-            // AST 语义推理
+        String address = (String) type.findCompilationUnit()
+                .flatMap(cu -> cu.getPackageDeclaration())
+                .map(pd -> pd.getNameAsString() + "." + type.getNameAsString())
+                .orElse(type.getNameAsString());
+
+        // 使用 extractMethodEnhanced 提取完整方法信息
+        java.util.List<Map<String, String>> globalDeps = new ArrayList<>();
+        type.getMethods().forEach(method -> {
+            methodCount.incrementAndGet();
+            Map<String, Object> m = extractMethodEnhanced(method, address + "#" + method.getNameAsString(),
+                    method.getParameters(), fileLines, address, globalDeps);
+
+            // 额外添加语义标签
             java.util.Set<String> semanticTags = new java.util.HashSet<>();
             int complexity = 1;
-            boolean hasIoCall = false;
-            
-            // 1. 复杂度分析
             complexity += method.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
             complexity += method.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).size();
+            complexity += method.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size();
+            complexity += method.findAll(com.github.javaparser.ast.stmt.CatchClause.class).size();
             if (complexity > 10) semanticTags.add("HighComplexity");
-            
-            // 2. 行为特征识别
-            if (!method.findAll(MethodCallExpr.class).isEmpty()) {
-                semanticTags.add("InteractionHeavy");
-            }
-            if (method.getModifiers().contains(Modifier.synchronizedModifier())) {
-                semanticTags.add("ThreadSafe");
-            }
-            
+            if (!method.findAll(MethodCallExpr.class).isEmpty()) semanticTags.add("InteractionHeavy");
+            if (method.getModifiers().contains(Modifier.synchronizedModifier())) semanticTags.add("ThreadSafe");
+
             m.put("semantic_tags", resolveBilingualTags(semanticTags));
             m.put("complexity_score", complexity);
             methods.add(m);
-        }
+        });
         return methods;
     }
 
