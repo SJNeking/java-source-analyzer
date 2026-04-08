@@ -1042,6 +1042,53 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.UnboundedThreadPool());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ConcurrencyRules.ThreadSleepInCode());
 
+        // Java Modernization Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.UseLocalDate());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.LegacyCollections());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.StringBufferInsteadOfBuilder());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.UseTryWithResources());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.AnonymousClassToLambda());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.StringLengthCheck());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.ManualStringJoin());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.WrapperClassConstructor());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.UnnecessaryBoxing());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.JavaModernizationRules.RedundantUnboxing());
+
+        // Database Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.HardcodedDatabaseCredentials());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.SelectStarUsage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.SqlInLoop());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.ResultSetNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.StatementNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.ConnectionNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.EntityManagerNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DatabaseRules.TransactionNotCommitted());
+
+        // Spring Boot Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.MissingRestController());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.RequestMappingWithoutMethod());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.GenericExceptionHandler());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.RedundantAutowired());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.TransactionalOnPrivate());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.ConfigurationNotFinal());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.MissingConditionalOnProperty());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.MissingPathVariable());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.MissingRequestParamRequired());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.BeanWithoutName());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SpringBootRules.DefaultComponentScan());
+
+        // Robustness Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.SwitchMissingDefault());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.EmptyFinallyBlock());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.SunApiUsage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.PublicField());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.DoubleBraceInitialization());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.StaticInitializerException());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.BooleanInversion());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.UtilityClassPattern());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.CloneMisuse());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.ReadResolveWrongType());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
