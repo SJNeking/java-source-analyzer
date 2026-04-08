@@ -35,41 +35,50 @@ public class CoreAnalysisEngine {
         System.out.println("📚 正在构建类型定义索引...");
         typeNavigator.buildIndex(projectRoot);
 
-        // 4. Call Graph: Bytecode analysis (primary) + Source analysis (fallback)
+        // 4. Call Graph: Progressive analysis (source → bytecode)
         System.out.println("🔗 正在构建调用图...");
 
-        // Try bytecode analysis first (most accurate)
+        // Layer 1: Source analysis (semantic understanding)
+        System.out.println("  📖 第一层: 源码分析...");
+        CallChainTracer.CallGraph sourceGraph = callChainTracer.buildCallGraph(projectRoot);
+        System.out.println("     解析: " + sourceGraph.getResolvedInternal() + " 内部调用, " +
+                sourceGraph.getUnresolvedFallback() + " 回退(待字节码补充), " +
+                sourceGraph.getSkippedExternal() + " 外部库已跳过");
+
+        // Layer 2: Bytecode analysis (exact call targets, fills source gaps)
+        System.out.println("  ⚡ 第二层: 字节码分析...");
         BytecodeCallGraphBuilder.BytecodeCallGraph bytecodeGraph = null;
         try {
             bytecodeGraph = bytecodeCallGraphBuilder.buildFromBytecode(projectRoot);
             if (bytecodeGraph.getInternalCalls() > 0) {
-                System.out.println("  ✅ 字节码分析: " + bytecodeGraph.getInternalCalls() + " 内部调用, " +
-                        bytecodeGraph.getExternalCalls() + " 外部调用已跳过");
+                System.out.println("     解析: " + bytecodeGraph.getInternalCalls() + " 内部调用(0 回退), " +
+                        bytecodeGraph.getExternalCalls() + " 外部库已跳过");
             }
         } catch (Exception e) {
-            System.out.println("  ⚠️ 字节码分析不可用: " + e.getMessage());
+            System.out.println("     ⚠️ 字节码分析不可用: " + e.getMessage());
         }
 
-        // Fallback to source-based analysis if bytecode not available
-        CallChainTracer.CallGraph callGraph = callChainTracer.buildCallGraph(projectRoot);
-
-        // If bytecode analysis succeeded, prefer its results
+        // Merge: source graph enriched with bytecode accuracy
+        // For calls where source analysis had fallback, replace with bytecode target
+        CallChainTracer.CallGraph mergedGraph = sourceGraph;
         if (bytecodeGraph != null && bytecodeGraph.getInternalCalls() > 0) {
-            // Merge bytecode results into callGraph for tracing
+            int enriched = 0;
             for (Map.Entry<String, Set<String>> entry : bytecodeGraph.getAdjacencyList().entrySet()) {
                 for (String callee : entry.getValue()) {
-                    callGraph.addCall(entry.getKey(), callee, true);
+                    mergedGraph.addCall(entry.getKey(), callee, true);
+                    enriched++;
                 }
             }
+            System.out.println("  📊 渐进合并: 源码语义 + 字节码精度 (" + enriched + " 调用已补充)");
         }
 
-        // Trace chains from entry points
+        // Trace chains from entry points using merged graph
         List<String> entryPointKeys = new ArrayList<>();
         for (EntryPointDiscovery.EntryPoint ep : entryPoints) {
             entryPointKeys.add(ep.getFullClassName() + "#" + ep.getMethodName());
         }
         Map<String, List<CallChainTracer.CallChain>> callChains =
-                callChainTracer.traceAll(callGraph, entryPointKeys, 5);
+                callChainTracer.traceAll(mergedGraph, entryPointKeys, 5);
 
         // 5. Data Flow (JavaParser-based, limited to first few entry points)
         System.out.println("🌊 正在追踪数据流...");
@@ -107,11 +116,15 @@ public class CoreAnalysisEngine {
 
         // Call graph
         Map<String, Object> callInfo = new LinkedHashMap<>();
-        callInfo.put("node_count", callGraph.getNodeCount());
-        callInfo.put("edge_count", callGraph.getEdgeCount());
-        callInfo.put("resolved_internal", callGraph.getResolvedInternal());
-        callInfo.put("unresolved_fallback", callGraph.getUnresolvedFallback());
-        callInfo.put("skipped_external", callGraph.getSkippedExternal());
+        callInfo.put("analysis_layers", bytecodeGraph != null ? 2 : 1);
+        callInfo.put("source_resolved", sourceGraph.getResolvedInternal());
+        callInfo.put("source_fallback", sourceGraph.getUnresolvedFallback());
+        callInfo.put("source_skipped_external", sourceGraph.getSkippedExternal());
+        callInfo.put("node_count", mergedGraph.getNodeCount());
+        callInfo.put("edge_count", mergedGraph.getEdgeCount());
+        callInfo.put("resolved_internal", mergedGraph.getResolvedInternal());
+        callInfo.put("unresolved_fallback", mergedGraph.getUnresolvedFallback());
+        callInfo.put("skipped_external", mergedGraph.getSkippedExternal());
         if (bytecodeGraph != null) {
             callInfo.put("bytecode_total", bytecodeGraph.getTotalCalls());
             callInfo.put("bytecode_internal", bytecodeGraph.getInternalCalls());
@@ -132,7 +145,7 @@ public class CoreAnalysisEngine {
         result.put("data_flows", dataFlowTracer.export(dataFlows));
 
         // Print summary
-        printSummary(entryPoints, packageTree, callChains, callGraph, dataFlows);
+        printSummary(entryPoints, packageTree, callChains, mergedGraph, bytecodeGraph, dataFlows);
 
         return result;
     }
@@ -140,7 +153,8 @@ public class CoreAnalysisEngine {
     public void printSummary(List<EntryPointDiscovery.EntryPoint> entryPoints,
                               PackageStructureMapper.PackageNode packageTree,
                               Map<String, List<CallChainTracer.CallChain>> callChains,
-                              CallChainTracer.CallGraph callGraph,
+                              CallChainTracer.CallGraph mergedGraph,
+                              BytecodeCallGraphBuilder.BytecodeCallGraph bytecodeGraph,
                               List<DataFlowTracer.DataFlow> dataFlows) {
         // Entry points
         System.out.println("\n=== 项目解构报告 ===");
@@ -151,7 +165,7 @@ public class CoreAnalysisEngine {
         packageMapper.printTree(packageTree);
 
         // Call chains
-        callChainTracer.printChains(callChains, callGraph);
+        callChainTracer.printChains(callChains, mergedGraph);
 
         // Type definitions
         System.out.println("\n📚 类型定义: 已索引 " + typeNavigator.getTotalTypes() + " 个类型");
