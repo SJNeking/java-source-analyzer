@@ -99,6 +99,15 @@ public class ResourceLeakPath implements QualityRule {
                 }
             }
 
+            // Exclude factory/creator methods that return the resource they create
+            // (caller is responsible for closing)
+            boolean isFactoryMethod = methodBody.contains("return new ") ||
+                    methodBody.contains("return this.") ||
+                    (methodBody.trim().startsWith("return ") && methodBody.contains("new ")) ||
+                    Pattern.compile("return\\s+\\w+Factory\\.\\w+\\(").matcher(methodBody).find() ||
+                    Pattern.compile("return\\s+Proxy\\w+\\.\\w+\\(").matcher(methodBody).find();
+            if (isFactoryMethod) continue;
+
             // If it opens but doesn't have any close pattern at all
             if (!hasClose) {
                 issues.add(new QualityIssue(

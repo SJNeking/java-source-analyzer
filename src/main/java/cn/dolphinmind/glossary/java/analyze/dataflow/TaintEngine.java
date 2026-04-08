@@ -202,19 +202,38 @@ public class TaintEngine {
     }
 
     /**
-     * Simple check: does the tainted variable appear between source and sink?
-     * This is a simplified version of reaching definitions analysis.
+     * More precise taint flow check:
+     * 1. Exclude same-line false positives
+     * 2. Check if sink actually uses the tainted variable
+     * 3. Check if variable was reassigned to a safe value
      */
     private boolean isTaintedFlow(String body, String taintedVar, String sinkVar, int sourceLine, int sinkLine) {
+        // Exclude same-line false positives
+        if (sourceLine == sinkLine) return false;
+
         String[] lines = body.split("\n");
-        // Check if the tainted variable is used in or before the sink line
-        for (int i = 0; i < Math.min(sinkLine, lines.length); i++) {
+
+        // Check if sink line actually uses the tainted variable
+        boolean sinkUsesTainted = false;
+        for (int i = Math.max(0, sinkLine - 1); i < Math.min(sinkLine + 1, lines.length); i++) {
             if (lines[i].contains(taintedVar) || (sinkVar != null && lines[i].contains(sinkVar))) {
-                return true;
+                sinkUsesTainted = true;
+                break;
             }
         }
-        // Also check if same variable is referenced
-        return body.contains(taintedVar);
+        if (!sinkUsesTainted) return false;
+
+        // Check if the variable was reassigned to a safe value between source and sink
+        for (int i = sourceLine; i < sinkLine && i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (Pattern.compile(taintedVar + "\\s*=\\s*\"[^\"]*\"").matcher(line).find() ||
+                Pattern.compile(taintedVar + "\\s*=\\s*\\d+").matcher(line).find() ||
+                Pattern.compile(taintedVar + "\\s*=\\s*null\\s*;").matcher(line).find()) {
+                return false; // Taint cleared
+            }
+        }
+
+        return true;
     }
 
     /**
