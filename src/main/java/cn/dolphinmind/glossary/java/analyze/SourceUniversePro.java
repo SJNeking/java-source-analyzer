@@ -1089,6 +1089,91 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.CloneMisuse());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.RobustnessRules.ReadResolveWrongType());
 
+        // Web API Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingHttpMethod());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingResponseStatusCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingCorsHeaders());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.PathVariableInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingPagination());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingInputValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.SensitiveDataExposure());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingContentType());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.MissingRateLimiting());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.WebApiRules.ErrorDetailsExposed());
+
+        // Microservice Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.MissingCircuitBreaker());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.MissingTimeout());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.MissingRetryLogic());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.HardcodedServiceUrl());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.MissingFallback());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.SyncCriticalPath());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.MicroserviceRules.MissingLoadBalancing());
+
+        // Test Quality Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestWithoutAssertion());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestMethodNameConvention());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.ExcessiveMocking());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestCodeDuplication());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.FlakyTest());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestWithoutCleanup());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestCatchGenericException());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestMethodTooLong());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.TestOrderDependency());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.TestQualityRules.MissingParameterizedTest());
+
+        // Input Validation Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingNullCheck());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingRangeValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.TrustingExternalInput());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingFormatValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingSizeValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingTypeValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingAllowlist());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingEncodingValidation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingBoundaryCheck());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.InputValidationRules.MissingInputSanitization());
+
+        // Code Smell Enhanced Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.GodMethod());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.SpeculativeGenerality());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.DeadCode());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.LongParameterList());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.DataClumps());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.ShotgunSurgery());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.MessageChains());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.MiddleMan());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.InappropriateIntimacy());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeSmellEnhancedRules.CommentsAsSmell());
+
+        // SOLID Principles Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.SingleResponsibility());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.OpenClosedViolation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.LiskovSubstitution());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.InterfaceSegregation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.DependencyInversion());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.GodObject());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.FeatureEnvy());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.DivergentChange());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SolidRules.DataClass());
+
+        // Enhanced Security Rules (P5)
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.CsrfDisabled());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.CookieWithoutSecure());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.MissingCsp());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.InformationDisclosure());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.WeakHashing());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.InsecureFilePermissions());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.MissingAuthentication());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.InsecureRandom());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.HardcodedSecrets());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.InsecureCors());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.MissingHttps());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.InsecurePasswordStorage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.MissingAuditLogging());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.XxeInjection());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.LdapInjection());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
