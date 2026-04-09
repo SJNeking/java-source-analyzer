@@ -1174,6 +1174,127 @@ public class SourceUniversePro {
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.XxeInjection());
         reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.SecurityEnhancedRules.LdapInjection());
 
+        // Resource Management Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.StreamNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.ScannerNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.ThreadPoolNotShutdown());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.TimerNotCancelled());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.ProcessNotDestroyed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.JdbcConnectionNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.ZipFileNotClosed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.HttpConnectionNotDisconnected());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.WriterNotFlushed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ResourceManagementRules.RandomAccessFileNotClosed());
+
+        // Java 8+ Features Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseStreamApi());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseOptional());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseMethodReference());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseStringJoin());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseForEach());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseCollectorsToMap());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseTryWithResources());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseOptionalMap());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseArraysAsList());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.Java8PlusRules.UseCompletableFuture());
+
+        // Exception Handling Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.LoggingAndThrowing());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.ReturnNullOnException());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.ExceptionForControlFlow());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.IncompleteCatch());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.CatchNpe());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.CatchIndexOutOfBounds());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.RuntimeExceptionInConstructor());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.UninformativeExceptionMessage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.ExceptionWrappedWithoutCause());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ExceptionHandlingRules.CatchingThrowable());
+
+        // Logging Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.UsingSystemOut());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.StringConcatInLog());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.LoggingSensitiveData());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.ExceptionWithoutStackTrace());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.WrongLogLevel());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.DebugInProduction());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.LoggingInLoop());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.MissingLogParameter());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.LoggerNotStaticFinal());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.LoggingRules.LogNotInternationalized());
+
+        // Collection Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.ArrayListAsQueue());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.HashSetInitialCapacity());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.HashMapInitialCapacity());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.LinkedListRandomAccess());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.ConcurrentModification());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.MutableSingletonSet());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.FixedSizeList());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.TreeMapWhenNotNeeded());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.ContainsOnList());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CollectionRules.EnumerationInsteadOfIterator());
+
+        // String Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.StringConcatInLoop());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.EqualsOnCharArray());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.EmptyStringCheck());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.StringSplitRegex());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.SubstringBounds());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.StringInternMisuse());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.CaseInsensitiveComparison());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.StringBuilderCapacity());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.StringFormatVsConcatenation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.StringRules.StringValueOfVsConcatenation());
+
+        // Design Pattern Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.SingletonWithPublicConstructor());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.IncompleteBuilderPattern());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.ComplexFactoryMethod());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.MissingObserverPattern());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.MissingStrategyPattern());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.DecoratorAntiPattern());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.TemplateMethodViolation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.VisitorMisuse());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.MissingCommandPattern());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.DesignPatternRules.AdapterSmell());
+
+        // Code Organization Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.WrongPackageName());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.StaticImportMisuse());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.UnusedImport());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.TooManyImports());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.DuplicateImport());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.PackageInfoMissing());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.WrongClassOrder());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.WrongMethodOrder());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.TestInWrongPackage());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.CodeOrganizationRules.NestedClassTooDeep());
+
+        // API Design Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.BooleanParameter());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.ReturnNullInsteadOfEmpty());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.MutableReturnType());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.MethodNameMismatch());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.ApiReturnsImplementation());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.SynchronizedMethod());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.DeprecatedApiStillUsed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.ThrowsCheckedException());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.BuilderNotUsed());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ApiDesignRules.TooManyReturnPaths());
+
+        // Reflection Rules
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.SetAccessible());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.MethodInvokePerformance());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.ReflectionFieldAccess());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.ClassForNameWithoutLoader());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.ProxyMisuse());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.ConstructorNewInstancePerformance());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.ReflectionInHotPath());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.DynamicClassLoading());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.MethodHandleNotCached());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.ArrayLengthCheckMissing());
+        reg.accept(new cn.dolphinmind.glossary.java.analyze.quality.rules.ReflectionRules.EnumOrdinalUsed());
+
         // Run rules
         List<cn.dolphinmind.glossary.java.analyze.quality.QualityIssue> ruleIssues = engine.run(globalLibrary);
 
