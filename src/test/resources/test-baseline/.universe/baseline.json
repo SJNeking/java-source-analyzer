@@ -1,0 +1,10 @@
+{
+  "issues": {
+    "RSPEC-123|com.example.MyClass|myMethod|Test issue": {
+      "status": "FALSE_POSITIVE",
+      "reason": "Test reason",
+      "markedBy": "user",
+      "markedDate": "2026-04-09"
+    }
+  }
+}

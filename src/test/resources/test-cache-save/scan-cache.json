@@ -1,0 +1,15 @@
+{
+  "scanDate": "2024-01-01T00:00:00",
+  "analyzerVersion": "1.0-test",
+  "files": {
+    "Test.java": {
+      "hash": "hash123",
+      "classCount": 2,
+      "methodCount": 0,
+      "fieldCount": 0
+    }
+  },
+  "totalClasses": 5,
+  "totalMethods": 0,
+  "totalFields": 0
+}

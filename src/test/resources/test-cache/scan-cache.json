@@ -1,0 +1,6 @@
+{
+  "scanDate": "2024-01-01T00:00:00",
+  "analyzerVersion": "0.9-old",
+  "files": {"test.java": {"hash": "abc123", "classCount": 1}},
+  "totalClasses": 1
+}
