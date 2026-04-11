@@ -75,7 +75,7 @@ export class CodeExplorerView {
     this.bindMethodClicks();
 
     // Render default package-level UML after DOM is ready
-    setTimeout(() => this.renderPackageUml(), 100);
+    setTimeout(() => this.renderPackageUml(), 300);
   }
 
   /**
@@ -115,7 +115,7 @@ export class CodeExplorerView {
   /**
    * Render package-level UML: all classes + import dependencies
    */
-  private renderPackageUml(): void {
+  private async renderPackageUml(): Promise<void> {
     if (!this.data?.assets) return;
 
     const assets = this.data.assets || [];
@@ -148,73 +148,169 @@ export class CodeExplorerView {
       });
     });
 
-    // Use mermaid.render() API for dynamic content
     const mmd = (window as any).mermaid;
-    if (!mmd) return;
+    if (!mmd) {
+      console.error('Mermaid not loaded');
+      return;
+    }
 
-    mmd.render('pkg-uml', mermaidCode).then((result: any) => {
+    // Wait for container to exist with polling
+    let attempts = 0;
+    const maxAttempts = 30;
+    const pollInterval = 100;
+    
+    const tryRender = () => {
       const container = document.getElementById('uml-render-target');
-      if (container) container.innerHTML = result.svg;
-    }).catch((err: any) => {
-      console.warn('Mermaid render error:', err);
-      const container = document.getElementById('uml-render-target');
-      if (container) container.innerHTML = `<pre style="color:var(--text-muted);font-size:10px;white-space:pre-wrap;">${mermaidCode}</pre>`;
-    });
+      if (!container) {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryRender, pollInterval);
+        } else {
+          console.error('uml-render-target not found after', maxAttempts * pollInterval, 'ms');
+        }
+        return;
+      }
+
+      mmd.render('pkg-uml-' + Date.now(), mermaidCode).then((result: any) => {
+        container.innerHTML = result.svg;
+        // Make SVG fill the container properly
+        const svg = container.querySelector('svg');
+        if (svg) {
+          svg.style.width = '100%';
+          svg.style.height = '100%';
+          svg.style.maxHeight = 'none';
+          svg.removeAttribute('width');
+          svg.removeAttribute('height');
+          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        }
+      }).catch((err: any) => {
+        console.error('UML render error:', err);
+        container.innerHTML = `<pre style="color:var(--warning);font-size:10px;white-space:pre-wrap;padding:16px;">${mermaidCode}</pre>`;
+      });
+    };
+
+    tryRender();
   }
 
   /**
-   * Render the Source Code Viewer with Audit Panel BELOW code
+   * Render a single class UML diagram using mermaid.render()
    */
-  private renderCodePanel(code: string, title: string, kind: string): string {
-    const lines = code.split('\n');
-    const lineNumbers = lines.map((_, i) => `<div class="code-line-num">${i + 1}</div>`).join('');
+  private async renderClassUml(asset: any): Promise<void> {
+    const target = document.getElementById('uml-render-target');
+    if (!target) return;
 
-    const codeContent = lines.map(line => {
-      let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      escaped = escaped
-        .replace(/\b(public|private|protected|static|final|abstract|synchronized|volatile)\b/g, '<span class="code-keyword">$1</span>')
-        .replace(/\b(class|interface|enum|extends|implements|new|this|super|return|if|else|for|while|try|catch|throw)\b/g, '<span class="code-keyword">$1</span>')
-        .replace(/\b(String|int|boolean|long|void|List|Map|Set|Collection)\b/g, '<span class="code-type">$1</span>')
-        .replace(/(\/\/.*)/g, '<span class="code-comment">$1</span>')
-        .replace(/(&quot;[^&]*?&quot;)/g, '<span class="code-string">$1</span>');
-      return `<div class="code-line-content">${escaped}</div>`;
-    }).join('');
+    const className = asset.address.split('.').pop();
+    const methods = asset.methods_full || asset.methods || [];
+    const fields = asset.fields_matrix || asset.fields || [];
+    const imports = (asset as any).import_dependencies || [];
 
-    const kindColor = CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8';
+    let mermaidCode = `classDiagram\n`;
+    mermaidCode += `  class ${className} {\n`;
+    fields.slice(0, 25).forEach((f: any) => {
+      const type = f.type_path ? f.type_path.split('.').pop() : 'var';
+      mermaidCode += `    ${type} ${f.name}\n`;
+    });
+    methods.slice(0, 25).forEach((m: any) => {
+      const isPublic = m.modifiers?.includes('public');
+      const prefix = isPublic ? '+' : '-';
+      mermaidCode += `    ${prefix}${m.name}()\n`;
+    });
+    mermaidCode += `  }\n`;
+
+    if (imports.length > 0) {
+      imports.slice(0, 10).forEach((dep: string) => {
+        const depName = dep.split('.').pop();
+        if (depName && depName !== className) {
+          mermaidCode += `  ${className} ..> ${depName}\n`;
+        }
+      });
+    }
+
+    const mmd = (window as any).mermaid;
+    if (!mmd) {
+      target.innerHTML = '<div style="color:var(--warning);padding:20px;">Mermaid 未加载</div>';
+      return;
+    }
+
+    try {
+      const uniqueId = 'uml-' + Date.now();
+      const result = await mmd.render(uniqueId, mermaidCode);
+      target.innerHTML = result.svg;
+      
+      // Make SVG fill the container properly
+      const svg = target.querySelector('svg');
+      if (svg) {
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.maxHeight = 'none';
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      }
+    } catch (err: any) {
+      console.error('Mermaid render error:', err);
+      target.innerHTML = `<pre style="color:var(--warning);font-size:10px;white-space:pre-wrap;padding:16px;">UML 渲染失败: ${err.message}\n\n${mermaidCode}</pre>`;
+    }
+  }
+
+  /**
+   * Render UML View (class diagram on top, audit panel below)
+   */
+  private renderUmlView(asset: any): string {
+    const kindColor = this.getKindColor(asset.kind || 'CLASS');
+    const className = asset.address.split('.').pop();
+    const methods = asset.methods_full || asset.methods || [];
+    const fields = asset.fields_matrix || asset.fields || [];
+    const imports = (asset as any).import_dependencies || [];
+
+    let mermaidCode = `classDiagram\n`;
+    mermaidCode += `  class ${className} {\n`;
+    fields.slice(0, 25).forEach((f: any) => {
+      const type = f.type_path ? f.type_path.split('.').pop() : 'var';
+      mermaidCode += `    ${type} ${f.name}\n`;
+    });
+    methods.slice(0, 25).forEach((m: any) => {
+      const isPublic = m.modifiers?.includes('public');
+      const prefix = isPublic ? '+' : '-';
+      mermaidCode += `    ${prefix}${m.name}()\n`;
+    });
+    mermaidCode += `  }\n`;
+
+    if (imports.length > 0) {
+      imports.slice(0, 10).forEach((dep: string) => {
+        const depName = dep.split('.').pop();
+        if (depName && depName !== className) {
+          mermaidCode += `  ${className} ..> ${depName} : imports\n`;
+        }
+      });
+    }
 
     return `
       <div class="explorer-code-layout">
-        <!-- Top: Code View (full width) -->
         <div class="explorer-code-main">
           <div class="explorer-code-header">
             <div class="explorer-breadcrumb">
-              <span class="kind-badge" style="background:${kindColor}20; color:${kindColor}; border:1px solid ${kindColor}40">${kind}</span>
-              <span class="breadcrumb-text">📄 ${title}</span>
-            </div>
-            <div class="explorer-code-actions">
-              <button class="code-action-btn" onclick="window.__copyCode()" title="复制代码">📋 复制</button>
+              <span class="kind-badge" style="background:${kindColor}20; color:${kindColor}; border:1px solid ${kindColor}40">${asset.kind}</span>
+              <span class="breadcrumb-text">📐 ${className} - 类图</span>
             </div>
           </div>
-          <div class="explorer-code-body">
-            <div class="code-line-numbers">${lineNumbers}</div>
-            <div class="code-lines">${codeContent}</div>
+          <div class="uml-viewer">
+            <div id="uml-render-target"></div>
           </div>
         </div>
-        <!-- Bottom: Audit Panel (Comments & Tags only) -->
         <div class="explorer-audit-panel">
           <div class="audit-tabs" role="tablist">
             <div class="audit-tab active" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
             <div class="audit-tab" data-tab="tags" onclick="window.__switchAuditTab('tags')">🏷️ 标签</div>
           </div>
           <div class="audit-content">
-            <!-- Comments Tab -->
             <div class="audit-tab-panel active" id="audit-comments">
               <div class="audit-comment-form">
                 <textarea id="audit-comment-input" class="audit-textarea" placeholder="添加评论或思考..."></textarea>
                 <button class="audit-submit-btn" onclick="window.__addComment()">提交</button>
               </div>
               <div class="audit-comment-list">
-                ${this._comments.length === 0 ? '<div class="audit-empty">暂无评论，成为第一个评论的人</div>' :
+                ${this._comments.length === 0 ? '<div class="audit-empty">暂无评论</div>' :
                   this._comments.map((c) => `
                     <div class="audit-comment-item">
                       <div class="audit-comment-meta">
@@ -227,10 +323,9 @@ export class CodeExplorerView {
                 }
               </div>
             </div>
-            <!-- Tags Tab -->
             <div class="audit-tab-panel" id="audit-tags" style="display:none;">
               <div class="audit-tag-input-row">
-                <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称，按回车添加...">
+                <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称...">
                 <button class="audit-tag-add-btn" onclick="window.__addTag()">添加</button>
               </div>
               <div class="audit-tag-cloud">
@@ -248,14 +343,6 @@ export class CodeExplorerView {
         </div>
       </div>
     `;
-  }
-
-  private getKindColor(kind: string): string {
-    const colorMap: Record<string, string> = {
-      INTERFACE: '#60a5fa', ABSTRACT_CLASS: '#a78bfa', CLASS: '#4ade80',
-      ENUM: '#fb923c', UTILITY: '#9ca3af'
-    };
-    return colorMap[kind] || '#94a3b8';
   }
 
   /**
@@ -501,15 +588,28 @@ export class CodeExplorerView {
     }
 
     const mmd = (window as any).mermaid;
-    if (!mmd) return;
+    if (!mmd) {
+      target.innerHTML = '<div style="color:var(--warning);padding:20px;">Mermaid 未加载</div>';
+      return;
+    }
 
     try {
       const uniqueId = 'uml-' + Date.now();
       const result = await mmd.render(uniqueId, mermaidCode);
       target.innerHTML = result.svg;
-    } catch (err) {
-      console.warn('Mermaid render error:', err);
-      target.innerHTML = `<pre style="color:var(--text-muted);font-size:10px;white-space:pre-wrap;">${mermaidCode}</pre>`;
+      
+      // Make SVG responsive and large enough
+      const svg = target.querySelector('svg');
+      if (svg) {
+        svg.style.width = '100%';
+        svg.style.height = 'auto';
+        svg.style.maxHeight = 'none';
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+      }
+    } catch (err: any) {
+      console.error('Mermaid render error:', err);
+      target.innerHTML = `<pre style="color:var(--warning);font-size:10px;white-space:pre-wrap;">UML 渲染失败: ${err.message}\n\n${mermaidCode}</pre>`;
     }
   }
 

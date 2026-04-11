@@ -1,6 +1,5 @@
 package cn.dolphinmind.glossary.java.analyze.orchestrate;
 
-import cn.dolphinmind.glossary.java.analyze.SourceUniversePro;
 import cn.dolphinmind.glossary.java.analyze.translate.SemanticTranslator;
 
 /**
@@ -26,7 +25,7 @@ public class AnalysisOrchestrator {
      */
     public void execute() throws Exception {
         config.applyDefaults();
-        SourceUniversePro.runAnalysis(config, translator);
+        cn.dolphinmind.glossary.java.analyze.SourceUniversePro.runAnalysis(config, translator);
     }
 
     public AnalysisConfig getConfig() { return config; }

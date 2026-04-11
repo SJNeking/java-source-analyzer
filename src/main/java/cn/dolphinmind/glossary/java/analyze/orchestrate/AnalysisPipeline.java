@@ -186,8 +186,8 @@ public class AnalysisPipeline {
         root.put("framework", config.getFrameworkName());
         root.put("version", config.getEffectiveVersion());
         root.put("scan_date", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-        root.put("assets", scanResult.getGlobalLibrary());
-        root.put("dependencies", scanResult.getGlobalDependencies());
+        root.put("assets", scanResult.getClassAssets());
+        root.put("dependencies", scanResult.getDependencies());
         root.put("project_assets", projectAssets);
         return root;
     }
