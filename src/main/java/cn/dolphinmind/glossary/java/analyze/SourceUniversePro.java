@@ -520,6 +520,8 @@ public class SourceUniversePro {
 
         // Create root container
         Map<String, Object> rootContainer = new LinkedHashMap<>();
+        rootContainer.put("schema_version", "1.0.0");
+        rootContainer.put("analyzer_version", "2.0.0");
         rootContainer.put("framework", frameworkName);
         rootContainer.put("version", detectedVersion);
         rootContainer.put("scan_date", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
@@ -940,6 +942,7 @@ public class SourceUniversePro {
         // Generate compressed summary
         try {
             Map<String, Object> compressedSummary = new LinkedHashMap<>();
+            compressedSummary.put("schema_version", "1.0.0");
             compressedSummary.put("framework", frameworkName);
             compressedSummary.put("version", detectedVersion);
             compressedSummary.put("scan_date", rootContainer.get("scan_date"));

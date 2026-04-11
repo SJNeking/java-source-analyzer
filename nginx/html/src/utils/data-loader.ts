@@ -38,7 +38,20 @@ export async function loadProjectsIndex(): Promise<ProjectEntry[]> {
 export async function loadAnalysisResult(filename: string): Promise<AnalysisResult> {
   const response = await fetch(`${CONFIG.dataPath}${filename}?t=${Date.now()}`);
   if (!response.ok) throw new Error(`HTTP ${response.status}: File not found - ${filename}`);
-  return await response.json();
+  const data = await response.json();
+
+  // Schema version compatibility check
+  const schemaVersion = (data as any).schema_version;
+  if (schemaVersion) {
+    const [major] = schemaVersion.split('.').map(Number);
+    if (major > 1) {
+      Logger.warn(`Schema version ${schemaVersion} may be incompatible with this frontend. Expected 1.x.x`);
+    }
+  } else {
+    Logger.warn('No schema_version found in analysis result. Data format may be from an older analyzer.');
+  }
+
+  return data as AnalysisResult;
 }
 
 export function extractShortName(address: string): string {
