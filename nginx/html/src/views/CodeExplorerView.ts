@@ -91,7 +91,7 @@ export class CodeExplorerView {
             </div>
           </div>
           <div class="uml-viewer">
-            <pre class="mermaid" id="default-mermaid">classDiagram</pre>
+            <div id="uml-render-target"></div>
           </div>
         </div>
         <div class="explorer-audit-panel">
@@ -153,13 +153,11 @@ export class CodeExplorerView {
     if (!mmd) return;
 
     mmd.render('pkg-uml', mermaidCode).then((result: any) => {
-      const container = document.querySelector('.uml-viewer');
-      if (container) {
-        container.innerHTML = result.svg;
-      }
+      const container = document.getElementById('uml-render-target');
+      if (container) container.innerHTML = result.svg;
     }).catch((err: any) => {
       console.warn('Mermaid render error:', err);
-      const container = document.querySelector('.uml-viewer');
+      const container = document.getElementById('uml-render-target');
       if (container) container.innerHTML = `<pre style="color:var(--text-muted);font-size:10px;white-space:pre-wrap;">${mermaidCode}</pre>`;
     });
   }
@@ -792,16 +790,6 @@ export class CodeExplorerView {
     (p as HTMLElement).style.display = p.id === `audit-${tab}` ? 'block' : 'none';
     p.classList.toggle('active', p.id === `audit-${tab}`);
   });
-
-  // Render mermaid when switching to UML tab
-  if (tab === 'uml') {
-    setTimeout(() => {
-      const diagram = document.getElementById('uml-diagram');
-      if (diagram && (window as any).mermaid) {
-        (window as any).mermaid.run({ nodes: diagram.querySelectorAll('.mermaid') });
-      }
-    }, 50);
-  }
 };
 
 (window as any).__addComment = () => {
