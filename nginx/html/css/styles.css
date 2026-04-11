@@ -157,36 +157,39 @@ body {
 .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* --- Content Viewport --- */
-.content-viewport { 
-    flex: 1; 
-    overflow: auto; 
+.content-viewport {
+    flex: 1;
+    overflow: hidden;
     position: relative;
 }
 
 /* View Containers - unified layout */
 .view-container,
-.view-dashboard { 
-    position: absolute; 
-    inset: 0; 
-    overflow: auto; 
-    display: none; 
+.view-dashboard {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
+    display: none;
 }
 
 .view-container.active,
-.view-dashboard.active { 
-    display: block; 
+.view-dashboard.active {
+    display: block;
 }
 
 /* Dashboard specific grid layout */
-.view-dashboard { 
-    display: none; 
-    grid-template-rows: auto 1fr; 
-    gap: 16px; 
+.view-dashboard {
+    display: none;
+    grid-template-rows: auto 1fr;
+    gap: 16px;
     padding: 16px;
 }
 
-.view-dashboard.active { 
-    display: grid; 
+.view-dashboard.active {
+    display: grid;
 }
 
 /* Stats Cards */
@@ -218,19 +221,18 @@ body {
 }
 
 /* Graph Container */
-.graph-container { 
-    background: var(--bg-secondary); 
-    border: 1px solid var(--border); 
-    border-radius: 8px; 
-    overflow: hidden; 
-    position: relative; 
-    min-height: 0; /* Flex fix */
-    flex: 1;
+.graph-container {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    min-height: 400px;
 }
 
-#main-graph { 
-    width: 100%; 
-    height: 100%; 
+.graph-container #main-graph {
+    position: absolute;
+    inset: 0;
 }
 
 /* --- Detail View (Split Layout) --- */

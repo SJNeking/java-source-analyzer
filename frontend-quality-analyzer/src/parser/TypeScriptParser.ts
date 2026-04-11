@@ -198,7 +198,7 @@ export class TypeScriptParser implements ASTParser {
 
     const visit = (node: ts.Node) => {
       // Check explicit `any`
-      if (ts.isKeyword(node) && node.kind === ts.SyntaxKind.AnyKeyword) {
+      if (node.kind === ts.SyntaxKind.AnyKeyword) {
         const pos = sourceFile.getLineAndCharacterOfPosition(node.getStart());
         result.explicitAny.push({
           line: pos.line + 1,
@@ -208,7 +208,7 @@ export class TypeScriptParser implements ASTParser {
       }
 
       // Check implicit any (parameters without type annotations)
-      if (ts.isParameter(node) && !node.type && !node.modifiers?.some(m => ts.isKeyword(m) && m.kind === ts.SyntaxKind.ReadonlyKeyword)) {
+      if (ts.isParameter(node) && !node.type) {
         // Check if it's a function parameter without type
         const parent = node.parent;
         if (
@@ -298,9 +298,10 @@ export class TypeScriptParser implements ASTParser {
    */
   private extractDecorators(node: ts.Node): string[] {
     const decorators: string[] = [];
-    const decs = ts.getDecorators(node);
-    if (decs) {
-      decs.forEach((d) => {
+    
+    // Check if node has decorators property
+    if ('decorators' in node && node.decorators && ts.isNodeArray(node.decorators)) {
+      node.decorators.forEach((d) => {
         if (ts.isCallExpression(d.expression)) {
           decorators.push(d.expression.expression.getText(this.sourceFile!));
         } else {
@@ -308,6 +309,7 @@ export class TypeScriptParser implements ASTParser {
         }
       });
     }
+    
     return decorators;
   }
 

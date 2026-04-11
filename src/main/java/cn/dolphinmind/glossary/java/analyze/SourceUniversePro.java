@@ -224,6 +224,7 @@ public class SourceUniversePro {
      * 智能标识符翻译引擎 (MVP Core - Corrected)
      * 逻辑: 整体匹配 -> 驼峰拆分(过滤短词) -> 后缀推理 -> 保留原文
      */
+    @Deprecated
     private static String translateIdentifier(String name) {
         if (name == null || name.isEmpty()) return "";
         
@@ -256,6 +257,7 @@ public class SourceUniversePro {
     /**
      * 三级字典查询逻辑 (优化版)
      */
+    @Deprecated
     private static String lookupTerm(String term) {
         if (term.isEmpty()) return null;
         String key = term.toLowerCase();
@@ -302,6 +304,7 @@ public class SourceUniversePro {
     /**
      * 常见技术后缀推理
      */
+    @Deprecated
     private static String inferBySuffix(String token) {
         if (token.endsWith("Impl")) return "实现";
         if (token.endsWith("Utils") || token.endsWith("Helper")) return "工具";
@@ -468,6 +471,12 @@ public class SourceUniversePro {
 
         RulesConfig rulesConfig = RulesConfig.load(config.getRulesConfigPath());
         translator.loadProjectGlossary(config.getSourceRoot());
+
+        // Initialize extracted services
+        cn.dolphinmind.glossary.java.analyze.translate.CommentAnalysisService commentService =
+                new cn.dolphinmind.glossary.java.analyze.translate.CommentAnalysisService();
+        cn.dolphinmind.glossary.java.analyze.translate.SemanticEnrichmentService semanticService =
+                new cn.dolphinmind.glossary.java.analyze.translate.SemanticEnrichmentService(translator);
 
         // Configure JavaParser Symbol Solver with full Maven classpath
         cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver cpResolver = null;
@@ -1551,7 +1560,9 @@ public class SourceUniversePro {
 
     /**
      * 物理注释提取：从源码行中暴力抓取注释块
+     * @deprecated Use {@link cn.dolphinmind.glossary.java.analyze.translate.CommentAnalysisService#bruteForceComment}
      */
+    @Deprecated
     private static String bruteForceComment(List<String> lines, Node node) {
         Map<String, Object> comment = extractCommentDetails(lines, node);
         return Objects.toString(comment.getOrDefault("summary", ""), "");
@@ -1571,6 +1582,7 @@ public class SourceUniversePro {
     /**
      * 结构化注释提取：提取 Javadoc 的各个部分
      */
+    @Deprecated
     private static Map<String, Object> extractCommentDetails(List<String> lines, Node node) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("summary", "");
@@ -1631,6 +1643,7 @@ public class SourceUniversePro {
     /**
      * 从原始注释文本中提取 Javadoc 标签 (@param, @return, @throws, etc.)
      */
+    @Deprecated
     private static void extractJavadocTags(String rawComment, Map<String, Object> result) {
         String[] lines = rawComment.split("\n");
         List<Map<String, String>> params = (List<Map<String, String>>) result.get("params");
@@ -1700,6 +1713,7 @@ public class SourceUniversePro {
     /**
      * 从注释中提取语义说明 (线程安全、性能、约束等)
      */
+    @Deprecated
     private static void extractSemanticNotes(String cleanedComment, Map<String, Object> result) {
         List<String> semanticNotes = (List<String>) result.get("semantic_notes");
         String lowerComment = cleanedComment.toLowerCase();
@@ -1742,6 +1756,7 @@ public class SourceUniversePro {
     /**
      * 从源码行中暴力查找注释块 (向上查找)
      */
+    @Deprecated
     private static String bruteForceCommentFromLines(List<String> lines, Node node) {
         if (node == null || !node.getBegin().isPresent()) return "";
         int startLine = node.getBegin().get().line - 1; // 0-indexed
@@ -2026,6 +2041,7 @@ public class SourceUniversePro {
     /**
      * 🚀 标签映射：将 ID 转换为中英双语对象
      */
+    @Deprecated
     private static java.util.List<Map<String, String>> resolveBilingualTags(java.util.Set<String> tagIds) {
         java.util.List<Map<String, String>> result = new ArrayList<>();
         for (String id : tagIds) {
@@ -2078,6 +2094,7 @@ public class SourceUniversePro {
     /**
      * 🚀 提取架构与行为标签 (AI Agent 核心索引)
      */
+    @Deprecated
     private static java.util.Set<String> extractArchTags(TypeDeclaration<?> type, List<String> fileLines) {
         java.util.Set<String> tags = new java.util.HashSet<>();
         String className = type.getNameAsString().toLowerCase();
@@ -2122,6 +2139,7 @@ public class SourceUniversePro {
     /**
      * 🚀 智能翻译与摘要：基于技术指令集的精准中英映射
      */
+    @Deprecated
     private static String translateAndSummarize(String text) {
         if (text == null || text.isEmpty()) return "暂无描述";
         
@@ -2154,6 +2172,7 @@ public class SourceUniversePro {
     /**
      * 🚀 提取组件角色标签 (基于类名后缀)
      */
+    @Deprecated
     private static java.util.Set<String> extractComponentRole(TypeDeclaration<?> type) {
         java.util.Set<String> roles = new java.util.HashSet<>();
         String className = type.getNameAsString();
@@ -2393,6 +2412,7 @@ public class SourceUniversePro {
     /**
      * 🚀 提取 AI 教学指南：包含调用约束与适用场景
      */
+    @Deprecated
     private static Map<String, Object> extractAIGuidance(TypeDeclaration<?> type, List<String> fileLines) {
         Map<String, Object> guidance = new LinkedHashMap<>();
         List<String> constraints = new ArrayList<>();
@@ -2430,6 +2450,7 @@ public class SourceUniversePro {
     /**
      * 🚀 逻辑推理引擎：基于 AST 的行为与架构推导 (带证据锚定)
      */
+    @Deprecated
     private static Map<String, Object> performLogicalInference(TypeDeclaration<?> type, List<String> fileLines) {
         Map<String, Object> results = new LinkedHashMap<>();
         List<Map<String, Object>> evidenceList = new ArrayList<>();
@@ -2467,6 +2488,7 @@ public class SourceUniversePro {
     /**
      * 🚀 提取域上下文：识别组件所属的业务领域
      */
+    @Deprecated
     private static String extractDomainContext(String pkg) {
         String[] parts = pkg.split("\\.");
         // 简单启发式：取包名中倒数第二个或具有语义的部分作为域
@@ -2481,6 +2503,7 @@ public class SourceUniversePro {
     /**
      * 🚀 提取调用图摘要：为 Agent 提供影响分析依据
      */
+    @Deprecated
     private static Map<String, Object> extractCallGraphSummary(TypeDeclaration<?> type) {
         Map<String, Object> summary = new LinkedHashMap<>();
         java.util.Set<String> calledClasses = new java.util.HashSet<>();
@@ -2502,6 +2525,7 @@ public class SourceUniversePro {
     /**
      * 🚀 提取 AST 语义画像：基于结构与行为的深度分析
      */
+    @Deprecated
     private static Map<String, Object> extractSemanticProfile(TypeDeclaration<?> type, List<String> fileLines) {
         Map<String, Object> profile = new LinkedHashMap<>();
         
@@ -2549,6 +2573,7 @@ public class SourceUniversePro {
         return profile;
     }
 
+    @Deprecated
     private static Map<String, Object> getEnhancementData(String address) {
         Map<String, Object> enhancement = new LinkedHashMap<>();
         if (codeExamples != null && codeExamples.has(address)) {
@@ -2887,6 +2912,7 @@ public class SourceUniversePro {
     /**
      * Count comment lines in a class.
      */
+    @Deprecated
     private static int countCommentLines(List<String> fileLines, TypeDeclaration<?> type) {
         if (!type.getBegin().isPresent() || !type.getEnd().isPresent()) return 0;
         int start = type.getBegin().get().line - 1;

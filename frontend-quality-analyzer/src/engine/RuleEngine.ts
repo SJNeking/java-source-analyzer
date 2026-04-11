@@ -81,6 +81,12 @@ export class RuleEngine {
     const activeRules = this.filterRules(options?.config);
     const issues: QualityIssue[] = [];
 
+    // Skip rule implementation files themselves — prevents self-analysis false positives
+    // e.g., SecurityRules.ts shouldn't trigger FE-SEC-001 for its own eval() detection code
+    if (this.isRuleImplementationFile(filePath) || this.isEngineFile(filePath)) {
+      return issues;
+    }
+
     for (const rule of activeRules) {
       try {
         const ruleIssues = rule.check(content, filePath, {
@@ -97,6 +103,20 @@ export class RuleEngine {
     }
 
     return issues;
+  }
+
+  /**
+   * Check if a file is a rule implementation file (should skip self-analysis)
+   */
+  private isRuleImplementationFile(filePath: string): boolean {
+    return /rules\/\w+\/\w+Rules\.ts$/.test(filePath);
+  }
+
+  /**
+   * Check if a file is an engine/core file (infrastructure, skip style/security checks)
+   */
+  private isEngineFile(filePath: string): boolean {
+    return /engine\/RuleEngine\.ts$/.test(filePath);
   }
 
   /**
@@ -125,7 +145,7 @@ export class RuleEngine {
       for (const rule of activeRules) {
         try {
           const issues = rule.check(file.content, file.path, {
-            framework: this.detectFramework(file.path),
+            framework: this.normalizeFramework(this.detectFramework(file.path)),
             config: config?.framework_config
           });
 
@@ -148,7 +168,7 @@ export class RuleEngine {
         file_size: Buffer.byteLength(file.content, 'utf-8'),
         line_count: file.content.split('\n').length,
         language: this.detectLanguage(file.path),
-        framework: this.detectFramework(file.path),
+        framework: this.normalizeFramework(this.detectFramework(file.path)),
         issues: fileIssues,
         metrics: this.calculateFileMetrics(file.content, file.path)
       };
@@ -293,6 +313,18 @@ export class RuleEngine {
     if (filePath.endsWith('.component.ts')) return 'angular';
     
     return undefined;
+  }
+
+  /**
+   * Normalize framework type to match FileAnalysis interface
+   * Converts nextjs -> react, nuxt -> vue
+   */
+  private normalizeFramework(
+    framework: 'react' | 'vue' | 'angular' | 'svelte' | 'nextjs' | 'nuxt' | undefined
+  ): 'react' | 'vue' | 'angular' | 'svelte' | undefined {
+    if (framework === 'nextjs') return 'react';
+    if (framework === 'nuxt') return 'vue';
+    return framework;
   }
 
   /**
@@ -618,11 +650,11 @@ export class RuleEngine {
     }
 
     // Check accessibility score (if configured)
-    if (thresholds.min_accessibility_score && metrics.accessibility.wcag_aa_compliance_score) {
-      if (metrics.accessibility.wcag_aa_compliance_score < thresholds.min_accessibility_score) {
+    if (thresholds.min_wcag_score && metrics.accessibility.wcag_aa_compliance_score) {
+      if (metrics.accessibility.wcag_aa_compliance_score < thresholds.min_wcag_score) {
         passed = false;
         reasons.push(
-          `Accessibility score below threshold: ${metrics.accessibility.wcag_aa_compliance_score} < ${thresholds.min_accessibility_score}`
+          `Accessibility score below threshold: ${metrics.accessibility.wcag_aa_compliance_score} < ${thresholds.min_wcag_score}`
         );
       }
     }
@@ -648,7 +680,7 @@ export class RuleEngine {
         max_major: thresholds.max_major_issues,
         max_total: thresholds.max_total_issues,
         min_typescript_coverage: thresholds.min_typescript_coverage,
-        min_accessibility_score: thresholds.min_accessibility_score
+        min_accessibility_score: thresholds.min_wcag_score
       }
     };
   }

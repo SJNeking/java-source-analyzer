@@ -114,7 +114,7 @@ export class CodeExplorerView {
   }
 
   /**
-   * Render the Color-Coded Tree
+   * Render the Color-Coded Tree (sorted by kind: Interface → Abstract → Class → Enum → Utility)
    */
   private renderTree(assets: Asset[]): void {
     const content = document.getElementById('tree-content');
@@ -130,8 +130,24 @@ export class CodeExplorerView {
       packages[pkg].push(a);
     });
 
+    // Kind sort order
+    const kindOrder: Record<string, number> = {
+      'INTERFACE': 0,
+      'ABSTRACT_CLASS': 1,
+      'CLASS': 2,
+      'ENUM': 3,
+      'UTILITY': 4
+    };
+
     let html = '';
     Object.entries(packages).sort((a, b) => a[0].localeCompare(b[0])).forEach(([pkg, items]) => {
+      // Sort items by kind order
+      items.sort((a, b) => {
+        const orderA = kindOrder[a.kind || 'CLASS'] ?? 99;
+        const orderB = kindOrder[b.kind || 'CLASS'] ?? 99;
+        return orderA - orderB;
+      });
+
       html += `
         <details class="pkg-group" open>
           <summary class="pkg-summary">
@@ -150,7 +166,7 @@ export class CodeExplorerView {
   }
 
   /**
-   * Render Class Node with proper color coding
+   * Render Class Node with proper color coding (no left border)
    */
   private renderClassNode(asset: Asset): string {
     const name = asset.address.split('.').pop();
@@ -166,7 +182,7 @@ export class CodeExplorerView {
 
     return `
       <details class="class-group">
-        <summary class="class-summary" style="border-left:3px solid ${color}">
+        <summary class="class-summary">
           <span class="class-icon">${kindIcon}</span>
           <span class="class-name">${name}</span>
           <span class="class-tags">

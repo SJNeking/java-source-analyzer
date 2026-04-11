@@ -30,8 +30,8 @@ const options = program.opts();
 
 // ==================== Utility Functions ====================
 
-function log(message: string, color: string = 'white') {
-  console.log(chalk[color](message));
+function log(message: string, color: keyof chalk.Chalk = 'white') {
+  console.log((chalk as any)[color](message));
 }
 
 function logProgress(message: string) {
@@ -244,7 +244,7 @@ async function runAnalysis(): Promise<void> {
 
       // Run rule engine
       const fileOptions = {
-        framework,
+        framework: framework === 'nextjs' || framework === 'nuxt' ? undefined : framework,
         language,
         config,
       };
@@ -342,7 +342,7 @@ function buildProjectAnalysis(
   const tsFiles = fileAnalyses.filter(f => ['typescript', 'tsx'].includes(f.language));
   const anyUsage = tsFiles.reduce((sum, f) => sum + (f.metrics?.any_type_usage || 0), 0);
   const componentSizes = fileAnalyses
-    .filter(f => f.metrics && f.metrics.component_count > 0)
+    .filter(f => f.metrics && (f.metrics.component_count ?? 0) > 0)
     .map(f => f.line_count);
 
   const metrics = {

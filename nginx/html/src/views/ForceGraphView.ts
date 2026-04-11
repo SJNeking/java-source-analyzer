@@ -50,6 +50,9 @@ export class ForceGraphView {
     const option = this.buildChartOption({ ...data, nodes: filteredNodes, links: filteredLinks }, degreeMap, large);
     this.chart?.setOption(option, true);
     
+    // Force resize to ensure chart fits container
+    setTimeout(() => this.chart?.resize(), 50);
+    
     Logger.timeEnd('renderGraph');
     Logger.success(`Graph rendered: ${filteredNodes.length} nodes, ${filteredLinks.length} links`);
   }

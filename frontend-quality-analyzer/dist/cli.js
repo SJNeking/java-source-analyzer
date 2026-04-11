@@ -18424,6 +18424,9 @@ var RuleEngine = class {
   runSingle(content, filePath, options2) {
     const activeRules = this.filterRules(options2?.config);
     const issues = [];
+    if (this.isRuleImplementationFile(filePath) || this.isEngineFile(filePath)) {
+      return issues;
+    }
     for (const rule of activeRules) {
       try {
         const ruleIssues = rule.check(content, filePath, {
@@ -18437,6 +18440,18 @@ var RuleEngine = class {
       }
     }
     return issues;
+  }
+  /**
+   * Check if a file is a rule implementation file (should skip self-analysis)
+   */
+  isRuleImplementationFile(filePath) {
+    return /rules\/\w+\/\w+Rules\.ts$/.test(filePath);
+  }
+  /**
+   * Check if a file is an engine/core file (infrastructure, skip style/security checks)
+   */
+  isEngineFile(filePath) {
+    return /engine\/RuleEngine\.ts$/.test(filePath);
   }
   /**
    * Run all enabled rules against frontend source files
@@ -19058,11 +19073,11 @@ var HTMLReporter = class {
   <div class="section">
     <h2>\u26A0\uFE0F All Issues</h2>
     <div class="filter-bar">
-      <button class="filter-btn active" onclick="filterIssues('all')">All</button>
-      <button class="filter-btn" onclick="filterIssues('CRITICAL')">\u{1F534} Critical</button>
-      <button class="filter-btn" onclick="filterIssues('MAJOR')">\u{1F7E0} Major</button>
-      <button class="filter-btn" onclick="filterIssues('MINOR')">\u{1F7E1} Minor</button>
-      <button class="filter-btn" onclick="filterIssues('INFO')">\u{1F535} Info</button>
+      <button class="filter-btn active" onclick="filterIssues('all')" aria-label="Show all issues">All</button>
+      <button class="filter-btn" onclick="filterIssues('CRITICAL')" aria-label="Show critical issues">\u{1F534} Critical</button>
+      <button class="filter-btn" onclick="filterIssues('MAJOR')" aria-label="Show major issues">\u{1F7E0} Major</button>
+      <button class="filter-btn" onclick="filterIssues('MINOR')" aria-label="Show minor issues">\u{1F7E1} Minor</button>
+      <button class="filter-btn" onclick="filterIssues('INFO')" aria-label="Show info issues">\u{1F535} Info</button>
     </div>
     <table>
       <thead>

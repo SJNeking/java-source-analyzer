@@ -45,10 +45,10 @@ export async function loadAnalysisResult(filename: string): Promise<AnalysisResu
   if (schemaVersion) {
     const [major] = schemaVersion.split('.').map(Number);
     if (major > 1) {
-      Logger.warn(`Schema version ${schemaVersion} may be incompatible with this frontend. Expected 1.x.x`);
+      Logger.warning(`Schema version ${schemaVersion} may be incompatible with this frontend. Expected 1.x.x`);
     }
   } else {
-    Logger.warn('No schema_version found in analysis result. Data format may be from an older analyzer.');
+    Logger.warning('No schema_version found in analysis result. Data format may be from an older analyzer.');
   }
 
   return data as AnalysisResult;

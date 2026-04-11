@@ -32,18 +32,18 @@
                     <span id="view-title">架构依赖图</span>
                 </div>
                 <div class="nav-tabs" id="nav-tabs">
-                    <button class="nav-tab active" data-view="graph" onclick="app.switchView('graph')">🔗 依赖图</button>
+                    <button class="nav-tab active" data-view="explorer" onclick="app.switchView('explorer')">📄 源码浏览器</button>
+                    <button class="nav-tab" data-view="graph" onclick="app.switchView('graph')">🔗 依赖图</button>
+                    <button class="nav-tab" data-view="relations" onclick="app.switchView('relations')">🔀 跨文件关系</button>
                     <button class="nav-tab" data-view="quality" onclick="app.switchView('quality')">⚠️ 质量分析</button>
                     <button class="nav-tab" data-view="metrics" onclick="app.switchView('metrics')">📊 代码指标</button>
-                    <button class="nav-tab" data-view="explorer" onclick="app.switchView('explorer')">📄 源码浏览器</button>
-                    <button class="nav-tab" data-view="relations" onclick="app.switchView('relations')">🔀 跨文件关系</button>
                     <button class="nav-tab" data-view="assets" onclick="app.switchView('assets')">📂 项目资产</button>
                 </div>
             </div>
             
             <div class="content-viewport">
                 <!-- View A: Dashboard (Graph + Stats) -->
-                <div id="view-graph" class="view-dashboard active">
+                <div id="view-graph" class="view-dashboard">
                     <div class="stats-row">
                         <div class="stat-card" role="status">
                             <div class="stat-value" style="color:var(--accent)" id="stat-assets">-</div>
@@ -97,7 +97,7 @@
                 <div id="view-metrics" class="view-container hidden" role="region" aria-label="代码指标视图">
                     <div id="metrics-content" style="padding: 20px; overflow-y: auto; height: 100%;"></div>
                 </div>
-                <div id="view-explorer" class="view-container hidden" role="region" aria-label="源码浏览器视图">
+                <div id="view-explorer" class="view-container active" role="region" aria-label="源码浏览器视图">
                     <div id="code-explorer-content" style="width:100%; height:100%;"></div>
                 </div>
                 <div id="view-relations" class="view-container hidden" role="region" aria-label="跨文件关系视图">

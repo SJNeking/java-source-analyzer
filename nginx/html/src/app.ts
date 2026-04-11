@@ -47,7 +47,7 @@ class App {
   public fullAnalysisData: AnalysisResult | null = null;
   public originalData: GraphData | null = null;
   public nodeTypeFilters: NodeTypeFilters = { ...DEFAULT_NODE_TYPE_FILTERS };
-  public currentView: string = 'graph'; // Match HTML data-view="graph"
+  public currentView: string = 'explorer'; // Match HTML default: 源码浏览器
 
   // LRU Cache for raw JSON data (Limit: 3 large projects to save memory)
   private rawDataCache = new LRUCache<string, AnalysisResult>(3);

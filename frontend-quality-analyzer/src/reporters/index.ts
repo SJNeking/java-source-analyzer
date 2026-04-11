@@ -164,11 +164,11 @@ export class HTMLReporter implements Reporter {
   <div class="section">
     <h2>⚠️ All Issues</h2>
     <div class="filter-bar">
-      <button class="filter-btn active" onclick="filterIssues('all')">All</button>
-      <button class="filter-btn" onclick="filterIssues('CRITICAL')">🔴 Critical</button>
-      <button class="filter-btn" onclick="filterIssues('MAJOR')">🟠 Major</button>
-      <button class="filter-btn" onclick="filterIssues('MINOR')">🟡 Minor</button>
-      <button class="filter-btn" onclick="filterIssues('INFO')">🔵 Info</button>
+      <button class="filter-btn active" onclick="filterIssues('all')" aria-label="Show all issues">All</button>
+      <button class="filter-btn" onclick="filterIssues('CRITICAL')" aria-label="Show critical issues">🔴 Critical</button>
+      <button class="filter-btn" onclick="filterIssues('MAJOR')" aria-label="Show major issues">🟠 Major</button>
+      <button class="filter-btn" onclick="filterIssues('MINOR')" aria-label="Show minor issues">🟡 Minor</button>
+      <button class="filter-btn" onclick="filterIssues('INFO')" aria-label="Show info issues">🔵 Info</button>
     </div>
     <table>
       <thead>
