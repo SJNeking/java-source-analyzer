@@ -86,13 +86,13 @@ export class CodeExplorerView {
     
     const codeContent = lines.map(line => {
       let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      // Simple Syntax Highlighting
+      // Simple Syntax Highlighting using CSS classes
       escaped = escaped
-        .replace(/\b(public|private|protected|static|final|abstract|synchronized|volatile)\b/g, '<span style="color:#c084fc;font-weight:bold;">$1</span>')
-        .replace(/\b(class|interface|enum|extends|implements|new|this|super|return|if|else|for|while|try|catch|throw)\b/g, '<span style="color:#c084fc;font-weight:bold;">$1</span>')
-        .replace(/\b(String|int|boolean|long|void|List|Map|Set|Collection)\b/g, '<span style="color:#34d399;">$1</span>')
-        .replace(/(\/\/.*)/g, '<span style="color:#6a9955;">$1</span>')
-        .replace(/(&quot;[^&]*?&quot;)/g, '<span style="color:#fb923c;">$1</span>');
+        .replace(/\b(public|private|protected|static|final|abstract|synchronized|volatile)\b/g, '<span class="code-keyword">$1</span>')
+        .replace(/\b(class|interface|enum|extends|implements|new|this|super|return|if|else|for|while|try|catch|throw)\b/g, '<span class="code-keyword">$1</span>')
+        .replace(/\b(String|int|boolean|long|void|List|Map|Set|Collection)\b/g, '<span class="code-type">$1</span>')
+        .replace(/(\/\/.*)/g, '<span class="code-comment">$1</span>')
+        .replace(/(&quot;[^&]*?&quot;)/g, '<span class="code-string">$1</span>');
       return `<div style="white-space: pre;">${escaped}</div>`;
     }).join('');
 

@@ -376,6 +376,16 @@ export class PropDrillingRule extends AbstractReactRule {
 
 // Export all rules for easy registration
 export const ReactRules = {
+  all(): QualityRule[] {
+    return [
+      new HooksDependencyRule(),
+      new MissingKeyPropRule(),
+      new StateImmutabilityRule(),
+      new ComponentSizeRule(),
+      new EffectCleanupRule(),
+      new PropDrillingRule(),
+    ];
+  },
   HooksDependencyRule,
   MissingKeyPropRule,
   StateImmutabilityRule,

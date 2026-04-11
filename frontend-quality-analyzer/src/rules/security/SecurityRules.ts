@@ -354,6 +354,16 @@ export class InsecureCryptoRule extends AbstractSecurityRule {
 
 // Export all rules for easy registration
 export const SecurityRules = {
+  all(): QualityRule[] {
+    return [
+      new XSSPreventionRule(),
+      new CSRFProtectionRule(),
+      new AuthTokenStorageRule(),
+      new PostMessageValidationRule(),
+      new HardcodedSecretsRule(),
+      new InsecureCryptoRule(),
+    ];
+  },
   XSSPreventionRule,
   CSRFProtectionRule,
   AuthTokenStorageRule,

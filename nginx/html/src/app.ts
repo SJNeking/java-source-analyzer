@@ -44,13 +44,13 @@ class App {
   public classInspector: ClassInspectorPanel | null = null;
 
   // State
-  public fullAnalysisData: any = null;
+  public fullAnalysisData: AnalysisResult | null = null;
   public originalData: GraphData | null = null;
   public nodeTypeFilters: NodeTypeFilters = { ...DEFAULT_NODE_TYPE_FILTERS };
   public currentView: string = 'forcegraph';
 
   // LRU Cache for raw JSON data (Limit: 3 large projects to save memory)
-  private rawDataCache = new LRUCache<string, any>(3);
+  private rawDataCache = new LRUCache<string, AnalysisResult>(3);
 
   async init(): Promise<void> {
     Logger.info('Initializing Application...');
@@ -148,11 +148,11 @@ class App {
   /**
    * Auto-Retry Fetch Logic (3 attempts with exponential backoff)
    */
-  private async fetchWithRetry(url: string, retries: number = 3, delay: number = 1000): Promise<any> {
+  private async fetchWithRetry(url: string, retries: number = 3, delay: number = 1000): Promise<AnalysisResult> {
     try {
       const response = await fetch(`${url}?t=${Date.now()}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+      return await response.json() as AnalysisResult;
     } catch (error) {
       if (retries > 0) {
         Logger.warning(`Fetch failed (${url}), retrying in ${delay}ms...`);

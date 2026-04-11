@@ -66,7 +66,7 @@
                 </div>
 
                 <!-- View B: Detail (Code + Inspector) -->
-                <div id="view-detail" class="view-detail hidden">
+                <div id="view-detail" class="view-detail hidden" role="region" aria-label="代码详情视图">
                     <div class="code-panel">
                         <div class="code-header">
                             <span id="code-fqn">com.example.Class</span>
@@ -77,22 +77,39 @@
                         </div>
                     </div>
                     <aside class="inspector-panel" aria-label="审计面板">
-                        <div class="insp-tabs">
-                            <div class="insp-tab active" role="tab" tabindex="0" onclick="app.switchInspTab('info')">概况</div>
-                            <div class="insp-tab" role="tab" tabindex="0" onclick="app.switchInspTab('quality')">质量 (0)</div>
-                            <div class="insp-tab" role="tab" tabindex="0" onclick="app.switchInspTab('metrics')">指标</div>
+                        <div class="insp-tabs" role="tablist">
+                            <div class="insp-tab active" role="tab" tabindex="0" aria-selected="true" onclick="app.switchInspTab('info')">概况</div>
+                            <div class="insp-tab" role="tab" tabindex="0" aria-selected="false" onclick="app.switchInspTab('quality')">质量 (0)</div>
+                            <div class="insp-tab" role="tab" tabindex="0" aria-selected="false" onclick="app.switchInspTab('metrics')">指标</div>
                         </div>
-                        <div id="insp-content" class="insp-content">
+                        <div id="insp-content" class="insp-content" aria-live="polite">
                             <!-- Dynamic Inspector Content -->
                         </div>
                     </aside>
+                </div>
+
+                <!-- Additional View Containers (Quality, Metrics, Explorer, Relations, Assets) -->
+                <div id="view-quality" class="view-container hidden" role="region" aria-label="质量分析视图">
+                    <div id="quality-content" style="padding: 20px; overflow-y: auto; height: 100%;"></div>
+                </div>
+                <div id="view-metrics" class="view-container hidden" role="region" aria-label="代码指标视图">
+                    <div id="metrics-content" style="padding: 20px; overflow-y: auto; height: 100%;"></div>
+                </div>
+                <div id="view-explorer" class="view-container hidden" role="region" aria-label="源码浏览器视图">
+                    <div id="code-explorer-content" style="width:100%; height:100%;"></div>
+                </div>
+                <div id="view-relations" class="view-container hidden" role="region" aria-label="跨文件关系视图">
+                    <div id="relations-content" style="padding: 20px; overflow-y: auto; height: 100%;"></div>
+                </div>
+                <div id="view-assets" class="view-container hidden" role="region" aria-label="项目资产视图">
+                    <div id="assets-content" style="padding: 20px; overflow-y: auto; height: 100%;"></div>
                 </div>
             </div>
         </main>
     </div>
 
     <!-- Loader -->
-    <div class="loading-overlay hidden" id="loading">
+    <div class="loading-overlay hidden" id="loading" role="status" aria-live="polite" aria-busy="true">
         <div class="spinner"></div>
         <div style="margin-top: 16px; font-size: 13px; color: var(--accent);">正在解析项目资产...</div>
     </div>

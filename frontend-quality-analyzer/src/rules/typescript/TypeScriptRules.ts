@@ -368,6 +368,16 @@ export class EnumNamingRule extends AbstractTypeScriptRule {
 
 // Export all rules for easy registration
 export const TypeScriptRules = {
+  all(): QualityRule[] {
+    return [
+      new NoImplicitAnyRule(),
+      new ExplicitReturnTypeRule(),
+      new InterfaceNamingRule(),
+      new NoExplicitAnyRule(),
+      new TypeImportConsistencyRule(),
+      new EnumNamingRule(),
+    ];
+  },
   NoImplicitAnyRule,
   ExplicitReturnTypeRule,
   InterfaceNamingRule,

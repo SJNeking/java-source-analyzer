@@ -1,454 +1,242 @@
 /**
- * Frontend Accessibility (a11y) Rules
- * 
- * Detects accessibility violations based on WCAG 2.1 guidelines.
- * Mirrors backend robustness and compliance rules architecture.
+ * Accessibility (a11y) quality rules
+ * WCAG 2.1 AA compliance checks
  */
+import { QualityRule, QualityIssue, IssueCategory, Severity } from '../../types';
 
-import { QualityIssue, QualityRule, IssueCategory, Severity } from '../../types';
-
-// ==================== Base Class ====================
-
-abstract class AbstractAccessibilityRule implements QualityRule {
-  abstract getRuleKey(): string;
-  abstract getName(): string;
-  
-  getCategory(): IssueCategory {
-    return 'ACCESSIBILITY';
-  }
-
-  check(sourceCode: string, filePath: string): QualityIssue[] {
-    // Only analyze files with markup
-    if (!filePath.match(/\.(tsx|jsx|vue|html)$/)) {
-      return [];
-    }
-
-    return this.checkAccessibility(sourceCode, filePath);
-  }
-
-  protected abstract checkAccessibility(sourceCode: string, filePath: string): QualityIssue[];
-}
-
-// ==================== Rule Implementations ====================
-
-/**
- * FE-A11Y-001: Missing ARIA labels
- * 
- * Detects interactive elements without proper ARIA labels.
- */
-export class ARIAComplianceRule extends AbstractAccessibilityRule {
-  getRuleKey(): string { return 'FE-A11Y-001'; }
-  getName(): string { return 'Interactive element missing ARIA label'; }
-
-  protected checkAccessibility(sourceCode: string, filePath: string): QualityIssue[] {
-    const issues: QualityIssue[] = [];
-    const lines = sourceCode.split('\n');
-
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      
-      // Detect buttons without accessible text
-      if (line.includes('<button') && !line.includes('aria-label') && !line.includes('children')) {
-        // Check if button has text content
-        const hasTextContent = line.match(/>\s*\w+\s*</);
-        if (!hasTextContent) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.MAJOR,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: 'Button element missing accessible text',
-            evidence: line.trim(),
-            remediation: 'Add aria-label or visible text content'
-          });
-        }
-      }
-
-      // Detect inputs without labels
-      if (line.includes('<input') && !line.includes('aria-label') && !line.includes('id=')) {
-        issues.push({
-          rule_key: this.getRuleKey(),
-          rule_name: this.getName(),
-          severity: Severity.MAJOR,
-          category: this.getCategory(),
-          file_path: filePath,
-          line: lineNum,
-          message: 'Input element missing label association',
-          evidence: line.trim(),
-          remediation: 'Add <label htmlFor="..."> or aria-label attribute'
-        });
-      }
-
-      // Detect images without alt text
-      if (line.includes('<img') && !line.includes('alt=')) {
-        issues.push({
-          rule_key: this.getRuleKey(),
-          rule_name: this.getName(),
-          severity: Severity.CRITICAL,
-          category: this.getCategory(),
-          file_path: filePath,
-          line: lineNum,
-          message: 'Image missing alt text',
-          evidence: line.trim(),
-          remediation: 'Add alt attribute: <img src="..." alt="Description" />'
-        });
-      }
-
-      // Detect decorative images with non-empty alt
-      if (line.includes('<img') && line.includes('alt=""') && !line.includes('role="presentation"')) {
-        // This is actually correct for decorative images
-        // But we can suggest adding role for clarity
-      }
-    });
-
-    return issues;
-  }
-}
-
-/**
- * FE-A11Y-002: Keyboard navigation support
- * 
- * Detects interactive elements that may not be keyboard accessible.
- */
-export class KeyboardNavigationRule extends AbstractAccessibilityRule {
-  getRuleKey(): string { return 'FE-A11Y-002'; }
-  getName(): string { return 'Element may not be keyboard accessible'; }
-
-  protected checkAccessibility(sourceCode: string, filePath: string): QualityIssue[] {
-    const issues: QualityIssue[] = [];
-    const lines = sourceCode.split('\n');
-
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      
-      // Detect div/span with click handlers (should be button)
-      if ((line.includes('<div') || line.includes('<span')) && 
-          (line.includes('onClick') || line.includes('onclick'))) {
-        
-        const hasKeyboardHandler = line.includes('onKeyDown') || 
-                                   line.includes('onKeyPress') ||
-                                   line.includes('tabIndex');
-        
-        if (!hasKeyboardHandler) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.MAJOR,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: 'Clickable div/span without keyboard support',
-            evidence: line.trim(),
-            remediation: 'Use <button> element or add onKeyDown handler and tabIndex={0}'
-          });
-        }
-      }
-
-      // Detect elements with tabIndex but negative value
-      if (line.includes('tabIndex') && line.includes('tabIndex={-1}') || line.includes('tabindex="-1"')) {
-        // This removes from tab order - flag if it's an interactive element
-        if (line.includes('onClick') || line.includes('onFocus')) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.MINOR,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: 'Interactive element removed from tab order',
-            evidence: line.trim(),
-            remediation: 'Use tabIndex={0} for interactive elements'
-          });
-        }
-      }
-    });
-
-    return issues;
-  }
-}
-
-/**
- * FE-A11Y-003: Color contrast issues
- * 
- * Detects potential color contrast violations (requires heuristic analysis).
- */
-export class ColorContrastRule extends AbstractAccessibilityRule {
-  getRuleKey(): string { return 'FE-A11Y-003'; }
-  getName(): string { return 'Potential color contrast issue'; }
-
-  protected checkAccessibility(sourceCode: string, filePath: string): QualityIssue[] {
-    const issues: QualityIssue[] = [];
-    const lines = sourceCode.split('\n');
-
-    // Known low-contrast color combinations
-    const lowContrastPairs = [
-      { fg: '#ffffff', bg: '#f0f0f0', ratio: '1.14:1' },
-      { fg: '#cccccc', bg: '#ffffff', ratio: '1.56:1' },
-      { fg: '#999999', bg: '#ffffff', ratio: '2.85:1' },
-      { fg: '#777777', bg: '#ffffff', ratio: '4.6:1' }  // Just below AA for normal text
+export class AccessibilityRules {
+  static all(): QualityRule[] {
+    return [
+      new A11yMissingAltText(),
+      new A11yMissingAriaLabel(),
+      new A11yNoAutofocus(),
+      new A11yMissingHeadingHierarchy(),
+      new A11yNoInteractiveInsideInteractive(),
+      new A11yMissingButtonTitle(),
+      new A11yMissingLangAttribute(),
+      new A11yNoPositiveTabindex(),
+      new A11yAnchorHasHref(),
+      new A11yFormLabelAssociated(),
     ];
+  }
+}
 
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      
-      // Detect inline styles with color definitions
-      if (line.includes('style=') && line.includes('color:')) {
-        const colorMatch = line.match(/color:\s*(#[0-9a-fA-F]{3,8})/i);
-        const bgColorMatch = line.match(/backgroundColor:\s*(#[0-9a-fA-F]{3,8})/i) ||
-                            line.match(/background-color:\s*(#[0-9a-fA-F]{3,8})/i);
-        
-        if (colorMatch && bgColorMatch) {
-          const fgColor = colorMatch[1].toLowerCase();
-          const bgColor = bgColorMatch[1].toLowerCase();
-          
-          // Check against known bad combinations
-          const badPair = lowContrastPairs.find(pair => 
-            pair.fg === fgColor && pair.bg === bgColor
-          );
-          
-          if (badPair) {
-            issues.push({
-              rule_key: this.getRuleKey(),
-              rule_name: this.getName(),
-              severity: Severity.MAJOR,
-              category: this.getCategory(),
-              file_path: filePath,
-              line: lineNum,
-              message: `Low color contrast ratio: ${badPair.ratio} (minimum 4.5:1 for AA)`,
-              evidence: line.trim(),
-              remediation: 'Increase contrast between text and background colors'
-            });
-          }
-        }
-      }
-
-      // Detect use of light gray text
-      if (line.match(/color:\s*#(999|aaa|bbb|ccc)/i)) {
+class A11yMissingAltText implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-001'; }
+  getName() { return 'img elements must have alt text'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    const imgMatches = sourceCode.match(/<img\s[^>]*>/g) || [];
+    imgMatches.forEach((img, idx) => {
+      if (!/alt\s*=/.test(img)) {
+        const lineNum = (sourceCode.indexOf(img));
+        const ln = sourceCode.substring(0, lineNum).split('\n').length;
         issues.push({
-          rule_key: this.getRuleKey(),
-          rule_name: this.getName(),
-          severity: Severity.INFO,
-          category: this.getCategory(),
-          file_path: filePath,
-          line: lineNum,
-          message: 'Light gray text may have contrast issues',
-          evidence: line.trim(),
-          remediation: 'Verify contrast ratio meets WCAG AA standards (4.5:1)'
+          rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+          category: this.getCategory(), file_path: filePath, line: ln + 1,
+          message: 'Image missing alt text',
+          remediation: 'Add alt attribute: alt="description" or alt="" for decorative images',
+          confidence: 0.95,
         });
       }
     });
-
     return issues;
   }
 }
 
-/**
- * FE-A11Y-004: Form accessibility
- * 
- * Detects form elements with accessibility issues.
- */
-export class FormAccessibilityRule extends AbstractAccessibilityRule {
-  getRuleKey(): string { return 'FE-A11Y-004'; }
-  getName(): string { return 'Form element accessibility issue'; }
-
-  protected checkAccessibility(sourceCode: string, filePath: string): QualityIssue[] {
+class A11yMissingAriaLabel implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-002'; }
+  getName() { return 'Interactive elements must have accessible labels'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
-    const lines = sourceCode.split('\n');
-
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      
-      // Detect forms without submit button
-      if (line.includes('<form')) {
-        // Look ahead for submit button
-        let hasSubmitButton = false;
-        for (let i = index; i < Math.min(index + 50, lines.length); i++) {
-          if (lines[i].includes('type="submit"') || lines[i].includes("type='submit'")) {
-            hasSubmitButton = true;
-            break;
-          }
-        }
-        
-        if (!hasSubmitButton) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.MINOR,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: 'Form missing submit button',
-            evidence: line.trim(),
-            remediation: 'Add <button type="submit"> for keyboard accessibility'
-          });
-        }
-      }
-
-      // Detect required fields without indication
-      if (line.includes('required') && !line.includes('aria-required')) {
+    // Buttons without text or aria-label
+    const btnMatches = sourceCode.match(/<button\s[^>]*>/g) || [];
+    btnMatches.forEach(btn => {
+      if (!/>.*\w+.*</.test(btn) && !/aria-label/.test(btn) && !/aria-labelledby/.test(btn)) {
+        const ln = sourceCode.substring(0, sourceCode.indexOf(btn)).split('\n').length;
         issues.push({
-          rule_key: this.getRuleKey(),
-          rule_name: this.getName(),
-          severity: Severity.INFO,
-          category: this.getCategory(),
-          file_path: filePath,
-          line: lineNum,
-          message: 'Required field missing aria-required attribute',
-          evidence: line.trim(),
-          remediation: 'Add aria-required="true" for screen readers'
+          rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+          category: this.getCategory(), file_path: filePath, line: ln + 1,
+          message: 'Button missing accessible label',
+          remediation: 'Add text content, aria-label, or aria-labelledby',
+          confidence: 0.9,
         });
       }
-
-      // Detect error messages without aria-describedby
-      if (line.includes('error') && line.includes('<span') || line.includes('<div')) {
-        if (!line.includes('aria-describedby') && !line.includes('role="alert"')) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.INFO,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: 'Error message may not be announced by screen readers',
-            evidence: line.trim(),
-            remediation: 'Add role="alert" or aria-describedby to link error to input'
-          });
-        }
-      }
     });
-
     return issues;
   }
 }
 
-/**
- * FE-A11Y-005: Heading hierarchy
- * 
- * Detects improper heading level usage.
- */
-export class HeadingHierarchyRule extends AbstractAccessibilityRule {
-  getRuleKey(): string { return 'FE-A11Y-005'; }
-  getName(): string { return 'Heading hierarchy violation'; }
-
-  protected checkAccessibility(sourceCode: string, filePath: string): QualityIssue[] {
+class A11yNoAutofocus implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-003'; }
+  getName() { return 'autofocus should not be used'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
-    const lines = sourceCode.split('\n');
-
-    let lastHeadingLevel = 0;
-
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      
-      // Detect heading elements
-      const headingMatch = line.match(/<h([1-6])/i);
-      if (headingMatch) {
-        const currentLevel = parseInt(headingMatch[1]);
-        
-        // Check for skipped levels (e.g., h1 -> h3)
-        if (lastHeadingLevel > 0 && currentLevel > lastHeadingLevel + 1) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.MINOR,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: `Heading level skipped: h${lastHeadingLevel} → h${currentLevel}`,
-            evidence: line.trim(),
-            remediation: `Use h${lastHeadingLevel + 1} instead of h${currentLevel}`
-          });
-        }
-        
-        lastHeadingLevel = currentLevel;
-      }
-    });
-
-    // Check if page starts with h1
-    const firstHeading = sourceCode.match(/<h([1-6])/i);
-    if (firstHeading && firstHeading[1] !== '1') {
+    if (/autofocus/.test(sourceCode)) {
       issues.push({
-        rule_key: this.getRuleKey(),
-        rule_name: this.getName(),
-        severity: Severity.MAJOR,
-        category: this.getCategory(),
-        file_path: filePath,
-        line: 1,
-        message: 'Page should start with h1 heading',
-        evidence: `First heading is h${firstHeading[1]}`,
-        remediation: 'Add <h1> as the main page heading'
+        rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MINOR,
+        category: this.getCategory(), file_path: filePath, line: 1,
+        message: 'autofocus can be disruptive for screen reader users',
+        remediation: 'Use focus management in useEffect instead',
+        confidence: 0.95,
       });
     }
-
     return issues;
   }
 }
 
-/**
- * FE-A11Y-006: Focus management
- * 
- * Detects focus management issues in dynamic content.
- */
-export class FocusManagementRule extends AbstractAccessibilityRule {
-  getRuleKey(): string { return 'FE-A11Y-006'; }
-  getName(): string { return 'Focus management issue'; }
-
-  protected checkAccessibility(sourceCode: string, filePath: string): QualityIssue[] {
+class A11yMissingHeadingHierarchy implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-004'; }
+  getName() { return 'Heading levels should not be skipped'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
-    const lines = sourceCode.split('\n');
-
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      
-      // Detect modals/dialogs without focus trap
-      if (line.includes('role="dialog"') || line.includes('role="modal"')) {
-        if (!sourceCode.includes('focus-trap') && !sourceCode.includes('FocusTrap')) {
-          issues.push({
-            rule_key: this.getRuleKey(),
-            rule_name: this.getName(),
-            severity: Severity.MAJOR,
-            category: this.getCategory(),
-            file_path: filePath,
-            line: lineNum,
-            message: 'Modal/dialog without focus trap',
-            evidence: line.trim(),
-            remediation: 'Implement focus trap to keep focus within modal'
-          });
-        }
+    const headings = sourceCode.match(/<h([1-6])\b/g) || [];
+    const levels = headings.map(h => parseInt(h.match(/\d/)![0]));
+    for (let i = 1; i < levels.length; i++) {
+      if (levels[i] > levels[i - 1] + 1) {
+        issues.push({
+          rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MINOR,
+          category: this.getCategory(), file_path: filePath, line: 1,
+          message: `Heading level skipped from h${levels[i-1]} to h${levels[i]}`,
+          remediation: 'Use sequential heading levels (h1 → h2 → h3)',
+          confidence: 0.9,
+        });
+        break;
       }
+    }
+    return issues;
+  }
+}
 
-      // Detect dynamic content updates without aria-live
-      if (line.includes('setState') || line.includes('useState')) {
-        // Heuristic: if updating content that users need to know about
-        if (line.includes('notification') || line.includes('message') || line.includes('alert')) {
-          if (!sourceCode.includes('aria-live')) {
-            issues.push({
-              rule_key: this.getRuleKey(),
-              rule_name: this.getName(),
-              severity: Severity.INFO,
-              category: this.getCategory(),
-              file_path: filePath,
-              line: lineNum,
-              message: 'Dynamic content update may not be announced',
-              evidence: line.trim(),
-              remediation: 'Add aria-live="polite" to container for dynamic content'
-            });
-          }
-        }
+class A11yNoInteractiveInsideInteractive implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-005'; }
+  getName() { return 'Interactive elements must not contain interactive elements'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    if (/<button\s[^>]*>[\s\S]*?<button\s|<button\s[^>]*>[\s\S]*?<a\s|<a\s[^>]*>[\s\S]*?<button\s/.test(sourceCode)) {
+      issues.push({
+        rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+        category: this.getCategory(), file_path: filePath, line: 1,
+        message: 'Nested interactive elements detected',
+        remediation: 'Do not nest buttons, links, or other interactive elements',
+        confidence: 0.85,
+      });
+    }
+    return issues;
+  }
+}
+
+class A11yMissingButtonTitle implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-006'; }
+  getName() { return 'Buttons must have visible text or aria-label'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    const emptyButtons = sourceCode.match(/<button\s[^>]*>\s*<\/button>/g) || [];
+    emptyButtons.forEach(btn => {
+      if (!/aria-label|aria-labelledby|title/.test(btn)) {
+        const ln = sourceCode.substring(0, sourceCode.indexOf(btn)).split('\n').length;
+        issues.push({
+          rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+          category: this.getCategory(), file_path: filePath, line: ln + 1,
+          message: 'Empty button without accessible label',
+          remediation: 'Add visible text, aria-label, or title attribute',
+          confidence: 0.95,
+        });
       }
     });
-
     return issues;
   }
 }
 
-// Export all rules for easy registration
-export const AccessibilityRules = {
-  ARIAComplianceRule,
-  KeyboardNavigationRule,
-  ColorContrastRule,
-  FormAccessibilityRule,
-  HeadingHierarchyRule,
-  FocusManagementRule
-};
+class A11yMissingLangAttribute implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-007'; }
+  getName() { return 'html element must have lang attribute'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    if (/<html/.test(sourceCode) && !/<html[^>]*\slang=/.test(sourceCode)) {
+      issues.push({
+        rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+        category: this.getCategory(), file_path: filePath, line: 1,
+        message: '<html> missing lang attribute',
+        remediation: 'Add lang attribute: <html lang="en">',
+        confidence: 0.95,
+      });
+    }
+    return issues;
+  }
+}
+
+class A11yNoPositiveTabindex implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-008'; }
+  getName() { return 'Avoid positive tabindex values'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    const positiveTabindex = sourceCode.match(/tabindex\s*=\s*["'][1-9]\d*["']/g) || [];
+    if (positiveTabindex.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MINOR,
+        category: this.getCategory(), file_path: filePath, line: 1,
+        message: 'Positive tabindex disrupts natural tab order',
+        remediation: 'Use tabindex="0" or tabindex="-1" instead',
+        confidence: 0.95,
+      });
+    }
+    return issues;
+  }
+}
+
+class A11yAnchorHasHref implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-009'; }
+  getName() { return 'Anchor elements must have href attribute'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    const anchors = sourceCode.match(/<a\s[^>]*>/g) || [];
+    anchors.forEach(a => {
+      if (!/href\s*=/.test(a)) {
+        const ln = sourceCode.substring(0, sourceCode.indexOf(a)).split('\n').length;
+        issues.push({
+          rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+          category: this.getCategory(), file_path: filePath, line: ln + 1,
+          message: 'Anchor without href is not keyboard accessible',
+          remediation: 'Add href or use <button> for click-only actions',
+          confidence: 0.95,
+        });
+      }
+    });
+    return issues;
+  }
+}
+
+class A11yFormLabelAssociated implements QualityRule {
+  getRuleKey() { return 'FE-A11Y-010'; }
+  getName() { return 'Form inputs must have associated labels'; }
+  getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
+  check(sourceCode: string, filePath: string): QualityIssue[] {
+    const issues: QualityIssue[] = [];
+    const inputs = sourceCode.match(/<(input|select|textarea)\s[^>]*>/g) || [];
+    inputs.forEach(input => {
+      const hasId = /id\s*=\s*["'](\w+)["']/.exec(input);
+      const hasAriaLabel = /aria-label|aria-labelledby|placeholder/.test(input);
+      const hasLabel = hasId && new RegExp(`<label[^>]*for\\s*=\\s*["']${hasId[1]}["']`).test(sourceCode);
+      if (!hasId && !hasAriaLabel && !/<label[^>]*>[\s\S]*?<\/label>/.test(sourceCode)) {
+        issues.push({
+          rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
+          category: this.getCategory(), file_path: filePath, line: 1,
+          message: 'Form input may not have associated label',
+          remediation: 'Add <label for="id"> or aria-label attribute',
+          confidence: 0.7,
+        });
+      }
+    });
+    return issues;
+  }
+}

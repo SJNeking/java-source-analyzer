@@ -18,11 +18,25 @@ import {
   IssueCategory,
   Severity
 } from '../types';
+import { getAllDefaultRules } from '../rules';
 
 export class RuleEngine {
   private rules: Map<string, QualityRule> = new Map();
   private ruleHitCounts: Map<string, number> = new Map();
   private reporters: Map<string, Reporter> = new Map();
+
+  constructor() {
+    // Auto-register all default rules
+    this.registerDefaultRules();
+  }
+
+  /**
+   * Register all default rules
+   */
+  private registerDefaultRules(): void {
+    const allRules = getAllDefaultRules();
+    allRules.forEach(rule => this.registerRule(rule));
+  }
 
   /**
    * Register a quality rule
@@ -35,9 +49,13 @@ export class RuleEngine {
 
   /**
    * Register multiple rules at once
+   * If called with a RulesConfig, re-registers rules respecting the config
    */
-  public registerRules(rules: QualityRule[]): void {
-    rules.forEach(rule => this.registerRule(rule));
+  public registerRules(rulesOrConfig?: QualityRule[] | RulesConfig): void {
+    if (Array.isArray(rulesOrConfig)) {
+      rulesOrConfig.forEach(rule => this.registerRule(rule));
+    }
+    // If a config is passed, filtering is handled in filterRules() during run()
   }
 
   /**
@@ -48,8 +66,42 @@ export class RuleEngine {
   }
 
   /**
+   * Run all enabled rules against a single file
+   * Used by CLI for per-file analysis
+   */
+  public runSingle(
+    content: string,
+    filePath: string,
+    options?: {
+      framework?: 'react' | 'vue' | 'angular' | 'svelte';
+      language?: string;
+      config?: RulesConfig;
+    }
+  ): QualityIssue[] {
+    const activeRules = this.filterRules(options?.config);
+    const issues: QualityIssue[] = [];
+
+    for (const rule of activeRules) {
+      try {
+        const ruleIssues = rule.check(content, filePath, {
+          framework: options?.framework,
+          config: options?.config?.framework_config,
+        });
+        issues.push(...ruleIssues);
+
+        const currentCount = this.ruleHitCounts.get(rule.getRuleKey()) || 0;
+        this.ruleHitCounts.set(rule.getRuleKey(), currentCount + ruleIssues.length);
+      } catch (error) {
+        // Rule should not crash the engine
+      }
+    }
+
+    return issues;
+  }
+
+  /**
    * Run all enabled rules against frontend source files
-   * 
+   *
    * @param files - Array of file contents to analyze
    * @param config - Optional configuration for rule filtering and thresholds
    * @returns Complete project analysis result
@@ -448,7 +500,7 @@ export class RuleEngine {
   /**
    * Estimate technical debt in hours
    */
-  private estimateTechnicalDebt(issues: QualityIssue[]): TechnicalDebtEstimate {
+  public estimateTechnicalDebt(issues: QualityIssue[]): TechnicalDebtEstimate {
     // Industry standard remediation time estimates (in minutes)
     const remediationTime: Record<Severity, number> = {
       CRITICAL: 60,   // 1 hour
@@ -500,11 +552,29 @@ export class RuleEngine {
   /**
    * Evaluate quality gate (PASS/FAIL)
    */
-  private evaluateQualityGate(
+  public evaluateQualityGate(
     issues: QualityIssue[],
     metrics: FrontendMetrics,
-    config: RulesConfig
+    config?: RulesConfig
   ): QualityGateResult {
+    // Default thresholds if no config provided
+    const defaultConfig: RulesConfig = config || {
+      enabled_rules: [],
+      disabled_rules: [],
+      thresholds: {
+        max_critical_issues: 0,
+        max_major_issues: 10,
+        max_total_issues: 50,
+        min_typescript_coverage: 80,
+        max_any_usage: 5,
+        max_bundle_size_kb: 500,
+        max_component_size_lines: 300,
+        min_wcag_score: 80,
+        max_circular_dependencies: 0,
+        max_function_length: 50,
+      },
+    };
+
     const reasons: string[] = [];
     let passed = true;
 
@@ -513,7 +583,7 @@ export class RuleEngine {
     const minorCount = issues.filter(i => i.severity === 'MINOR').length;
     const totalCount = issues.length;
 
-    const thresholds = config.thresholds;
+    const thresholds = defaultConfig.thresholds;
 
     // Check critical issues
     if (criticalCount > thresholds.max_critical_issues) {
