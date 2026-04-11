@@ -37,6 +37,8 @@ public class IncrementalCache {
         private int classCount;
         private int methodCount;
         private int fieldCount;
+        /** Cached class assets for this file (full data for merge) */
+        private List<Map<String, Object>> cachedAssets;
 
         public FileEntry() {}
         public FileEntry(String hash) { this.hash = hash; }
@@ -49,6 +51,8 @@ public class IncrementalCache {
         public void setMethodCount(int methodCount) { this.methodCount = methodCount; }
         public int getFieldCount() { return fieldCount; }
         public void setFieldCount(int fieldCount) { this.fieldCount = fieldCount; }
+        public List<Map<String, Object>> getCachedAssets() { return cachedAssets; }
+        public void setCachedAssets(List<Map<String, Object>> cachedAssets) { this.cachedAssets = cachedAssets; }
     }
 
     public static class CacheData {
@@ -158,5 +162,109 @@ public class IncrementalCache {
         int cachedFiles = oldCache.getFiles().size();
         int skipped = totalFiles - changedFiles;
         return String.format("增量扫描: %d 总文件, %d 变更, %d 跳过缓存", totalFiles, changedFiles, skipped);
+    }
+
+    /**
+     * Merge cached assets with newly scanned assets.
+     * For changed files: use new assets; for unchanged files: use cached assets.
+     *
+     * @param cache The current cache data
+     * @param newAssets Newly scanned class assets (only from changed files)
+     * @param changedFilePaths Set of relative paths that were changed (need to replace cached assets)
+     * @return Merged list of all class assets (cached + new)
+     */
+    @SuppressWarnings("unchecked")
+    public static List<Map<String, Object>> mergeCachedAssets(
+            CacheData cache,
+            List<Map<String, Object>> newAssets,
+            Set<String> changedFilePaths) {
+
+        List<Map<String, Object>> merged = new ArrayList<>();
+
+        // 1. Add cached assets for unchanged files
+        for (Map.Entry<String, FileEntry> entry : cache.getFiles().entrySet()) {
+            String relativePath = entry.getKey();
+            FileEntry fileEntry = entry.getValue();
+
+            // If this file wasn't changed, use its cached assets
+            if (!changedFilePaths.contains(relativePath) && fileEntry.getCachedAssets() != null) {
+                merged.addAll(fileEntry.getCachedAssets());
+            }
+        }
+
+        // 2. Add all new assets (from changed files)
+        merged.addAll(newAssets);
+
+        return merged;
+    }
+
+    /**
+     * Update cache entry with newly scanned assets.
+     * Stores the full asset list in the cache for future incremental merges.
+     *
+     * @param cache The current cache data
+     * @param relativePath Relative path of the file being cached
+     * @param fileHash SHA-256 hash of the file content
+     * @param assets List of class assets extracted from this file
+     */
+    public static void updateCacheEntry(
+            CacheData cache,
+            String relativePath,
+            String fileHash,
+            List<Map<String, Object>> assets) {
+
+        FileEntry entry = cache.getFiles().computeIfAbsent(relativePath, k -> new FileEntry());
+        entry.setHash(fileHash);
+        entry.setCachedAssets(new ArrayList<>(assets));
+
+        // Update counts from assets
+        int classCount = assets.size();
+        int methodCount = 0;
+        int fieldCount = 0;
+
+        for (Map<String, Object> asset : assets) {
+            Object methods = asset.get("methods");
+            if (methods instanceof List) methodCount += ((List<?>) methods).size();
+
+            Object fields = asset.get("fields_matrix");
+            if (fields instanceof List) fieldCount += ((List<?>) fields).size();
+        }
+
+        entry.setClassCount(classCount);
+        entry.setMethodCount(methodCount);
+        entry.setFieldCount(fieldCount);
+    }
+
+    /**
+     * Remove cache entries for deleted files.
+     * Call this when a file no longer exists in the project.
+     *
+     * @param cache The current cache data
+     * @param deletedFilePaths Set of relative paths that have been deleted
+     * @return Number of entries removed
+     */
+    public static int removeDeletedEntries(CacheData cache, Set<String> deletedFilePaths) {
+        int removed = 0;
+        for (String path : deletedFilePaths) {
+            if (cache.getFiles().remove(path) != null) {
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * Get total asset count from cache (including cached assets).
+     */
+    public static int getTotalAssetCount(CacheData cache) {
+        int total = 0;
+        for (FileEntry entry : cache.getFiles().values()) {
+            if (entry.getCachedAssets() != null) {
+                total += entry.getCachedAssets().size();
+            } else {
+                total += entry.getClassCount(); // fallback to count-only
+            }
+        }
+        return total;
     }
 }

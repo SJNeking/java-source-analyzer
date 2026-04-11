@@ -3,411 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>架构图谱 - 力导向图 | Java Source Analyzer</title>
-    
-    <!-- Styles -->
-    <link rel="stylesheet" href="../css/styles.css">
-    
-    <!-- Libraries -->
+    <title>Java Source Analyzer | Enterprise Workbench</title>
+    <!-- ECharts CDN -->
     <script src="../js/lib/echarts.min.js"></script>
+    <!-- Global Styles -->
+    <link rel="stylesheet" href="../css/styles.css">
 </head>
 <body>
-    <!-- Control Panel -->
-    <div class="control-panel">
-        <div class="panel-header">
-            <h3><span>🗺️</span> 力导向图</h3>
-            <span class="badge">路径优化</span>
-        </div>
-        
-        <!-- 搜索框 -->
-        <div class="search-box">
-            <input type="text" id="nodeSearch" placeholder="🔍 搜索类名..." onkeyup="searchNode(this.value)">
-        </div>
-        
-        <label>选择项目：</label>
-        <select id="projectSelector"><option>加载中...</option></select>
-        
-        <div class="stats">
-            <div class="stat-item">
-                <span class="stat-value" id="statsNodes">-</span>
-                <span class="stat-label">节点</span>
+    <div class="app-layout">
+        <!-- 1. Sidebar (Navigation & Tree) -->
+        <nav class="sidebar" aria-label="项目导航">
+            <div class="sidebar-header">
+                <select id="projectSelector" class="project-select"><option>加载中...</option></select>
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <span class="stat-value" id="statsLinks">-</span>
-                <span class="stat-label">连线</span>
+            <div class="search-box">
+                <input type="text" id="treeSearch" class="search-input" placeholder="🔍 搜索类或方法...">
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <span class="stat-value" id="statsZoom">100%</span>
-                <span class="stat-label">缩放</span>
+            <div id="tree-container" class="tree-container" role="tree">
+                <!-- Tree Content Injected Here -->
             </div>
-        </div>
-        
-        <div class="legend">
-            <div class="legend-title">节点类型筛选</div>
-            <div class="legend-item" onclick="toggleNodeType('INTERFACE', this)">
-                <div class="legend-dot" style="background:#4299e1; color:#4299e1"></div>
-                <span>接口 (Interface)</span>
-                <div class="legend-check">✓</div>
-            </div>
-            <div class="legend-item" onclick="toggleNodeType('ABSTRACT_CLASS', this)">
-                <div class="legend-dot" style="background:#9f7aea; color:#9f7aea"></div>
-                <span>抽象类 (Abstract)</span>
-                <div class="legend-check">✓</div>
-            </div>
-            <div class="legend-item" onclick="toggleNodeType('CLASS', this)">
-                <div class="legend-dot" style="background:#48bb78; color:#48bb78"></div>
-                <span>具体类 (Class)</span>
-                <div class="legend-check">✓</div>
-            </div>
-            <div class="legend-item" onclick="toggleNodeType('ENUM', this)">
-                <div class="legend-dot" style="background:#ed8936; color:#ed8936"></div>
-                <span>枚举 (Enum)</span>
-                <div class="legend-check">✓</div>
-            </div>
-            <div class="legend-item" onclick="toggleNodeType('UTILITY', this)">
-                <div class="legend-dot" style="background:#a0aec0; color:#a0aec0"></div>
-                <span>工具类 (Utility)</span>
-                <div class="legend-check">✓</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <div id="loadingText">正在初始化...</div>
-    </div>
-    
-    <!-- Hint -->
-    <div class="hint">💡 悬停节点高亮路径 · 滚轮缩放 · 拖拽平移 · 点击查看详情</div>
-    
-    <!-- Toolbar -->
-    <div class="toolbar">
-        <button class="tool-btn" onclick="resetView()" title="重置视图">
-            <span>⟲</span>
-        </button>
-        <button class="tool-btn" onclick="zoomIn()" title="放大">
-            <span>+</span>
-        </button>
-        <button class="tool-btn" onclick="zoomOut()" title="缩小">
-            <span>−</span>
-        </button>
-        <button class="tool-btn" onclick="toggleLabels()" title="切换标签显示">
-            <span>🏷️</span>
-        </button>
-        <button class="tool-btn" onclick="centerView()" title="居中视图">
-            <span>◎</span>
-        </button>
-        <button class="tool-btn" onclick="exportImage()" title="导出图片">
-            <span>📷</span>
-        </button>
-    </div>
-    
-    <!-- Chart Container -->
-    <div id="main"></div>
+        </nav>
 
-    <!-- Scripts -->
-    <script src="../js/common.js"></script>
-    <script src="../js/views/force-graph.js"></script>
-    <script>
-        // ==================== 应用初始化 ====================
-        
-        let forceView = null;
-        let labelsVisible = false;
-        let currentZoom = 100;
-        let originalData = null; // 存储完整原始数据
-        
-        // 节点类型筛选状态
-        const nodeTypeFilters = {
-            'INTERFACE': true,
-            'ABSTRACT_CLASS': true,
-            'CLASS': true,
-            'ENUM': true,
-            'UTILITY': true
-        };
-        
-        /**
-         * 加载并渲染项目
-         */
-        async function loadProject(filename) {
-            if (!filename) return;
+        <!-- 2. Main Area -->
+        <main class="main-area" role="main">
+            <div class="top-bar">
+                <div class="top-bar-title">
+                    <span id="view-icon">🔭</span>
+                    <span id="view-title">架构依赖图</span>
+                </div>
+                <div class="nav-tabs" id="nav-tabs">
+                    <!-- Tabs Injected via JS or static? Let's do static for SEO/A11y but logic handled by App -->
+                    <button class="nav-tab active" data-view="graph" onclick="app.switchView('graph')">📊 视图</button>
+                    <button class="nav-tab" data-view="quality" onclick="app.switchView('quality')">⚠️ 质量</button>
+                    <button class="nav-tab" data-view="metrics" onclick="app.switchView('metrics')">📈 指标</button>
+                </div>
+            </div>
             
-            try {
-                toggleLoadingOverlay(true, '正在解析数据...');
-                
-                const data = await loadProjectData(filename);
-                updateStatsDisplay(data);
-                
-                const large = isLargeDataset(data.nodes);
-                toggleLoadingOverlay(true, large ? '节点较多，正在布局...' : '正在生成图谱...');
-                
-                // 延迟渲染以避免阻塞UI
-                setTimeout(() => {
-                    if (!forceView) {
-                        forceView = new ForceGraphView('main');
-                    }
-                    // 保存完整原始数据
-                    originalData = data;
-                    forceView.render(data);
-                    toggleLoadingOverlay(false);
-                }, 100);
-                
-            } catch (error) {
-                showError(error.message);
-                toggleLoadingOverlay(false);
-            }
-        }
-        
-        /**
-         * 切换节点类型筛选
-         */
-        function toggleNodeType(type, element) {
-            // 切换状态
-            nodeTypeFilters[type] = !nodeTypeFilters[type];
-            
-            // 更新 UI
-            if (nodeTypeFilters[type]) {
-                element.classList.remove('disabled');
-            } else {
-                element.classList.add('disabled');
-            }
-            
-            // 重新渲染图谱
-            applyFilters();
-            
-            Logger.info(`节点类型 ${type} ${nodeTypeFilters[type] ? '已启用' : '已禁用'}`);
-        }
-        
-        /**
-         * 应用筛选条件
-         */
-        function applyFilters() {
-            if (!forceView || !forceView.chart || !originalData) {
-                Logger.error('无法应用筛选：数据未加载');
-                return;
-            }
-            
-            // 始终基于完整原始数据进行筛选
-            const allNodes = originalData.nodes;
-            const allLinks = originalData.links;
-            
-            // 筛选节点：只保留启用的类型
-            const filteredNodes = allNodes.filter(node => {
-                const category = node.category || 'CLASS'; // 默认值
-                return nodeTypeFilters[category] === true;
-            });
-            
-            // 创建节点 ID 集合用于快速查找
-            const nodeIds = new Set(filteredNodes.map(n => n.id));
-            
-            // 筛选连线（只保留两端节点都在的连线）
-            const filteredLinks = allLinks.filter(link => {
-                const sourceId = typeof link.source === 'object' ? link.source.id || link.source : link.source;
-                const targetId = typeof link.target === 'object' ? link.target.id || link.target : link.target;
-                return nodeIds.has(sourceId) && nodeIds.has(targetId);
-            });
-            
-            Logger.info(`筛选结果: ${filteredNodes.length}/${allNodes.length} 节点, ${filteredLinks.length}/${allLinks.length} 连线`);
-            
-            // 更新显示（使用筛选后的数据渲染）
-            forceView.render({ nodes: filteredNodes, links: filteredLinks });
-            
-            // 更新统计信息
-            document.getElementById('statsNodes').textContent = filteredNodes.length;
-            document.getElementById('statsLinks').textContent = filteredLinks.length;
-        }
-        
-        /**
-         * 搜索节点
-         */
-        function searchNode(keyword) {
-            if (!forceView || !keyword || keyword.trim() === '') {
-                if (forceView && forceView.chart) {
-                    forceView.chart.dispatchAction({
-                        type: 'downplay',
-                        seriesIndex: 0
-                    });
-                }
-                return;
-            }
-            
-            forceView.chart.dispatchAction({
-                type: 'downplay',
-                seriesIndex: 0
-            });
-            
-            const nodes = forceView.currentData.nodes;
-            const matchedIndex = nodes.findIndex(n => 
-                n.name.toLowerCase().includes(keyword.toLowerCase())
-            );
-            
-            if (matchedIndex !== -1) {
-                forceView.chart.dispatchAction({
-                    type: 'highlight',
-                    seriesIndex: 0,
-                    dataIndex: matchedIndex
-                });
-            }
-        }
-        
-        /**
-         * 重置视图
-         */
-        function resetView() {
-            if (forceView && forceView.chart) {
-                forceView.chart.dispatchAction({
-                    type: 'restore'
-                });
-                currentZoom = 100;
-                document.getElementById('statsZoom').textContent = '100%';
-                Logger.info('视图已重置');
-            }
-        }
-        
-        /**
-         * 放大
-         */
-        function zoomIn() {
-            if (forceView && forceView.chart) {
-                const option = forceView.chart.getOption();
-                const currentOption = option.series[0];
-                currentZoom = Math.min(currentZoom + 20, 200);
-                
-                forceView.chart.dispatchAction({
-                    type: 'geoRoam',
-                    animation: true,
-                    zoom: 1.2,
-                    originX: forceView.chart.getWidth() / 2,
-                    originY: forceView.chart.getHeight() / 2
-                });
-                
-                document.getElementById('statsZoom').textContent = currentZoom + '%';
-            }
-        }
-        
-        /**
-         * 缩小
-         */
-        function zoomOut() {
-            if (forceView && forceView.chart) {
-                currentZoom = Math.max(currentZoom - 20, 20);
-                
-                forceView.chart.dispatchAction({
-                    type: 'geoRoam',
-                    animation: true,
-                    zoom: 0.8,
-                    originX: forceView.chart.getWidth() / 2,
-                    originY: forceView.chart.getHeight() / 2
-                });
-                
-                document.getElementById('statsZoom').textContent = currentZoom + '%';
-            }
-        }
-        
-        /**
-         * 切换标签显示
-         */
-        function toggleLabels() {
-            if (!forceView || !forceView.chart || !forceView.currentData) return;
-            
-            labelsVisible = !labelsVisible;
-            
-            forceView.chart.setOption({
-                series: [{
-                    label: {
-                        show: labelsVisible
-                    }
-                }]
-            });
-            
-            Logger.info(`标签显示已${labelsVisible ? '开启' : '关闭'}`);
-        }
-        
-        /**
-         * 居中视图
-         */
-        function centerView() {
-            if (forceView && forceView.chart) {
-                forceView.chart.dispatchAction({
-                    type: 'geoRoam',
-                    animation: true,
-                    position: { x: 0, y: 0 }
-                });
-                Logger.info('视图已居中');
-            }
-        }
-        
-        /**
-         * 导出图片
-         */
-        function exportImage() {
-            if (!forceView || !forceView.chart) {
-                showError('无法导出：图表未初始化');
-                return;
-            }
-            
-            try {
-                const url = forceView.chart.getDataURL({
-                    type: 'png',
-                    pixelRatio: 2,
-                    backgroundColor: '#0b0f19'
-                });
-                
-                const link = document.createElement('a');
-                link.download = `graph-${Date.now()}.png`;
-                link.href = url;
-                link.click();
-                
-                Logger.success('图片已导出');
-            } catch (error) {
-                showError('导出失败: ' + error.message);
-                Logger.error('导出失败:', error);
-            }
-        }
-        
-        /**
-         * 监听缩放事件
-         */
-        function setupZoomListener() {
-            if (!forceView || !forceView.chart) return;
-            
-            forceView.chart.on('finished', () => {
-                const option = forceView.chart.getOption();
-                if (option && option.series && option.series[0]) {
-                    const roam = option.series[0].roam;
-                    // 可以从 roam 中获取当前缩放级别
-                }
-            });
-        }
-        
-        /**
-         * 初始化应用
-         */
-        async function init() {
-            try {
-                Logger.info('开始初始化应用...');
-                
-                const projects = await loadProjectsIndex();
-                Logger.success(`加载了 ${projects.length} 个项目`);
-                
-                populateProjectSelector('projectSelector', projects, loadProject);
-                
-                if (projects.length > 0) {
-                    await loadProject(projects[0].file);
-                    // 设置缩放监听
-                    setTimeout(setupZoomListener, 200);
-                }
-                
-            } catch (error) {
-                showError(error.message);
-                Logger.error('初始化失败:', error);
-            }
-        }
-        
-        // 启动应用
-        document.addEventListener('DOMContentLoaded', init);
-    </script>
+            <div class="content-viewport">
+                <!-- View A: Dashboard (Graph + Stats) -->
+                <div id="view-graph" class="view-dashboard">
+                    <div class="stats-row">
+                        <div class="stat-card" role="status">
+                            <div class="stat-value" style="color:var(--accent)" id="stat-assets">-</div>
+                            <div class="stat-label">组件总数</div>
+                        </div>
+                        <div class="stat-card" role="status">
+                            <div class="stat-value" style="color:var(--warning)" id="stat-issues">-</div>
+                            <div class="stat-label">质量风险</div>
+                        </div>
+                        <div class="stat-card" role="status">
+                            <div class="stat-value" style="color:var(--success)" id="stat-loc">-</div>
+                            <div class="stat-label">代码行数</div>
+                        </div>
+                        <div class="stat-card" role="status">
+                            <div class="stat-value" style="color:var(--text-dim)" id="stat-complexity">-</div>
+                            <div class="stat-label">平均复杂度</div>
+                        </div>
+                    </div>
+                    <div class="graph-container">
+                        <div id="main-graph" role="img" aria-label="依赖关系图谱"></div>
+                    </div>
+                </div>
+
+                <!-- View B: Detail (Code + Inspector) -->
+                <div id="view-detail" class="view-detail hidden">
+                    <div class="code-panel">
+                        <div class="code-header">
+                            <span id="code-fqn">com.example.Class</span>
+                            <span>Java</span>
+                        </div>
+                        <div class="code-body" id="code-body">
+                            <!-- Code Lines -->
+                        </div>
+                    </div>
+                    <aside class="inspector-panel" aria-label="审计面板">
+                        <div class="insp-tabs">
+                            <div class="insp-tab active" role="tab" tabindex="0" onclick="app.switchInspTab('info')">概况</div>
+                            <div class="insp-tab" role="tab" tabindex="0" onclick="app.switchInspTab('quality')">质量 (0)</div>
+                            <div class="insp-tab" role="tab" tabindex="0" onclick="app.switchInspTab('metrics')">指标</div>
+                        </div>
+                        <div id="insp-content" class="insp-content">
+                            <!-- Dynamic Inspector Content -->
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loader -->
+    <div class="loading-overlay hidden" id="loading">
+        <div class="spinner"></div>
+        <div style="margin-top: 16px; font-size: 13px; color: var(--accent);">正在解析项目资产...</div>
+    </div>
+
+    <!-- App Entry Point -->
+    <script type="module" src="../dist/app.js"></script>
 </body>
 </html>

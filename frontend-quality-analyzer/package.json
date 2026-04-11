@@ -1,0 +1,57 @@
+{
+  "name": "frontend-quality-analyzer",
+  "version": "1.0.0",
+  "description": "A comprehensive frontend code quality analyzer that mirrors the Java Source Analyzer, supporting TypeScript, React, Vue, and more",
+  "main": "dist/index.js",
+  "bin": {
+    "frontend-analyze": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js --external:typescript --external:@typescript-eslint/* --external:@babel/* --format=cjs --banner:js=\"#!/usr/bin/env node\"",
+    "build:watch": "npm run build -- --watch",
+    "analyze": "node dist/cli.js",
+    "dev": "ts-node src/cli.ts",
+    "lint": "eslint src/**/*.ts",
+    "test": "jest"
+  },
+  "keywords": [
+    "code-quality",
+    "typescript",
+    "react",
+    "vue",
+    "static-analysis",
+    "ast",
+    "linter"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "typescript": "^5.4.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/typescript-estree": "^7.0.0",
+    "@babel/parser": "^7.24.0",
+    "@babel/traverse": "^7.24.0",
+    "@babel/types": "^7.24.0",
+    "glob": "^10.3.0",
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/glob": "^8.1.0",
+    "@types/ws": "^8.5.10",
+    "@types/babel__traverse": "^7.20.5",
+    "@types/babel__parser": "^7.1.1",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "ts-jest": "^29.1.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

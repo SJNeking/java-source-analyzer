@@ -18,6 +18,10 @@ public class AnalysisConfig {
     private String internalPkgPrefix;
     private String rulesConfigPath;
 
+    // WebSocket / Real-time streaming
+    private boolean websocketEnabled = false;
+    private int websocketPort = 8887;
+
     // Derived
     private String frameworkName;
     private String detectedVersion;
@@ -51,6 +55,11 @@ public class AnalysisConfig {
 
     public String getRulesConfigPath() { return rulesConfigPath; }
     public void setRulesConfigPath(String rulesConfigPath) { this.rulesConfigPath = rulesConfigPath; }
+
+    public boolean isWebsocketEnabled() { return websocketEnabled; }
+    public void setWebsocketEnabled(boolean websocketEnabled) { this.websocketEnabled = websocketEnabled; }
+    public int getWebsocketPort() { return websocketPort; }
+    public void setWebsocketPort(int websocketPort) { this.websocketPort = websocketPort; }
 
     public String getFrameworkName() { return frameworkName; }
     public void setFrameworkName(String frameworkName) { this.frameworkName = frameworkName; }

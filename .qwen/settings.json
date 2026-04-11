@@ -5,7 +5,15 @@
       "Bash(ls *)",
       "Bash(git commit *)",
       "Bash(python3 *)",
-      "Bash(time *)"
+      "Bash(time *)",
+      "Bash(./start.sh)",
+      "Bash(sleep *)",
+      "Bash(curl *)",
+      "Bash(ps *)",
+      "Bash(lsof *)",
+      "Bash(kill *)",
+      "Bash(cp *)",
+      "Bash(xargs *)"
     ]
   },
   "$version": 3
