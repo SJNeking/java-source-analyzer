@@ -7,7 +7,7 @@
     "frontend-analyze": "dist/cli.js"
   },
   "scripts": {
-    "build": "esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js --external:typescript --external:@typescript-eslint/* --external:@babel/* --format=cjs --banner:js=\"#!/usr/bin/env node\"",
+    "build": "esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js --external:typescript --external:@typescript-eslint/* --external:@babel/* --format=cjs",
     "build:watch": "npm run build -- --watch",
     "analyze": "node dist/cli.js",
     "dev": "ts-node src/cli.ts",

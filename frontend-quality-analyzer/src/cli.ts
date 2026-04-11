@@ -289,7 +289,8 @@ async function runAnalysis(): Promise<void> {
     fileAnalyses,
     allIssues,
     engine,
-    elapsed
+    elapsed,
+    config
   );
 
   // Ensure output directory exists
@@ -317,7 +318,8 @@ function buildProjectAnalysis(
   fileAnalyses: FileAnalysis[],
   allIssues: QualityIssue[],
   engine: RuleEngine,
-  elapsed: string
+  elapsed: string,
+  config?: RulesConfig
 ): ProjectAnalysis {
   const projectName = path.basename(sourceRoot);
 

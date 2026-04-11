@@ -1,13 +1,14 @@
 /**
  * Java Source Analyzer - Code Explorer View
  * 
- * Inspired by 'claude-code-analysis' project design.
+ * Redesigned with proper color coding and professional tree layout.
  * Features:
- * 1. Left: Call Chain Tree (Package -> Class -> Method)
- * 2. Right: Source Code Viewer with Line Numbers and Syntax Highlighting.
+ * 1. Left: Color-coded tree (Package -> Class -> Method) with exact kind colors
+ * 2. Right: Code viewer with breadcrumbs, copy button, and syntax highlighting
  */
 
 import type { AnalysisResult, Asset } from '../types';
+import { CONFIG } from '../config';
 import { Logger } from '../utils/logger';
 import { LRUCache } from '../utils/lru-cache';
 
@@ -16,7 +17,7 @@ export class CodeExplorerView {
   private data: AnalysisResult | null = null;
   
   // State
-  private selectedCode: { content: string; language: string; title: string } | null = null;
+  private selectedCode: { content: string; language: string; title: string; kind: string } | null = null;
 
   // LRU Cache for source code snippets (Limit: 50 snippets)
   private sourceCodeCache = new LRUCache<string, string>(50);
@@ -34,20 +35,18 @@ export class CodeExplorerView {
     const container = document.getElementById(this.containerId);
     if (!container || !this.data) return;
 
-    // Create Layout
     container.innerHTML = `
-      <div style="display: flex; height: 100%; background: var(--bg, #0F172A);">
+      <div class="explorer-layout">
         <!-- Left: Tree Panel -->
-        <div id="tree-panel" style="width: 320px; border-right: 1px solid var(--border, #334155); overflow-y: auto; background: var(--card, #1E293B); flex-shrink: 0;">
-          <div style="padding: 12px; border-bottom: 1px solid var(--border, #334155);">
-            <input type="text" id="code-explorer-search" placeholder="🔍 搜索类或方法..." 
-                   style="width: 100%; background: var(--bg, #0F172A); border: 1px solid var(--border, #334155); color: var(--text, #F8FAFC); padding: 6px 10px; border-radius: 4px; font-size: 12px; outline: none;">
+        <div class="explorer-tree">
+          <div class="explorer-tree-header">
+            <input type="text" id="code-explorer-search" class="explorer-search" placeholder="🔍 搜索类或方法...">
           </div>
-          <div id="tree-content" style="padding: 10px;"></div>
+          <div id="tree-content" class="explorer-tree-content"></div>
         </div>
         
         <!-- Right: Code Panel -->
-        <div id="code-panel" style="flex: 1; overflow: auto; position: relative;">
+        <div id="code-panel" class="explorer-code">
           ${this.renderEmptyState()}
         </div>
       </div>
@@ -69,10 +68,10 @@ export class CodeExplorerView {
    */
   private renderEmptyState(): string {
     return `
-      <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dim, #94A3B8);">
-        <div style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;">📄</div>
-        <div style="font-size: 14px;">点击左侧方法查看源码</div>
-        <div style="font-size: 12px; margin-top: 8px; opacity: 0.6;">Click a method in the tree to view source code</div>
+      <div class="explorer-empty">
+        <div class="explorer-empty-icon">📄</div>
+        <div class="explorer-empty-title">点击左侧方法查看源码</div>
+        <div class="explorer-empty-desc">Click a method in the tree to view source code</div>
       </div>
     `;
   }
@@ -80,38 +79,42 @@ export class CodeExplorerView {
   /**
    * Render the Source Code Viewer
    */
-  private renderCodePanel(code: string, title: string): string {
+  private renderCodePanel(code: string, title: string, kind: string): string {
     const lines = code.split('\n');
-    const lineNumbers = lines.map((_, i) => `<div style="color: var(--text-dim, #64748b); text-align: right; padding-right: 12px; user-select: none; font-size: 11px;">${i + 1}</div>`).join('');
+    const lineNumbers = lines.map((_, i) => `<div class="code-line-num">${i + 1}</div>`).join('');
     
     const codeContent = lines.map(line => {
       let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      // Simple Syntax Highlighting using CSS classes
       escaped = escaped
         .replace(/\b(public|private|protected|static|final|abstract|synchronized|volatile)\b/g, '<span class="code-keyword">$1</span>')
         .replace(/\b(class|interface|enum|extends|implements|new|this|super|return|if|else|for|while|try|catch|throw)\b/g, '<span class="code-keyword">$1</span>')
         .replace(/\b(String|int|boolean|long|void|List|Map|Set|Collection)\b/g, '<span class="code-type">$1</span>')
         .replace(/(\/\/.*)/g, '<span class="code-comment">$1</span>')
         .replace(/(&quot;[^&]*?&quot;)/g, '<span class="code-string">$1</span>');
-      return `<div style="white-space: pre;">${escaped}</div>`;
+      return `<div class="code-line-content">${escaped}</div>`;
     }).join('');
 
     return `
-      <div style="display: flex; flex-direction: column; height: 100%;">
-        <div style="padding: 10px 16px; background: var(--card, #1E293B); border-bottom: 1px solid var(--border, #334155); display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-family: monospace; font-size: 12px; color: var(--text, #F8FAFC); font-weight: 500;">📄 ${title}</span>
-          <span style="font-size: 10px; color: var(--text-dim, #94A3B8); background: var(--bg, #0F172A); padding: 2px 6px; border-radius: 4px;">Java</span>
+      <div class="explorer-code-layout">
+        <div class="explorer-code-header">
+          <div class="explorer-breadcrumb">
+            <span class="kind-badge" style="background:${CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8'}20; color:${CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8'}; border:1px solid ${CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8'}40">${kind}</span>
+            <span class="breadcrumb-text">📄 ${title}</span>
+          </div>
+          <div class="explorer-code-actions">
+            <button class="code-action-btn" onclick="window.__copyCode()" title="复制代码">📋 复制</button>
+          </div>
         </div>
-        <div style="flex: 1; overflow: auto; padding: 12px; display: flex; font-family: 'Menlo', 'Monaco', monospace; font-size: 11px; line-height: 1.5;">
-          <div style="border-right: 1px solid var(--border, #334155); padding-right: 0; margin-right: 12px;">${lineNumbers}</div>
-          <div style="color: var(--text, #cbd5e1);">${codeContent}</div>
+        <div class="explorer-code-body">
+          <div class="code-line-numbers">${lineNumbers}</div>
+          <div class="code-lines">${codeContent}</div>
         </div>
       </div>
     `;
   }
 
   /**
-   * Render the Call Chain Tree
+   * Render the Color-Coded Tree
    */
   private renderTree(assets: Asset[]): void {
     const content = document.getElementById('tree-content');
@@ -129,12 +132,17 @@ export class CodeExplorerView {
 
     let html = '';
     Object.entries(packages).sort((a, b) => a[0].localeCompare(b[0])).forEach(([pkg, items]) => {
+      const classCount = items.length;
+      const totalMethods = items.reduce((sum, a) => sum + ((a.methods_full?.length || 0) + (a.methods?.length || 0)), 0);
+      
       html += `
-        <details style="margin-bottom: 4px; border-radius: 4px; overflow: hidden;" open>
-          <summary style="padding: 6px 8px; cursor: pointer; font-size: 11px; color: var(--text-dim, #94A3B8); background: var(--bg, #0F172A); font-family: monospace;">
-            📂 ${pkg.split('.').pop()}
+        <details class="pkg-group" open>
+          <summary class="pkg-summary">
+            <span class="pkg-icon">📂</span>
+            <span class="pkg-name">${pkg.split('.').pop()}</span>
+            <span class="pkg-meta">${classCount} 类 · ${totalMethods} 方法</span>
           </summary>
-          <div style="padding-left: 8px;">
+          <div class="pkg-content">
             ${items.map(asset => this.renderClassNode(asset)).join('')}
           </div>
         </details>
@@ -145,22 +153,35 @@ export class CodeExplorerView {
   }
 
   /**
-   * Render Class Node and its Methods
+   * Render Class Node with proper color coding
    */
   private renderClassNode(asset: Asset): string {
     const name = asset.address.split('.').pop();
     const methods = asset.methods_full || asset.methods || [];
+    const fields = asset.fields_matrix || asset.fields || [];
+    const kind = asset.kind || 'CLASS';
+    const color = CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8';
+    const methodCount = methods.length;
+    const fieldCount = fields.length;
+
+    // Get icon for kind
+    const kindIcon = kind === 'INTERFACE' ? '🔷' : 
+                     kind === 'ABSTRACT_CLASS' ? '🟣' :
+                     kind === 'ENUM' ? '🔶' : '📄';
 
     return `
-      <details style="margin-bottom: 2px;" open>
-        <summary style="padding: 4px 6px; cursor: pointer; font-size: 12px; color: var(--text, #F8FAFC); display: flex; align-items: center; gap: 6px;">
-          <span style="color: ${asset.kind === 'INTERFACE' ? 'var(--blue, #38bdf8)' : 'var(--green, #4ade80)'};">
-            ${asset.kind === 'INTERFACE' ? '🔷' : '📄'}
+      <details class="class-group">
+        <summary class="class-summary" style="border-left:3px solid ${color}">
+          <span class="class-icon">${kindIcon}</span>
+          <span class="class-name">${name}</span>
+          <span class="class-meta">
+            <span class="meta-badge" style="background:${color}15; color:${color}">${kind}</span>
+            ${methodCount > 0 ? `<span class="meta-count">⚙️ ${methodCount}</span>` : ''}
+            ${fieldCount > 0 ? `<span class="meta-count">📝 ${fieldCount}</span>` : ''}
           </span>
-          <span>${name}</span>
         </summary>
-        <div style="padding-left: 16px; border-left: 1px solid var(--border, #334155); margin-left: 10px;">
-          ${methods.length > 0 ? methods.map(m => this.renderMethodNode(m, asset.address)).join('') : '<div style="padding: 4px 6px; font-size: 10px; color: var(--text-dim, #64748b);">No methods</div>'}
+        <div class="class-content">
+          ${methodCount > 0 ? methods.map(m => this.renderMethodNode(m, asset.address)).join('') : '<div class="no-methods">No methods</div>'}
         </div>
       </details>
     `;
@@ -171,14 +192,22 @@ export class CodeExplorerView {
    */
   private renderMethodNode(method: any, classAddress: string): string {
     const methodKey = `${classAddress}#${method.name}`;
-    // Use data attributes to store info, event listener will be added in draw()
+    const isPublic = method.modifiers?.includes('public');
+    const isStatic = method.modifiers?.includes('static');
+    
+    let modBadges = '';
+    if (isPublic) modBadges += '<span class="mod-badge mod-public">pub</span>';
+    if (isStatic) modBadges += '<span class="mod-badge mod-static">static</span>';
+
     return `
-      <div class="code-explorer-method" 
+      <div class="method-item" 
            data-key="${methodKey}" 
            data-class="${classAddress}" 
-           data-method="${method.name}"
-           style="padding: 3px 6px; cursor: pointer; font-size: 11px; color: var(--text-dim, #94A3B8); border-radius: 3px; display: flex; align-items: center; gap: 4px; font-family: monospace;">
-        <span>⚙️</span> ${method.name}
+           data-method="${method.name}">
+        <span class="method-icon">⚙️</span>
+        <span class="method-name">${method.name}</span>
+        ${modBadges}
+        ${method.description ? `<span class="method-desc" title="${method.description}">💬</span>` : ''}
       </div>
     `;
   }
@@ -187,43 +216,39 @@ export class CodeExplorerView {
    * Filter Tree based on search term
    */
   public filterTree(term: string): void {
-    const items = document.querySelectorAll('.code-explorer-method');
-    const details = document.querySelectorAll('#tree-content details');
+    const items = document.querySelectorAll('.method-item');
+    const groups = document.querySelectorAll('.pkg-group, .class-group');
     
     const lowerTerm = term.toLowerCase();
 
     if (!term) {
-      // Show all
-      items.forEach(el => (el.parentElement as HTMLElement).style.display = 'block');
-      details.forEach(el => el.open = true);
+      items.forEach(el => (el as HTMLElement).style.display = 'flex');
+      groups.forEach(el => (el as HTMLDetailsElement).open = true);
       return;
     }
 
     items.forEach(el => {
       const text = el.textContent?.toLowerCase() || '';
       const match = text.includes(lowerTerm);
-      (el.parentElement as HTMLElement).style.display = match ? 'block' : 'none';
+      (el as HTMLElement).style.display = match ? 'flex' : 'none';
     });
 
-    // Open all details to show matches
-    details.forEach(el => el.open = true);
+    groups.forEach(el => (el as HTMLDetailsElement).open = true);
   }
 
   /**
    * Initialize Event Listeners for Method Clicks
-   * This is called once by App.ts after render
    */
   public bindMethodClicks(): void {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
     container.onclick = (e: Event) => {
-      const target = (e.target as HTMLElement).closest('.code-explorer-method');
+      const target = (e.target as HTMLElement).closest('.method-item');
       if (target) {
-        const key = target.getAttribute('data-key');
         const classAddr = target.getAttribute('data-class');
         const methodName = target.getAttribute('data-method');
-        if (key && classAddr && methodName) {
+        if (classAddr && methodName) {
           this.openMethod(classAddr, methodName);
         }
       }
@@ -254,7 +279,7 @@ export class CodeExplorerView {
     const method = methods.find((m: any) => m.name === methodName);
     if (!method) return;
 
-    code = method.source_code || method.body_code || `// No source code available for ${method.name}`;
+    code = method.source_code || method.body_code || `// No source code available for ${methodName}`;
     
     // 3. Save to Cache
     this.sourceCodeCache.set(methodKey, code);
@@ -263,15 +288,29 @@ export class CodeExplorerView {
   }
 
   private renderCode(code: string, classAddr: string, methodName: string): void {
+    const asset = this.data?.assets?.find((a: any) => a.address === classAddr);
+    const kind = asset?.kind || 'CLASS';
+    const title = `${classAddr.split('.').pop()}.${methodName}()`;
+
     this.selectedCode = {
       content: code,
       language: 'java',
-      title: `${classAddr.split('.').pop()}.${methodName}()`
+      title,
+      kind
     };
+
     const codePanel = document.getElementById('code-panel');
     if (codePanel) {
-      codePanel.innerHTML = this.renderCodePanel(code, this.selectedCode.title);
+      codePanel.innerHTML = this.renderCodePanel(code, title, kind);
       codePanel.scrollTo(0, 0);
     }
   }
 }
+
+// Global helper for copy button
+(window as any).__copyCode = () => {
+  if (navigator.clipboard && document.querySelector('.code-lines')) {
+    const text = document.querySelector('.code-lines')!.textContent || '';
+    navigator.clipboard.writeText(text);
+  }
+};

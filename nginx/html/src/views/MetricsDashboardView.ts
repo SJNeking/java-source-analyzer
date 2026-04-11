@@ -61,36 +61,36 @@ export class MetricsDashboardView {
 
   private renderOverviewCards(metrics: any): string {
     return `
-      <div class="card-grid">
-        <div class="stat-card">
-          <div class="stat-card-icon">📝</div>
-          <div class="stat-card-value">${metrics.total_classes || 0}</div>
-          <div class="stat-card-label">总类数</div>
+      <div class="metrics-card-grid">
+        <div class="metrics-stat-card">
+          <div class="metrics-stat-icon">📝</div>
+          <div class="metrics-stat-value">${metrics.total_classes || 0}</div>
+          <div class="metrics-stat-label">总类数</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card-icon">⚙️</div>
-          <div class="stat-card-value">${metrics.total_methods || 0}</div>
-          <div class="stat-card-label">总方法数</div>
+        <div class="metrics-stat-card">
+          <div class="metrics-stat-icon">⚙️</div>
+          <div class="metrics-stat-value">${metrics.total_methods || 0}</div>
+          <div class="metrics-stat-label">总方法数</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card-icon">📄</div>
-          <div class="stat-card-value">${metrics.total_loc || 0}</div>
-          <div class="stat-card-label">代码行数</div>
+        <div class="metrics-stat-card">
+          <div class="metrics-stat-icon">📄</div>
+          <div class="metrics-stat-value">${metrics.total_loc || 0}</div>
+          <div class="metrics-stat-label">代码行数</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card-icon">💬</div>
-          <div class="stat-card-value">${((metrics.comment_ratio || 0) * 100).toFixed(1)}%</div>
-          <div class="stat-card-label">注释率</div>
+        <div class="metrics-stat-card">
+          <div class="metrics-stat-icon">💬</div>
+          <div class="metrics-stat-value">${((metrics.comment_ratio || 0) * 100).toFixed(1)}%</div>
+          <div class="metrics-stat-label">注释率</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card-icon">🔀</div>
-          <div class="stat-card-value">${(metrics.avg_complexity || 0).toFixed(1)}</div>
-          <div class="stat-card-label">平均复杂度</div>
+        <div class="metrics-stat-card">
+          <div class="metrics-stat-icon">🔀</div>
+          <div class="metrics-stat-value">${(metrics.avg_complexity || 0).toFixed(1)}</div>
+          <div class="metrics-stat-label">平均复杂度</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card-icon">🎯</div>
-          <div class="stat-card-value">${(metrics.cohesion_index || 0).toFixed(2)}</div>
-          <div class="stat-card-label">内聚指数</div>
+        <div class="metrics-stat-card">
+          <div class="metrics-stat-icon">🎯</div>
+          <div class="metrics-stat-value">${(metrics.cohesion_index || 0).toFixed(2)}</div>
+          <div class="metrics-stat-label">内聚指数</div>
         </div>
       </div>
     `;

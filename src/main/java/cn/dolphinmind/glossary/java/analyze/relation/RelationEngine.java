@@ -1,5 +1,8 @@
 package cn.dolphinmind.glossary.java.analyze.relation;
 
+import cn.dolphinmind.glossary.java.analyze.core.AnalysisContext;
+import cn.dolphinmind.glossary.java.analyze.core.AnalyzerModule;
+
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -8,7 +11,26 @@ import java.util.regex.Pattern;
  * Cross-file relationship engine
  * Discovers relationships between Java classes, MyBatis mappers, SQL tables, config items, etc.
  */
-public class RelationEngine {
+public class RelationEngine implements AnalyzerModule<Map<String, Object>> {
+
+    // AnalyzerModule implementation
+    @Override
+    public String getId() { return "relation"; }
+
+    @Override
+    public String getName() { return "Cross-File Relation Engine"; }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> analyze(AnalysisContext context) throws Exception {
+        Map<String, Object> javaAssets = new LinkedHashMap<>();
+        javaAssets.put("assets", context.getClassAssets());
+        discoverRelations(javaAssets, context.getProjectAssets());
+        return toMap();
+    }
+
+    @Override
+    public Map<String, Object> toMap(Map<String, Object> result) { return result; }
 
     private final List<AssetRelation> relations = new ArrayList<>();
 

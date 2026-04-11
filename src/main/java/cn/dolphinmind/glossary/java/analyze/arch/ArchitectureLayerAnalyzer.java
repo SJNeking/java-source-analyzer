@@ -1,5 +1,8 @@
 package cn.dolphinmind.glossary.java.analyze.arch;
 
+import cn.dolphinmind.glossary.java.analyze.core.AnalysisContext;
+import cn.dolphinmind.glossary.java.analyze.core.AnalyzerModule;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,7 +22,22 @@ import java.util.stream.Collectors;
  * - Entity calls Repository
  * - etc.
  */
-public class ArchitectureLayerAnalyzer {
+public class ArchitectureLayerAnalyzer implements AnalyzerModule<Map<String, Object>> {
+
+    // AnalyzerModule implementation
+    @Override
+    public String getId() { return "architecture"; }
+
+    @Override
+    public String getName() { return "Architecture Layer Analyzer"; }
+
+    @Override
+    public Map<String, Object> analyze(AnalysisContext context) throws Exception {
+        return analyze(context.getClassAssets(), context.getDependencies());
+    }
+
+    @Override
+    public Map<String, Object> toMap(Map<String, Object> result) { return result; }
 
     // Layer definitions with package patterns
     private static final Map<String, List<String>> LAYER_PATTERNS = new LinkedHashMap<>();

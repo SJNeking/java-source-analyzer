@@ -1,5 +1,7 @@
 package cn.dolphinmind.glossary.java.analyze.metrics;
 
+import cn.dolphinmind.glossary.java.analyze.core.AnalysisContext;
+import cn.dolphinmind.glossary.java.analyze.core.AnalyzerModule;
 import cn.dolphinmind.glossary.java.analyze.core.CallChainTracer;
 import cn.dolphinmind.glossary.java.analyze.core.PackageStructureMapper;
 
@@ -14,9 +16,27 @@ import java.util.stream.Collectors;
  * - 复杂度指标：圈复杂度、继承深度、嵌套深度
  * - 耦合指标：Fan-in/Fan-out、 afferent/efferent coupling
  * - 内聚指标：方法内聚度
- * - 规模指标：注释率、平均方法长度
  */
-public class CodeMetricsCalculator {
+public class CodeMetricsCalculator implements AnalyzerModule<CodeMetricsCalculator.ProjectMetrics> {
+
+    // AnalyzerModule implementation
+    @Override
+    public String getId() { return "metrics"; }
+
+    @Override
+    public String getName() { return "Code Metrics Calculator"; }
+
+    @Override
+    public ProjectMetrics analyze(AnalysisContext context) throws Exception {
+        // Call the full version with null defaults for callGraph and packageTree
+        // These are populated by CoreAnalysisEngine in the main pipeline
+        return calculateProjectMetrics(context.getClassAssets(), null, null);
+    }
+
+    @Override
+    public Map<String, Object> toMap(ProjectMetrics result) {
+        return result != null ? result.toMap() : null;
+    }
 
     /**
      * Complete metrics for a project.

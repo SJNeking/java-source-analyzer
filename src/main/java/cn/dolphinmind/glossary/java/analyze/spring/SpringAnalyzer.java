@@ -6,6 +6,9 @@ import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 
+import cn.dolphinmind.glossary.java.analyze.core.AnalysisContext;
+import cn.dolphinmind.glossary.java.analyze.core.AnalyzerModule;
+
 import java.io.File;
 import java.nio.file.*;
 import java.util.*;
@@ -18,7 +21,7 @@ import java.util.stream.Collectors;
  * - @RestController, @Controller, @RequestMapping, @GetMapping, @PostMapping, etc.
  * - @Autowired, @Inject, @Resource, @Bean, @Component, @Service, @Repository
  */
-public class SpringAnalyzer {
+public class SpringAnalyzer implements AnalyzerModule<Map<String, Object>> {
 
     // Spring annotation constants
     private static final Set<String> CONTROLLER_ANNOTATIONS = new HashSet<>(Arrays.asList(
@@ -48,6 +51,28 @@ public class SpringAnalyzer {
     private static final Set<String> INJECT_ANNOTATIONS = new HashSet<>(Arrays.asList(
             "Autowired", "Inject", "Resource", "Value"
     ));
+
+    // AnalyzerModule implementation
+    @Override
+    public String getId() { return "spring"; }
+
+    @Override
+    public String getName() { return "Spring Framework Analyzer"; }
+
+    @Override
+    public boolean isEnabled(AnalysisContext context) {
+        return true; // Could check for Spring dependencies in config
+    }
+
+    @Override
+    public Map<String, Object> analyze(AnalysisContext context) throws Exception {
+        return analyze(context.getSourceRoot().toString());
+    }
+
+    @Override
+    public Map<String, Object> toMap(Map<String, Object> result) {
+        return result;
+    }
 
     /**
      * Analyze a project root directory for Spring endpoints and bean dependencies.

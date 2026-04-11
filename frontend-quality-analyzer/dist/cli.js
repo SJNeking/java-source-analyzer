@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-#!/usr/bin/env node
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -1571,14 +1570,14 @@ Expecting one of '${allowedValues.join("', '")}'`);
        * @return {Command} `this` command for chaining
        * @private
        */
-      _optionEx(config2, flags, description, fn, defaultValue) {
+      _optionEx(config, flags, description, fn, defaultValue) {
         if (typeof flags === "object" && flags instanceof Option2) {
           throw new Error(
             "To add an Option object use addOption() instead of option() or requiredOption()"
           );
         }
         const option = this.createOption(flags, description);
-        option.makeOptionMandatory(!!config2.mandatory);
+        option.makeOptionMandatory(!!config.mandatory);
         if (typeof fn === "function") {
           option.default(defaultValue).argParser(fn);
         } else if (fn instanceof RegExp) {
@@ -2493,9 +2492,9 @@ Expecting one of '${allowedValues.join("', '")}'`);
           this._outputConfiguration.writeErr("\n");
           this.outputHelp({ error: true });
         }
-        const config2 = errorOptions || {};
-        const exitCode = config2.exitCode || 1;
-        const code = config2.code || "commander.error";
+        const config = errorOptions || {};
+        const exitCode = config.exitCode || 1;
+        const code = config.code || "commander.error";
         this._exit(exitCode, code, message);
       }
       /**
@@ -18385,10 +18384,10 @@ var RuleEngine = class {
    * @param config - Optional configuration for rule filtering and thresholds
    * @returns Complete project analysis result
    */
-  run(files, config2) {
+  run(files, config) {
     const allIssues = [];
     const fileAnalyses = [];
-    const activeRules = this.filterRules(config2);
+    const activeRules = this.filterRules(config);
     console.log(`\u{1F50D} Analyzing ${files.length} files with ${activeRules.length} rules...`);
     for (const file of files) {
       const fileIssues = [];
@@ -18396,7 +18395,7 @@ var RuleEngine = class {
         try {
           const issues = rule.check(file.content, file.path, {
             framework: this.detectFramework(file.path),
-            config: config2?.framework_config
+            config: config?.framework_config
           });
           fileIssues.push(...issues);
           const currentCount = this.ruleHitCounts.get(rule.getRuleKey()) || 0;
@@ -18425,7 +18424,7 @@ var RuleEngine = class {
     const bySeverity = this.summarizeBySeverity(allIssues);
     const byCategory = this.summarizeByCategory(allIssues);
     const technicalDebt = this.estimateTechnicalDebt(allIssues);
-    const qualityGate = config2 ? this.evaluateQualityGate(allIssues, metrics, config2) : void 0;
+    const qualityGate = config ? this.evaluateQualityGate(allIssues, metrics, config) : void 0;
     const analysis = {
       project_name: this.extractProjectName(files[0]?.path || ""),
       scan_date: (/* @__PURE__ */ new Date()).toISOString(),
@@ -18474,17 +18473,17 @@ var RuleEngine = class {
   /**
    * Filter rules based on configuration
    */
-  filterRules(config2) {
-    if (!config2) {
+  filterRules(config) {
+    if (!config) {
       return Array.from(this.rules.values());
     }
     return Array.from(this.rules.values()).filter((rule) => {
       const key = rule.getRuleKey();
-      if (config2.disabled_rules.includes(key)) {
+      if (config.disabled_rules.includes(key)) {
         return false;
       }
-      if (config2.enabled_rules.length > 0) {
-        return config2.enabled_rules.includes(key);
+      if (config.enabled_rules.length > 0) {
+        return config.enabled_rules.includes(key);
       }
       return true;
     });
@@ -18751,8 +18750,8 @@ var RuleEngine = class {
   /**
    * Evaluate quality gate (PASS/FAIL)
    */
-  evaluateQualityGate(issues, metrics, config2) {
-    const defaultConfig = config2 || {
+  evaluateQualityGate(issues, metrics, config) {
+    const defaultConfig = config || {
       enabled_rules: [],
       disabled_rules: [],
       thresholds: {
@@ -19306,11 +19305,11 @@ async function runAnalysis() {
     log(`\u274C Error: Source directory not found: ${sourceRoot}`, "red");
     process.exit(1);
   }
-  let config2;
+  let config;
   if (options.config) {
     const configPath = path2.resolve(options.config);
     if (fs.existsSync(configPath)) {
-      config2 = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
       log(`\u{1F4CB} Loaded config: ${configPath}`, "green");
     } else {
       log(`\u26A0\uFE0F  Config not found, using defaults`, "yellow");
@@ -19350,7 +19349,7 @@ async function runAnalysis() {
       const fileOptions = {
         framework,
         language,
-        config: config2
+        config
       };
       const fileIssues = engine.runSingle(content, relativePath, fileOptions);
       const fileAnalysis = {
@@ -19386,7 +19385,8 @@ async function runAnalysis() {
     fileAnalyses,
     allIssues,
     engine,
-    elapsed
+    elapsed,
+    config
   );
   const outputDir = path2.resolve(options.outputDir);
   if (!fs.existsSync(outputDir)) {
@@ -19400,7 +19400,7 @@ async function runAnalysis() {
     wss.close();
   }
 }
-function buildProjectAnalysis(sourceRoot, fileAnalyses, allIssues, engine, elapsed) {
+function buildProjectAnalysis(sourceRoot, fileAnalyses, allIssues, engine, elapsed, config) {
   const projectName = path2.basename(sourceRoot);
   const by_severity = {
     CRITICAL: allIssues.filter((i) => i.severity === "CRITICAL").length,
