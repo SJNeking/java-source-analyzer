@@ -41,34 +41,70 @@ export class NoImplicitAnyRule extends AbstractTypeScriptRule {
   getRuleKey(): string { return 'FE-TS-001'; }
   getName(): string { return 'No implicit any types'; }
 
+  /** Parameters that commonly have implicit any by design */
+  private readonly SKIP_PARAMS = new Set([
+    'event', 'e', 'evt', 'err', 'error', 'cb', 'callback',
+    'next', 'resolve', 'reject', 'done', 'acc', 'cur',
+    'prev', 'item', 'index', 'i', 'j', 'key', 'value',
+    '_', 'ctx', 'req', 'res', 'next',
+  ]);
+
   protected checkTypeScript(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
+
+    // Skip test files entirely — test utilities often use implicit any intentionally
+    if (/\.(test|spec)\.(ts|tsx)$/.test(filePath)) {
+      return issues;
+    }
+
     const lines = sourceCode.split('\n');
+    let fileIssueCount = 0;
+    const MAX_ISSUES_PER_FILE = 5; // Cap per file to avoid noise
 
     lines.forEach((line, index) => {
+      // Stop reporting for this file once we hit the cap
+      if (fileIssueCount >= MAX_ISSUES_PER_FILE) {
+        return;
+      }
+
       const lineNum = index + 1;
-      
+
       // Skip comments and strings
       if (line.trim().startsWith('//') || line.trim().startsWith('*')) {
         return;
       }
 
-      // Detect function parameters without type annotations
-      // Pattern: function name(param) or const fn = (param) =>
+      // Only flag module-level exported functions/consts (public API surface)
+      // Skip class methods, internal functions, and callbacks
+      const isModuleLevelExport = /^(export\s+(default\s+)?)?(async\s+)?function\s+\w+\s*\(/.test(line.trim()) ||
+                                   /^export\s+const\s+\w+\s*=/.test(line.trim());
+      if (!isModuleLevelExport) {
+        return;
+      }
+
       const paramPattern = /(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?)\(([^)]*)\)/g;
       let match;
-      
-      while ((match = paramPattern.exec(line)) !== null) {
+
+      while ((match = paramPattern.exec(line)) !== null && fileIssueCount < MAX_ISSUES_PER_FILE) {
         const params = match[1].split(',').map(p => p.trim());
-        
+
         params.forEach(param => {
+          if (fileIssueCount >= MAX_ISSUES_PER_FILE) return;
+
           // Skip destructured params with defaults, rest params, etc.
           if (!param || param.includes('=') || param.startsWith('...')) {
             return;
           }
-          
+
+          // Skip common callback/parameter names that intentionally omit type
+          const paramName = param.split(':')[0].replace(/\s+/g, '');
+          if (this.SKIP_PARAMS.has(paramName.toLowerCase())) {
+            return;
+          }
+
           // Check if parameter has type annotation
           if (!param.includes(':')) {
+            fileIssueCount++;
             issues.push({
               rule_key: this.getRuleKey(),
               rule_name: this.getName(),

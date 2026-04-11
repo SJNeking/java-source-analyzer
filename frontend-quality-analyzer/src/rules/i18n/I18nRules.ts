@@ -51,12 +51,23 @@ class I18nMissingTranslationKey implements QualityRule {
   getCategory(): IssueCategory { return 'I18N'; }
   check(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
+
+    // Only apply this rule if the project actually uses an i18n library
+    // Otherwise every t('...') call is likely a false positive
+    if (!/useTranslation|i18next|react-intl|@lingui|t\(['"]/.test(sourceCode)) {
+      return issues;
+    }
+
     // Check for t('...') pattern and validate key format
     const tCalls = sourceCode.match(/t\s*\(\s*['"]([^'"]+)['"]/g) || [];
     tCalls.forEach(call => {
       const keyMatch = call.match(/t\s*\(\s*['"]([^'"]+)['"]/);
       if (keyMatch) {
         const key = keyMatch[1];
+        // Skip short keys and hardcoded strings
+        if (key.length < 3 || /[\s\u4e00-\u9fff]/.test(key)) {
+          return;
+        }
         // Keys should be namespaced: namespace.category.key
         if (!/\.\w+\.\w+/.test(key) && key.split('.').length < 2) {
           issues.push({
@@ -102,8 +113,19 @@ class I18nNumberNotLocalized implements QualityRule {
   getCategory(): IssueCategory { return 'I18N'; }
   check(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
+
+    // Only flag files that display numbers/currencies in user-facing contexts
+    // Skip files that don't look like UI components
+    if (!/<\w+/.test(sourceCode) && !/render|template|jsx/.test(sourceCode.toLowerCase())) {
+      return issues;
+    }
+
     // Check for currency or number display without formatting
-    if (/\$|€|¥|£/.test(sourceCode) && !/Intl\.NumberFormat|toLocaleString|currency/.test(sourceCode)) {
+    const hasCurrencies = /\$|€|¥|£/.test(sourceCode);
+    const hasNumberDisplay = /\{.*\d+\}/.test(sourceCode) && !/Intl\.NumberFormat|toLocaleString/.test(sourceCode);
+
+    if ((hasCurrencies || hasNumberDisplay) &&
+        !/Intl\.NumberFormat|toLocaleString|currency/.test(sourceCode)) {
       issues.push({
         rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MINOR,
         category: this.getCategory(), file_path: filePath, line: 1,

@@ -15158,6 +15158,37 @@ var AbstractTypeScriptRule = class {
   }
 };
 var NoImplicitAnyRule = class extends AbstractTypeScriptRule {
+  constructor() {
+    super(...arguments);
+    /** Parameters that commonly have implicit any by design */
+    this.SKIP_PARAMS = /* @__PURE__ */ new Set([
+      "event",
+      "e",
+      "evt",
+      "err",
+      "error",
+      "cb",
+      "callback",
+      "next",
+      "resolve",
+      "reject",
+      "done",
+      "acc",
+      "cur",
+      "prev",
+      "item",
+      "index",
+      "i",
+      "j",
+      "key",
+      "value",
+      "_",
+      "ctx",
+      "req",
+      "res",
+      "next"
+    ]);
+  }
   getRuleKey() {
     return "FE-TS-001";
   }
@@ -15166,21 +15197,40 @@ var NoImplicitAnyRule = class extends AbstractTypeScriptRule {
   }
   checkTypeScript(sourceCode, filePath) {
     const issues = [];
+    if (/\.(test|spec)\.(ts|tsx)$/.test(filePath)) {
+      return issues;
+    }
     const lines = sourceCode.split("\n");
+    let fileIssueCount = 0;
+    const MAX_ISSUES_PER_FILE = 5;
     lines.forEach((line, index) => {
+      if (fileIssueCount >= MAX_ISSUES_PER_FILE) {
+        return;
+      }
       const lineNum = index + 1;
       if (line.trim().startsWith("//") || line.trim().startsWith("*")) {
         return;
       }
+      const isModuleLevelExport = /^(export\s+(default\s+)?)?(async\s+)?function\s+\w+\s*\(/.test(line.trim()) || /^export\s+const\s+\w+\s*=/.test(line.trim());
+      if (!isModuleLevelExport) {
+        return;
+      }
       const paramPattern = /(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?)\(([^)]*)\)/g;
       let match2;
-      while ((match2 = paramPattern.exec(line)) !== null) {
+      while ((match2 = paramPattern.exec(line)) !== null && fileIssueCount < MAX_ISSUES_PER_FILE) {
         const params = match2[1].split(",").map((p) => p.trim());
         params.forEach((param) => {
+          if (fileIssueCount >= MAX_ISSUES_PER_FILE)
+            return;
           if (!param || param.includes("=") || param.startsWith("...")) {
             return;
           }
+          const paramName = param.split(":")[0].replace(/\s+/g, "");
+          if (this.SKIP_PARAMS.has(paramName.toLowerCase())) {
+            return;
+          }
           if (!param.includes(":")) {
+            fileIssueCount++;
             issues.push({
               rule_key: this.getRuleKey(),
               rule_name: this.getName(),
@@ -18190,11 +18240,17 @@ var I18nMissingTranslationKey = class {
   }
   check(sourceCode, filePath) {
     const issues = [];
+    if (!/useTranslation|i18next|react-intl|@lingui|t\(['"]/.test(sourceCode)) {
+      return issues;
+    }
     const tCalls = sourceCode.match(/t\s*\(\s*['"]([^'"]+)['"]/g) || [];
     tCalls.forEach((call) => {
       const keyMatch = call.match(/t\s*\(\s*['"]([^'"]+)['"]/);
       if (keyMatch) {
         const key = keyMatch[1];
+        if (key.length < 3 || /[\s\u4e00-\u9fff]/.test(key)) {
+          return;
+        }
         if (!/\.\w+\.\w+/.test(key) && key.split(".").length < 2) {
           issues.push({
             rule_key: this.getRuleKey(),
@@ -18255,7 +18311,12 @@ var I18nNumberNotLocalized = class {
   }
   check(sourceCode, filePath) {
     const issues = [];
-    if (/\$|€|¥|£/.test(sourceCode) && !/Intl\.NumberFormat|toLocaleString|currency/.test(sourceCode)) {
+    if (!/<\w+/.test(sourceCode) && !/render|template|jsx/.test(sourceCode.toLowerCase())) {
+      return issues;
+    }
+    const hasCurrencies = /\$|€|¥|£/.test(sourceCode);
+    const hasNumberDisplay = /\{.*\d+\}/.test(sourceCode) && !/Intl\.NumberFormat|toLocaleString/.test(sourceCode);
+    if ((hasCurrencies || hasNumberDisplay) && !/Intl\.NumberFormat|toLocaleString|currency/.test(sourceCode)) {
       issues.push({
         rule_key: this.getRuleKey(),
         rule_name: this.getName(),

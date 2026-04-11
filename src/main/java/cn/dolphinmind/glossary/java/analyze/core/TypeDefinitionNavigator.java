@@ -132,4 +132,6 @@ public class TypeDefinitionNavigator {
         map.put("types", types);
         return map;
     }
+
+    public int getIndexSize() { return totalTypes; }
 }

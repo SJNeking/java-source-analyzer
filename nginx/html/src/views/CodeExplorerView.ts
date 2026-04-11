@@ -132,15 +132,12 @@ export class CodeExplorerView {
 
     let html = '';
     Object.entries(packages).sort((a, b) => a[0].localeCompare(b[0])).forEach(([pkg, items]) => {
-      const classCount = items.length;
-      const totalMethods = items.reduce((sum, a) => sum + ((a.methods_full?.length || 0) + (a.methods?.length || 0)), 0);
-      
       html += `
         <details class="pkg-group" open>
           <summary class="pkg-summary">
             <span class="pkg-icon">📂</span>
             <span class="pkg-name">${pkg.split('.').pop()}</span>
-            <span class="pkg-meta">${classCount} 类 · ${totalMethods} 方法</span>
+            <span class="pkg-count">${items.length} 类</span>
           </summary>
           <div class="pkg-content">
             ${items.map(asset => this.renderClassNode(asset)).join('')}
@@ -158,30 +155,26 @@ export class CodeExplorerView {
   private renderClassNode(asset: Asset): string {
     const name = asset.address.split('.').pop();
     const methods = asset.methods_full || asset.methods || [];
-    const fields = asset.fields_matrix || asset.fields || [];
     const kind = asset.kind || 'CLASS';
     const color = CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8';
-    const methodCount = methods.length;
-    const fieldCount = fields.length;
 
-    // Get icon for kind
-    const kindIcon = kind === 'INTERFACE' ? '🔷' : 
+    // Icon mapping per user rules: 🔵接口 🟣抽象类 🟢实现类 🟠枚举 ⚪️普通类
+    const kindIcon = kind === 'INTERFACE' ? '🔵' : 
                      kind === 'ABSTRACT_CLASS' ? '🟣' :
-                     kind === 'ENUM' ? '🔶' : '📄';
+                     kind === 'ENUM' ? '🟠' :
+                     kind === 'CLASS' ? '🟢' : '⚪️';
 
     return `
       <details class="class-group">
         <summary class="class-summary" style="border-left:3px solid ${color}">
           <span class="class-icon">${kindIcon}</span>
           <span class="class-name">${name}</span>
-          <span class="class-meta">
-            <span class="meta-badge" style="background:${color}15; color:${color}">${kind}</span>
-            ${methodCount > 0 ? `<span class="meta-count">⚙️ ${methodCount}</span>` : ''}
-            ${fieldCount > 0 ? `<span class="meta-count">📝 ${fieldCount}</span>` : ''}
+          <span class="class-tags">
+            <span class="tag-kind" style="background:${color}15; color:${color}">${kind}</span>
           </span>
         </summary>
         <div class="class-content">
-          ${methodCount > 0 ? methods.map(m => this.renderMethodNode(m, asset.address)).join('') : '<div class="no-methods">No methods</div>'}
+          ${methods.length > 0 ? methods.map(m => this.renderMethodNode(m, asset.address)).join('') : '<div class="no-methods">No methods</div>'}
         </div>
       </details>
     `;
@@ -197,17 +190,15 @@ export class CodeExplorerView {
     
     let modBadges = '';
     if (isPublic) modBadges += '<span class="mod-badge mod-public">pub</span>';
-    if (isStatic) modBadges += '<span class="mod-badge mod-static">static</span>';
+    if (isStatic) modBadges += '<span class="mod-badge mod-static">st</span>';
 
     return `
       <div class="method-item" 
            data-key="${methodKey}" 
            data-class="${classAddress}" 
            data-method="${method.name}">
-        <span class="method-icon">⚙️</span>
         <span class="method-name">${method.name}</span>
         ${modBadges}
-        ${method.description ? `<span class="method-desc" title="${method.description}">💬</span>` : ''}
       </div>
     `;
   }

@@ -261,4 +261,9 @@ public class DataFlowTracer {
                 .collect(java.util.stream.Collectors.toList()));
         return map;
     }
+
+    public List<Map<String, Object>> exportList(List<DataFlow> flows) {
+        return flows.stream().map(DataFlow::toMap)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

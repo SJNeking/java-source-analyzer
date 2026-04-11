@@ -366,7 +366,8 @@ function extractPropsInterface(path: NodePath<any>): string[] {
   const props: string[] = [];
 
   // Check for TypeScript interface Props { ... }
-  path.scope.getAllBindings().forEach((binding) => {
+  const bindings = path.scope.getAllBindings();
+  Object.values(bindings).forEach((binding) => {
     if (binding.identifier.typeAnnotation) {
       props.push(binding.identifier.name);
     }

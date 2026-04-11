@@ -1,5 +1,7 @@
 package cn.dolphinmind.glossary.java.analyze.core;
 
+import cn.dolphinmind.glossary.java.analyze.core.CoreAnalysisResult.CallGraphSummary;
+
 import com.github.javaparser.ast.body.MethodDeclaration;
 
 import java.io.BufferedReader;
@@ -13,7 +15,7 @@ import java.util.*;
  *
  * All features use JavaParser AST (not regex/string parsing).
  */
-public class CoreAnalysisEngine {
+public class CoreAnalysisEngine implements AnalyzerModule<CoreAnalysisResult> {
 
     private final EntryPointDiscovery entryPointDiscovery = new EntryPointDiscovery();
     private CallChainTracer callChainTracer;
@@ -29,7 +31,35 @@ public class CoreAnalysisEngine {
 
     public ExternalLibrarySignatureDB getSignatureDB() { return signatureDB; }
 
+    // AnalyzerModule implementation
+    @Override
+    public String getId() { return "core"; }
+
+    @Override
+    public String getName() { return "Core Analysis Engine"; }
+
+    @Override
+    public CoreAnalysisResult analyze(AnalysisContext context) throws Exception {
+        return analyzeAsResult(context.getSourceRoot());
+    }
+
+    @Override
+    public Map<String, Object> toMap(CoreAnalysisResult result) {
+        return result != null ? result.toMap() : null;
+    }
+
+    /**
+     * Backward-compatible analyze(Path) returning Map.
+     * Delegates to analyzeAsResult and converts via toMap().
+     */
     public Map<String, Object> analyze(Path projectRoot) throws IOException {
+        return analyzeAsResult(projectRoot).toMap();
+    }
+
+    /**
+     * Analyze with typed result (new API).
+     */
+    public CoreAnalysisResult analyzeAsResult(Path projectRoot) throws IOException {
         System.out.println("\n=== 核心分析引擎启动 ===");
 
         // 0. Build external library method signature database
@@ -93,8 +123,8 @@ public class CoreAnalysisEngine {
         // Merge: source graph enriched with bytecode accuracy
         // For calls where source analysis had fallback, replace with bytecode target
         CallChainTracer.CallGraph mergedGraph = sourceGraph;
+        int enriched = 0;
         if (bytecodeGraph != null && bytecodeGraph.getInternalCalls() > 0) {
-            int enriched = 0;
             for (Map.Entry<String, Set<String>> entry : bytecodeGraph.getAdjacencyList().entrySet()) {
                 for (String callee : entry.getValue()) {
                     mergedGraph.addCall(entry.getKey(), callee, true);
@@ -134,52 +164,60 @@ public class CoreAnalysisEngine {
         // Dependency graph is generated in SourceUniversePro.runAnalysis()
 
         // Build result
-        Map<String, Object> result = new LinkedHashMap<>();
+        CoreAnalysisResult coreResult = new CoreAnalysisResult();
 
         // Entry points
-        Map<String, Object> entryInfo = new LinkedHashMap<>();
-        entryInfo.put("total", entryPoints.size());
-        entryInfo.put("by_type", entryPointDiscovery.groupByType(entryPoints).entrySet().stream()
+        coreResult.setTotalEntryPoints(entryPoints.size());
+        coreResult.setEntryPointsByType(entryPointDiscovery.groupByType(entryPoints).entrySet().stream()
                 .collect(java.util.stream.Collectors.toMap(
                         e -> e.getKey().name(),
                         e -> e.getValue().stream().map(EntryPointDiscovery.EntryPoint::toMap)
                                 .collect(java.util.stream.Collectors.toList()))));
-        result.put("entry_points", entryInfo);
 
-        // Call graph
-        Map<String, Object> callInfo = new LinkedHashMap<>();
-        callInfo.put("analysis_layers", bytecodeGraph != null ? 2 : 1);
-        callInfo.put("source_resolved", sourceGraph.getResolvedInternal());
-        callInfo.put("source_fallback", sourceGraph.getUnresolvedFallback());
-        callInfo.put("source_skipped_external", sourceGraph.getSkippedExternal());
-        callInfo.put("node_count", mergedGraph.getNodeCount());
-        callInfo.put("edge_count", mergedGraph.getEdgeCount());
-        callInfo.put("resolved_internal", mergedGraph.getResolvedInternal());
-        callInfo.put("unresolved_fallback", mergedGraph.getUnresolvedFallback());
-        callInfo.put("skipped_external", mergedGraph.getSkippedExternal());
+        // Call graph summary
+        CallGraphSummary cgSummary = new CallGraphSummary();
+        cgSummary.setSourceResolved(sourceGraph.getResolvedInternal());
+        cgSummary.setSourceUnresolved(sourceGraph.getUnresolvedFallback());
+        cgSummary.setSourceSkipped(sourceGraph.getSkippedExternal());
+        cgSummary.setNodeCount(mergedGraph.getNodeCount());
+        cgSummary.setEdgeCount(mergedGraph.getEdgeCount());
         if (bytecodeGraph != null) {
-            callInfo.put("bytecode_total", bytecodeGraph.getTotalCalls());
-            callInfo.put("bytecode_internal", bytecodeGraph.getInternalCalls());
-            callInfo.put("bytecode_external", bytecodeGraph.getExternalCalls());
+            cgSummary.setBytecodeResolved(bytecodeGraph.getInternalCalls());
+            cgSummary.setBytecodeExternal(bytecodeGraph.getExternalCalls());
         }
-        Map<String, Object> chainsOutput = new LinkedHashMap<>();
+        cgSummary.setProgressiveEnriched(enriched);
+        cgSummary.setMergeStrategy("source_first + bytecode_fallback");
+        coreResult.setCallGraph(cgSummary);
+
+        // Call chains
+        Map<String, List<Map<String, Object>>> chainsOutput = new LinkedHashMap<>();
         for (Map.Entry<String, List<CallChainTracer.CallChain>> e : callChains.entrySet()) {
             chainsOutput.put(e.getKey(), e.getValue().stream().limit(10)
                     .map(CallChainTracer.CallChain::toMap).collect(java.util.stream.Collectors.toList()));
         }
-        callInfo.put("chains_from_entry", chainsOutput);
-        result.put("call_graph", callInfo);
+        coreResult.setCallChains(chainsOutput);
 
-        // Type definitions
-        result.put("type_definitions", typeNavigator.export());
+        // Package structure
+        coreResult.setPackageStructure(packageTree.toMap());
+
+        // Type index
+        coreResult.setIndexedTypes(typeNavigator.getIndexSize());
 
         // Data flows
-        result.put("data_flows", dataFlowTracer.export(dataFlows));
+        coreResult.setTotalDataFlows(dataFlows.size());
+        coreResult.setDataFlows(dataFlowTracer.exportList(dataFlows));
+
+        // External library signatures
+        if (signatureDB != null) {
+            coreResult.setJarsScanned(signatureDB.getJarsScanned());
+            coreResult.setClassesScanned(signatureDB.getClassesScanned());
+            coreResult.setMethodsIndexed(signatureDB.getMethodsIndexed());
+        }
 
         // Print summary
         printSummary(entryPoints, packageTree, callChains, mergedGraph, bytecodeGraph, dataFlows);
 
-        return result;
+        return coreResult;
     }
 
     public void printSummary(List<EntryPointDiscovery.EntryPoint> entryPoints,
