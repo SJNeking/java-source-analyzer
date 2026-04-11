@@ -22,6 +22,14 @@ export class CodeExplorerView {
   // LRU Cache for source code snippets (Limit: 50 snippets)
   private sourceCodeCache = new LRUCache<string, string>(50);
 
+  // Audit panel state (comments & tags)
+  private _comments: Array<{author: string; text: string; time: string}> = [];
+  private _tags: Array<{name: string; type: string}> = [];
+  private _currentMethod: string = '';
+
+  // UML chart instance
+  private umlChart: any = null;
+
   constructor(containerId: string = 'code-explorer-content') {
     this.containerId = containerId;
   }
@@ -77,12 +85,12 @@ export class CodeExplorerView {
   }
 
   /**
-   * Render the Source Code Viewer
+   * Render the Source Code Viewer with Audit Panel
    */
   private renderCodePanel(code: string, title: string, kind: string): string {
     const lines = code.split('\n');
     const lineNumbers = lines.map((_, i) => `<div class="code-line-num">${i + 1}</div>`).join('');
-    
+
     const codeContent = lines.map(line => {
       let escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       escaped = escaped
@@ -94,23 +102,87 @@ export class CodeExplorerView {
       return `<div class="code-line-content">${escaped}</div>`;
     }).join('');
 
+    const kindColor = CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8';
+
     return `
       <div class="explorer-code-layout">
-        <div class="explorer-code-header">
-          <div class="explorer-breadcrumb">
-            <span class="kind-badge" style="background:${CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8'}20; color:${CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8'}; border:1px solid ${CONFIG.colorMap[kind as keyof typeof CONFIG.colorMap] || '#94a3b8'}40">${kind}</span>
-            <span class="breadcrumb-text">📄 ${title}</span>
+        <!-- Left: Code View -->
+        <div class="explorer-code-main">
+          <div class="explorer-code-header">
+            <div class="explorer-breadcrumb">
+              <span class="kind-badge" style="background:${kindColor}20; color:${kindColor}; border:1px solid ${kindColor}40">${kind}</span>
+              <span class="breadcrumb-text">📄 ${title}</span>
+            </div>
+            <div class="explorer-code-actions">
+              <button class="code-action-btn" onclick="window.__copyCode()" title="复制代码">📋 复制</button>
+            </div>
           </div>
-          <div class="explorer-code-actions">
-            <button class="code-action-btn" onclick="window.__copyCode()" title="复制代码">📋 复制</button>
+          <div class="explorer-code-body">
+            <div class="code-line-numbers">${lineNumbers}</div>
+            <div class="code-lines">${codeContent}</div>
           </div>
         </div>
-        <div class="explorer-code-body">
-          <div class="code-line-numbers">${lineNumbers}</div>
-          <div class="code-lines">${codeContent}</div>
+        <!-- Right: Audit Panel (Comments, Tags, UML) -->
+        <div class="explorer-audit-panel">
+          <div class="audit-tabs" role="tablist">
+            <div class="audit-tab active" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
+            <div class="audit-tab" data-tab="tags" onclick="window.__switchAuditTab('tags')">🏷️ 标签</div>
+            <div class="audit-tab" data-tab="uml" onclick="window.__switchAuditTab('uml')">📐 UML</div>
+          </div>
+          <div class="audit-content">
+            <!-- Comments Tab -->
+            <div class="audit-tab-panel active" id="audit-comments">
+              <div class="audit-comment-form">
+                <textarea id="audit-comment-input" class="audit-textarea" placeholder="添加评论或思考..."></textarea>
+                <button class="audit-submit-btn" onclick="window.__addComment()">提交</button>
+              </div>
+              <div class="audit-comment-list">
+                ${this._comments.length === 0 ? '<div class="audit-empty">暂无评论</div>' : 
+                  this._comments.map((c, i) => `
+                    <div class="audit-comment-item">
+                      <div class="audit-comment-meta">
+                        <span class="audit-comment-author">${c.author || '匿名'}</span>
+                        <span class="audit-comment-time">${c.time}</span>
+                      </div>
+                      <div class="audit-comment-text">${c.text}</div>
+                    </div>
+                  `).join('')
+                }
+              </div>
+            </div>
+            <!-- Tags Tab -->
+            <div class="audit-tab-panel" id="audit-tags" style="display:none;">
+              <div class="audit-tag-input-row">
+                <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称...">
+                <button class="audit-tag-add-btn" onclick="window.__addTag()">添加</button>
+              </div>
+              <div class="audit-tag-cloud">
+                ${this._tags.length === 0 ? '<div class="audit-empty">暂无标签</div>' :
+                  this._tags.map((t) => `
+                    <span class="audit-tag-badge" style="background:${this.getKindColor(t.type)}15; color:${this.getKindColor(t.type)}; border:1px solid ${this.getKindColor(t.type)}40">
+                      ${t.name}
+                      <span class="audit-tag-remove" onclick="window.__removeTag('${t.name}')">✕</span>
+                    </span>
+                  `).join('')
+                }
+              </div>
+            </div>
+            <!-- UML Tab -->
+            <div class="audit-tab-panel" id="audit-uml" style="display:none;">
+              <div id="uml-chart" class="uml-chart-container"></div>
+            </div>
+          </div>
         </div>
       </div>
     `;
+  }
+
+  private getKindColor(kind: string): string {
+    const colorMap: Record<string, string> = {
+      INTERFACE: '#60a5fa', ABSTRACT_CLASS: '#a78bfa', CLASS: '#4ade80',
+      ENUM: '#fb923c', UTILITY: '#9ca3af'
+    };
+    return colorMap[kind] || '#94a3b8';
   }
 
   /**
@@ -149,7 +221,7 @@ export class CodeExplorerView {
       });
 
       html += `
-        <details class="pkg-group" open>
+        <details class="pkg-group">
           <summary class="pkg-summary">
             <span class="pkg-icon">📂</span>
             <span class="pkg-name">${pkg.split('.').pop()}</span>
@@ -163,6 +235,21 @@ export class CodeExplorerView {
     });
 
     content.innerHTML = html;
+
+    // Accordion behavior: expand one package, collapse others
+    content.querySelectorAll('.pkg-group').forEach(group => {
+      group.addEventListener('toggle', () => {
+        const details = group as HTMLDetailsElement;
+        if (details.open) {
+          // Collapse all other packages
+          content.querySelectorAll('.pkg-group').forEach(other => {
+            if (other !== details) {
+              (other as HTMLDetailsElement).open = false;
+            }
+          });
+        }
+      });
+    });
   }
 
   /**
@@ -299,18 +386,68 @@ export class CodeExplorerView {
     const kind = asset?.kind || 'CLASS';
     const title = `${classAddr.split('.').pop()}.${methodName}()`;
 
-    this.selectedCode = {
-      content: code,
-      language: 'java',
-      title,
-      kind
-    };
+    this._currentMethod = methodName;
+    this.selectedCode = { content: code, language: 'java', title, kind };
 
     const codePanel = document.getElementById('code-panel');
     if (codePanel) {
       codePanel.innerHTML = this.renderCodePanel(code, title, kind);
       codePanel.scrollTo(0, 0);
+
+      // Initialize UML chart if visible
+      setTimeout(() => this.renderUmlChart(asset), 100);
     }
+  }
+
+  /**
+   * Render UML class diagram using ECharts
+   */
+  private renderUmlChart(asset: any): void {
+    const chartDom = document.getElementById('uml-chart');
+    if (!chartDom || !asset) return;
+    
+    // Dispose old chart
+    if (this.umlChart) { this.umlChart.dispose(); this.umlChart = null; }
+
+    const chart = echarts.init(chartDom);
+    this.umlChart = chart;
+
+    const methods = asset.methods_full || asset.methods || [];
+    const fields = asset.fields_matrix || asset.fields || [];
+    const kindColor = this.getKindColor(asset.kind || 'CLASS');
+
+    const methodNodes = methods.slice(0, 15).map((m: any, i: number) => ({
+      id: `method_${i}`, name: m.name, category: 1
+    }));
+    const fieldNodes = fields.slice(0, 10).map((f: any, i: number) => ({
+      id: `field_${i}`, name: f.name, category: 2
+    }));
+
+    const links = [
+      ...methodNodes.map((m: any) => ({ source: 'root', target: m.id })),
+      ...fieldNodes.map((f: any) => ({ source: 'root', target: f.id }))
+    ];
+
+    chart.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'item', formatter: '{b}' },
+      series: [{
+        type: 'graph', layout: 'force', roam: false,
+        data: [
+          { id: 'root', name: asset.address.split('.').pop(), category: 0, symbolSize: 50, itemStyle: { color: kindColor } },
+          ...methodNodes.map((n: any) => ({ ...n, symbolSize: 25, itemStyle: { color: '#60a5fa' } })),
+          ...fieldNodes.map((n: any) => ({ ...n, symbolSize: 20, itemStyle: { color: '#a78bfa' } }))
+        ],
+        links,
+        categories: [{ name: 'Class' }, { name: 'Method' }, { name: 'Field' }],
+        force: { repulsion: 80, edgeLength: 60, gravity: 0.1 },
+        label: { show: true, position: 'bottom', fontSize: 10, color: '#cbd5e1' },
+        edgeSymbol: ['none', 'arrow'], edgeSymbolSize: [0, 5],
+        lineStyle: { color: '#475569', width: 1 }
+      }]
+    });
+
+    setTimeout(() => chart.resize(), 50);
   }
 }
 
@@ -319,5 +456,75 @@ export class CodeExplorerView {
   if (navigator.clipboard && document.querySelector('.code-lines')) {
     const text = document.querySelector('.code-lines')!.textContent || '';
     navigator.clipboard.writeText(text);
+  }
+};
+
+// Audit panel global handlers
+(window as any).__switchAuditTab = (tab: string) => {
+  document.querySelectorAll('.audit-tab').forEach(t => {
+    t.classList.toggle('active', (t as HTMLElement).dataset.tab === tab);
+  });
+  document.querySelectorAll('.audit-tab-panel').forEach(p => {
+    (p as HTMLElement).style.display = p.id === `audit-${tab}` ? 'block' : 'none';
+    p.classList.toggle('active', p.id === `audit-${tab}`);
+  });
+
+  // Resize UML chart when switching to UML tab
+  if (tab === 'uml') {
+    setTimeout(() => {
+      const chartDom = document.getElementById('uml-chart');
+      if (chartDom) {
+        const chart = echarts.getInstanceByDom(chartDom);
+        if (chart) chart.resize();
+      }
+    }, 50);
+  }
+};
+
+(window as any).__addComment = () => {
+  const input = document.getElementById('audit-comment-input') as HTMLTextAreaElement;
+  if (!input || !input.value.trim()) return;
+  
+  const view = window.codeExplorerView as any;
+  if (view) {
+    view._comments = view._comments || [];
+    view._comments.unshift({
+      author: '当前用户',
+      text: input.value.trim(),
+      time: new Date().toLocaleTimeString()
+    });
+    // Re-render the panel to show new comment
+    if (view.selectedCode) {
+      view.renderCode(view.selectedCode.content, view._currentMethod || '', view.selectedCode.title);
+    }
+  }
+};
+
+(window as any).__addTag = () => {
+  const input = document.getElementById('audit-tag-input') as HTMLInputElement;
+  if (!input || !input.value.trim()) return;
+  
+  const view = window.codeExplorerView as any;
+  if (view) {
+    view._tags = view._tags || [];
+    view._tags.push({
+      name: input.value.trim(),
+      type: view.selectedCode?.kind || 'CLASS'
+    });
+    input.value = '';
+    // Re-render
+    if (view.selectedCode) {
+      view.renderCode(view.selectedCode.content, view._currentMethod || '', view.selectedCode.title);
+    }
+  }
+};
+
+(window as any).__removeTag = (name: string) => {
+  const view = window.codeExplorerView as any;
+  if (view) {
+    view._tags = (view._tags || []).filter((t: any) => t.name !== name);
+    if (view.selectedCode) {
+      view.renderCode(view.selectedCode.content, view._currentMethod || '', view.selectedCode.title);
+    }
   }
 };

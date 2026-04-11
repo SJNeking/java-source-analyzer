@@ -300,7 +300,7 @@ export class TypeScriptParser implements ASTParser {
     const decorators: string[] = [];
     
     // Check if node has decorators property
-    if ('decorators' in node && node.decorators && ts.isNodeArray(node.decorators)) {
+    if ('decorators' in node && Array.isArray(node.decorators) && node.decorators.length > 0) {
       node.decorators.forEach((d) => {
         if (ts.isCallExpression(d.expression)) {
           decorators.push(d.expression.expression.getText(this.sourceFile!));

@@ -1,4 +1,4 @@
-import { ProjectAnalysis, Reporter, Severity, IssueCategory, QualityIssue } from '../types';
+import { ProjectAnalysis, Reporter, Severity, QualityIssue } from '../types';
 
 // ==================== JSON Reporter ====================
 
@@ -252,7 +252,11 @@ export class MarkdownReporter implements Reporter {
       const gate = analysis.quality_gate;
       md += `## Quality Gate: ${gate.passed ? '✅ PASSED' : '❌ FAILED'}\n\n`;
       if (!gate.passed) {
-        md += `**Reasons:**\n${gate.reasons.map(r => `- ${r}`).join('\n')}\n\n`;
+        md += `**Reasons:**
+${gate.reasons.map(r => `- ${r}`).join('
+')}
+
+`;
       }
     }
 

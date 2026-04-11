@@ -528,7 +528,17 @@ body {
 .explorer-empty-desc { font-size: 11px; opacity: 0.5; }
 
 /* Code Layout */
-.explorer-code-layout { display: flex; flex-direction: column; height: 100%; }
+.explorer-code-layout { 
+    display: flex; 
+    height: 100%;
+}
+
+.explorer-code-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
 
 .explorer-code-header { 
     padding: 8px 12px; 
@@ -540,12 +550,12 @@ body {
 }
 
 .explorer-breadcrumb { display: flex; align-items: center; gap: 6px; }
-.explorer-breadcrumb .tag-kind { font-size: 9px; padding: 2px 6px; }
 .breadcrumb-text { font-family: monospace; font-size: 11px; color: var(--text); }
+.kind-badge { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
 
 .explorer-code-actions { display: flex; gap: 4px; }
 
-.explorer-code-btn { 
+.code-action-btn, .explorer-code-btn { 
     background: var(--bg-tertiary); 
     border: 1px solid var(--border); 
     color: var(--text-dim); 
@@ -555,7 +565,7 @@ body {
     cursor: pointer; 
     transition: all 0.15s;
 }
-.explorer-code-btn:hover { border-color: var(--accent); color: var(--accent); }
+.code-action-btn:hover, .explorer-code-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 .explorer-code-body { 
     flex: 1; 
@@ -582,6 +592,147 @@ body {
 .code-line-num { line-height: 1.5; }
 .code-line-content { white-space: pre; }
 .code-lines { color: var(--text-dim); flex: 1; min-width: 0; }
+
+/* ================= Audit Panel (Comments, Tags, UML) ================= */
+
+.explorer-audit-panel {
+    width: 280px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.audit-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 8px;
+}
+
+.audit-tab {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+.audit-tab:hover { color: var(--text); }
+.audit-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.audit-content {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.audit-tab-panel { flex: 1; display: flex; flex-direction: column; padding: 8px; }
+.audit-tab-panel.active { display: flex; }
+
+/* Comments */
+.audit-comment-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.audit-textarea {
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    resize: vertical;
+    min-height: 60px;
+    outline: none;
+    font-family: inherit;
+}
+.audit-textarea:focus { border-color: var(--accent); }
+
+.audit-submit-btn {
+    background: var(--accent);
+    border: none;
+    color: var(--bg);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.audit-submit-btn:hover { background: var(--accent-hover); }
+
+.audit-comment-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.audit-comment-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px;
+}
+.audit-comment-meta { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.audit-comment-author { font-size: 10px; color: var(--accent); font-weight: 600; }
+.audit-comment-time { font-size: 9px; color: var(--text-muted); }
+.audit-comment-text { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+
+/* Tags */
+.audit-tag-input-row { display: flex; gap: 4px; margin-bottom: 10px; }
+.audit-tag-input {
+    flex: 1;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    outline: none;
+}
+.audit-tag-input:focus { border-color: var(--accent); }
+.audit-tag-add-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.audit-tag-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.audit-tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+.audit-tag-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: default;
+}
+.audit-tag-remove {
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0.6;
+    margin-left: 2px;
+}
+.audit-tag-remove:hover { opacity: 1; color: var(--danger); }
+
+/* UML Chart */
+.uml-chart-container {
+    flex: 1;
+    min-height: 300px;
+}
+
+/* Empty State */
+.audit-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+}
 
 /* ================= Metrics Dashboard Styles ================= */
 

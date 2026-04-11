@@ -477,6 +477,48 @@ public class SourceUniversePro {
                 new cn.dolphinmind.glossary.java.analyze.translate.CommentAnalysisService();
         cn.dolphinmind.glossary.java.analyze.translate.SemanticEnrichmentService semanticService =
                 new cn.dolphinmind.glossary.java.analyze.translate.SemanticEnrichmentService(translator);
+        cn.dolphinmind.glossary.java.analyze.extractor.MethodCallAnalyzer methodAnalyzer =
+                new cn.dolphinmind.glossary.java.analyze.extractor.MethodCallAnalyzer();
+
+        // Create JavaAssetExtractor with legacy bridge for not-yet-migrated methods
+        cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor assetExtractor =
+                new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor(
+                        commentService, semanticService, methodAnalyzer,
+                        classCount, methodCount, fieldCount,
+                        new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor.LegacyBridge() {
+                            public String getKind(TypeDeclaration<?> t) { return getKind(t); }
+                            public Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
+                                    com.github.javaparser.ast.NodeList<com.github.javaparser.ast.body.Parameter> params,
+                                    List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
+                                return extractMethodEnhanced(d, baseAddr, params, fileLines, classAddr, globalDeps);
+                            }
+                            public List<Map<String, Object>> resolveMethodsSemanticEnhanced(TypeDeclaration<?> t, List<String> fl) {
+                                return resolveMethodsSemanticEnhanced(t, fl);
+                            }
+                            public List<Map<String, Object>> resolveMethodsEnhanced(TypeDeclaration<?> t, List<String> fl) {
+                                return resolveMethodsEnhanced(t, fl);
+                            }
+                            public List<Map<String, Object>> resolveFieldsEnhanced(TypeDeclaration<?> t) {
+                                return resolveFieldsEnhanced(t);
+                            }
+                            public List<Map<String, Object>> resolveFieldsMatrix(List<String> l, TypeDeclaration<?> t) {
+                                return resolveFieldsMatrix(l, t);
+                            }
+                            public List<Map<String, Object>> resolveConstructorsAligned(List<String> l, TypeDeclaration<?> t, String a) {
+                                return resolveConstructorsAligned(l, t, a);
+                            }
+                            public List<Map<String, Object>> resolveMethodsAligned(List<String> l, TypeDeclaration<?> t, String a) {
+                                return resolveMethodsAligned(l, t, a);
+                            }
+                            public Map<String, Object> getEnhancementData(String a) { return getEnhancementData(a); }
+                            public Map<String, Object> extractCallGraphSummary(TypeDeclaration<?> t) { return extractCallGraphSummary(t); }
+                            public int calculateClassLOC(TypeDeclaration<?> t, List<String> fl) { return calculateClassLOC(t, fl); }
+                            public int calculateClassComplexity(TypeDeclaration<?> t, List<String> fl) { return calculateClassComplexity(t, fl); }
+                            public int calculateInheritanceDepth(TypeDeclaration<?> t) { return calculateInheritanceDepth(t); }
+                            public List<Map<String, Object>> extractAnnos(TypeDeclaration<?> t, String a) { return extractAnnos(t, a); }
+                            public void trackUnrecognizedSuffix(String s) { unrecognizedClassSuffixes.merge(s, 1, Integer::sum); }
+                            public void trackMethodName(String n) { allMethodNames.add(n); }
+                        });
 
         // Configure JavaParser Symbol Solver with full Maven classpath
         cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver cpResolver = null;
@@ -645,7 +687,7 @@ public class SourceUniversePro {
                                 String cnName = translator.translateIdentifier(className);
                                 projectGlossary.put(className.toLowerCase(), cnName);
 
-                                Map<String, Object> classAsset = processTypeEnhanced(type, pkg, null, fileLines, ctx, globalDependencies);
+                                Map<String, Object> classAsset = assetExtractor.processType(type, pkg, null, fileLines, ctx, globalDependencies);
                                 if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
 
                                 classAsset.put("module", moduleName);
@@ -1154,159 +1196,6 @@ public class SourceUniversePro {
 
     /**
      * 增强版类型处理：整合物理注释、修饰符、泛型、继承关系等完整元数据
-     */
-    private static Map<String, Object> processTypeEnhanced(TypeDeclaration<?> type, String pkg, String parentAddr, 
-                                                            List<String> fileLines, ScannerContext ctx, List<Map<String, String>> globalDeps) {
-        Map<String, Object> node = new LinkedHashMap<>();
-        String address = (parentAddr == null) ? (pkg + "." + type.getNameAsString()) : (parentAddr + "$" + type.getNameAsString());
-
-        node.put("address", address);
-        node.put("kind", getKind(type));
-        
-        // 🚀 JArchitect 对标：标记类类型
-        if (type instanceof ClassOrInterfaceDeclaration) {
-            ClassOrInterfaceDeclaration cid = (ClassOrInterfaceDeclaration) type;
-            node.put("is_interface", cid.isInterface());
-            node.put("is_abstract", cid.isAbstract());
-            node.put("extends_count", cid.getExtendedTypes().size());
-            node.put("implements_count", cid.getImplementedTypes().size());
-        }
-        if (type instanceof EnumDeclaration) {
-            node.put("is_enum", true);
-        }
-
-        // 🚀 结构化注释提取 (类级别)
-        Map<String, Object> classCommentDetails = extractCommentDetails(fileLines, type);
-        node.put("description", classCommentDetails.getOrDefault("summary", ""));
-        node.put("comment_details", classCommentDetails);
-
-        node.put("source_file", type.findCompilationUnit().flatMap(CompilationUnit::getStorage).map(s -> s.getPath().toString()).orElse(""));
-        node.put("modifiers", resolveMods(type.getModifiers()));
-        node.put("class_generics", resolveTypeParameters(type));
-        
-        // 🚀 注入基于命名的组件角色标签
-        java.util.Set<String> compRoles = extractComponentRole(type);
-        node.put("component_tags", compRoles);
-        
-        // 🚀 注入基于 AST 的语义画像 (继承、接口、复杂度)
-        node.put("semantic_profile", extractSemanticProfile(type, fileLines));
-        
-        // 🚀 注入推理引擎结论 (带证据锚定)
-        node.put("reasoning_results", performLogicalInference(type, fileLines));
-        
-        // 🚀 注入架构与行为标签 (AI Agent 核心索引)
-        node.put("arch_tags", resolveBilingualTags(extractArchTags(type, fileLines)));
-        
-        // 🚀 注入方法级语义分析 (完整方法列表，包含源码体)
-        node.put("methods_full", resolveMethodsSemanticEnhanced(type, fileLines));
-
-        // 🚀 注入域上下文与调用链 (认知地图的核心)
-        node.put("domain_context", extractDomainContext(pkg));
-        node.put("call_graph_summary", extractCallGraphSummary(type));
-
-        // 迭代进化：记录未识别的类后缀
-        if (compRoles.isEmpty()) {
-            String className = type.getNameAsString();
-            int dotIndex = className.lastIndexOf('.');
-            String simpleName = dotIndex > -1 ? className.substring(dotIndex + 1) : className;
-            // 提取最后一个大写字母后的部分作为后缀候选
-            String suffix = simpleName.replaceAll("^[A-Z]+", "");
-            if (suffix.length() > 2) {
-                unrecognizedClassSuffixes.merge(suffix, 1, Integer::sum);
-            }
-        }
-
-        // 🚀 注入方法意图标签与字段语义标签
-        node.put("methods_intent", resolveMethodsEnhanced(type, fileLines));
-        node.put("fields", resolveFieldsEnhanced(type));
-
-        // 🚀 注入动态增强层 (场景案例与最佳实践)
-        node.put("enhancement", getEnhancementData(address));
-
-        // 🚀 注入 AI 教学指南 (约束与场景)
-        node.put("ai_guidance", extractAIGuidance(type, fileLines));
-
-        // 🚀 预留 AI 进化层存储空间
-        node.put("ai_evolution", new LinkedHashMap<>());
-
-        // 🚀 注入洞察摘要 (翻译后的核心描述)
-        String rawDesc = bruteForceComment(fileLines, type);
-        node.put("insight_summary", translateAndSummarize(rawDesc));
-
-        if (type instanceof ClassOrInterfaceDeclaration) {
-            node.put("hierarchy", resolveHierarchySemantic((ClassOrInterfaceDeclaration) type));
-        }
-
-        node.put("annotations", extractAnnos(type, address));
-
-        // --- 字段角色化提取（业务分类）---
-        Map<String, List<Map<String, Object>>> segments = new LinkedHashMap<>();
-        segments.put("INTERNAL_STATE", new ArrayList<>());
-        segments.put("INTERNAL_COMPONENT", new ArrayList<>());
-        segments.put("EXTERNAL_SERVICE", new ArrayList<>());
-
-        // 🚀 修复：使用 getFields() 确保在纯 AST 模式下也能获取到字段
-        type.getFields().forEach(f -> {
-            fieldCount.incrementAndGet();
-            f.getVariables().forEach(v -> {
-                Map<String, Object> fMeta = new LinkedHashMap<>();
-                String fullType = v.getType().asString(); // 纯 AST 模式直接使用 asString()
-
-                fMeta.put("name", v.getNameAsString());
-                fMeta.put("address", address + "." + v.getNameAsString());
-                fMeta.put("type_path", fullType);
-                fMeta.put("description", bruteForceComment(fileLines, f));
-                fMeta.put("modifiers", resolveMods(f.getModifiers()));
-
-                segments.get(ctx.classify(fullType)).add(fMeta);
-            });
-        });
-        node.put("field_segments", segments);
-        
-        // --- 字段矩阵（详细元数据）---
-        node.put("fields_matrix", resolveFieldsMatrix(fileLines, type));
-
-        // 🚀 JArchitect 对标：注入代码指标字段
-        node.put("lines_of_code", calculateClassLOC(type, fileLines));
-        node.put("comment_lines", countCommentLines(fileLines, type));
-        node.put("cyclomatic_complexity", calculateClassComplexity(type, fileLines));
-        node.put("inheritance_depth", calculateInheritanceDepth(type));
-
-        // --- 方法提取（增强版）---
-        List<Map<String, Object>> methods = new ArrayList<>();
-        // 🚀 修复：使用 getConstructors() 和 getMethods() 替代 findAll(DIRECT_CHILDREN)
-        type.getConstructors().forEach(c -> {
-            methodCount.incrementAndGet();
-            methods.add(extractMethodEnhanced(c, address + "#<init>", c.getParameters(), fileLines, address, globalDeps));
-        });
-        type.getMethods().forEach(m -> {
-            methodCount.incrementAndGet();
-            allMethodNames.add(m.getNameAsString()); // 收集方法名用于分析
-            methods.add(extractMethodEnhanced(m, address + "#" + m.getNameAsString(), m.getParameters(), fileLines, address, globalDeps));
-        });
-        node.put("methods", methods);
-        
-        // --- 构造函数和方法矩阵（对齐格式）---
-        node.put("constructor_matrix", resolveConstructorsAligned(fileLines, type, address));
-        node.put("method_matrix", resolveMethodsAligned(fileLines, type, address));
-
-        // 🚀 修复：递归处理内部类并收集结果到返回值的 inner_classes 字段
-        List<Map<String, Object>> innerClasses = new ArrayList<>();
-        type.getMembers().stream().filter(m -> m instanceof TypeDeclaration)
-                .forEach(m -> {
-                    Map<String, Object> innerClass = processTypeEnhanced((TypeDeclaration<?>) m, pkg, address, fileLines, ctx, globalDeps);
-                    if (innerClass != null) {
-                        classCount.incrementAndGet();
-                        innerClasses.add(innerClass);
-                    }
-                });
-        node.put("inner_classes", innerClasses);
-
-        return node;
-    }
-
-    /**
-     * 增强版方法提取：整合物理注释、修饰符、泛型、返回值、异常、调用链等完整信息
      */
     private static Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
                                                               NodeList<Parameter> params, List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
