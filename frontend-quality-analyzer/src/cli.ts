@@ -8,7 +8,7 @@ import chalk from 'chalk';
 import { WebSocketServer } from 'ws';
 
 import { RuleEngine } from './engine/RuleEngine';
-import { ProjectAnalysis, FileAnalysis, RulesConfig, QualityIssue, Reporter, IssueCategory, Severity } from './types';
+import { ProjectAnalysis, FileAnalysis, RulesConfig, QualityIssue, Reporter, IssueCategory, Severity, FrontendMetrics } from './types';
 import { JSONReporter, HTMLReporter, MarkdownReporter } from './reporters';
 
 const program = new Command();
@@ -208,10 +208,9 @@ async function runAnalysis(): Promise<void> {
     process.exit(1);
   }
 
-  // Initialize Rule Engine
+  // Initialize Rule Engine (rules auto-register in constructor)
   log('⚙️  Initializing rule engine...', 'cyan');
   const engine = new RuleEngine();
-  engine.registerRules(config);
   log(`  ${engine.getRules().length} rules registered`, 'green');
 
   // Setup WebSocket server for real-time progress
@@ -403,7 +402,8 @@ function buildProjectAnalysis(
   };
 
   // Quality Gate evaluation
-  const quality_gate = engine.evaluateQualityGate(allIssues, metrics);
+  const metricsForGate: FrontendMetrics = metrics;
+  const quality_gate = engine.evaluateQualityGate(allIssues, metricsForGate, config);
 
   // Technical debt estimation
   const technical_debt = engine.estimateTechnicalDebt(allIssues);

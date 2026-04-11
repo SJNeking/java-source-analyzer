@@ -163,13 +163,30 @@ body {
     position: relative;
 }
 
-/* View Containers */
+/* View Containers - unified layout */
+.view-container,
 .view-dashboard { 
-    display: grid; 
+    position: absolute; 
+    inset: 0; 
+    overflow: auto; 
+    display: none; 
+}
+
+.view-container.active,
+.view-dashboard.active { 
+    display: block; 
+}
+
+/* Dashboard specific grid layout */
+.view-dashboard { 
+    display: none; 
     grid-template-rows: auto 1fr; 
     gap: 16px; 
-    height: 100%;
     padding: 16px;
+}
+
+.view-dashboard.active { 
+    display: grid; 
 }
 
 /* Stats Cards */

@@ -47,7 +47,7 @@ class App {
   public fullAnalysisData: AnalysisResult | null = null;
   public originalData: GraphData | null = null;
   public nodeTypeFilters: NodeTypeFilters = { ...DEFAULT_NODE_TYPE_FILTERS };
-  public currentView: string = 'forcegraph';
+  public currentView: string = 'graph'; // Match HTML data-view="graph"
 
   // LRU Cache for raw JSON data (Limit: 3 large projects to save memory)
   private rawDataCache = new LRUCache<string, AnalysisResult>(3);
@@ -98,10 +98,12 @@ class App {
       t.classList.toggle('active', isActive);
     });
 
-    // Update Container Visibility (CSS class based, no inline styles)
-    document.querySelectorAll('.view-container').forEach(c => {
-      const isActive = (c as HTMLElement).id === `view-${viewName}`;
-      c.classList.toggle('active', isActive);
+    // Update Container Visibility: remove hidden, toggle active
+    document.querySelectorAll('.view-container, .view-dashboard').forEach(c => {
+      const el = c as HTMLElement;
+      const isActive = el.id === `view-${viewName}`;
+      el.classList.toggle('hidden', !isActive);
+      el.classList.toggle('active', isActive);
     });
 
     // Trigger Render for the specific view if data is available
@@ -170,7 +172,7 @@ class App {
     if (!this.fullAnalysisData) return;
 
     switch (this.currentView) {
-      case 'forcegraph':
+      case 'graph':
         if (this.originalData) this.renderForceGraph(this.originalData);
         break;
       case 'quality':

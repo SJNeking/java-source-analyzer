@@ -32,16 +32,18 @@
                     <span id="view-title">架构依赖图</span>
                 </div>
                 <div class="nav-tabs" id="nav-tabs">
-                    <!-- Tabs Injected via JS or static? Let's do static for SEO/A11y but logic handled by App -->
-                    <button class="nav-tab active" data-view="graph" onclick="app.switchView('graph')">📊 视图</button>
-                    <button class="nav-tab" data-view="quality" onclick="app.switchView('quality')">⚠️ 质量</button>
-                    <button class="nav-tab" data-view="metrics" onclick="app.switchView('metrics')">📈 指标</button>
+                    <button class="nav-tab active" data-view="graph" onclick="app.switchView('graph')">🔗 依赖图</button>
+                    <button class="nav-tab" data-view="quality" onclick="app.switchView('quality')">⚠️ 质量分析</button>
+                    <button class="nav-tab" data-view="metrics" onclick="app.switchView('metrics')">📊 代码指标</button>
+                    <button class="nav-tab" data-view="explorer" onclick="app.switchView('explorer')">📄 源码浏览器</button>
+                    <button class="nav-tab" data-view="relations" onclick="app.switchView('relations')">🔀 跨文件关系</button>
+                    <button class="nav-tab" data-view="assets" onclick="app.switchView('assets')">📂 项目资产</button>
                 </div>
             </div>
             
             <div class="content-viewport">
                 <!-- View A: Dashboard (Graph + Stats) -->
-                <div id="view-graph" class="view-dashboard">
+                <div id="view-graph" class="view-dashboard active">
                     <div class="stats-row">
                         <div class="stat-card" role="status">
                             <div class="stat-value" style="color:var(--accent)" id="stat-assets">-</div>

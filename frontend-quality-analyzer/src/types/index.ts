@@ -13,6 +13,16 @@
 export type Severity = 'CRITICAL' | 'MAJOR' | 'MINOR' | 'INFO';
 
 /**
+ * Severity constants for runtime usage
+ */
+export const Severity = {
+  CRITICAL: 'CRITICAL' as Severity,
+  MAJOR: 'MAJOR' as Severity,
+  MINOR: 'MINOR' as Severity,
+  INFO: 'INFO' as Severity,
+} as const;
+
+/**
  * Issue category classification
  */
 export type IssueCategory =
@@ -28,6 +38,24 @@ export type IssueCategory =
   | 'TESTING'           // Test quality
   | 'BUILD'             // Build configuration
   | 'I18N';             // Internationalization
+
+/**
+ * IssueCategory constants for runtime usage
+ */
+export const IssueCategory = {
+  TYPESCRIPT: 'TYPESCRIPT' as IssueCategory,
+  REACT: 'REACT' as IssueCategory,
+  VUE: 'VUE' as IssueCategory,
+  SECURITY: 'SECURITY' as IssueCategory,
+  PERFORMANCE: 'PERFORMANCE' as IssueCategory,
+  MEMORY: 'MEMORY' as IssueCategory,
+  ACCESSIBILITY: 'ACCESSIBILITY' as IssueCategory,
+  ARCHITECTURE: 'ARCHITECTURE' as IssueCategory,
+  STYLING: 'STYLING' as IssueCategory,
+  TESTING: 'TESTING' as IssueCategory,
+  BUILD: 'BUILD' as IssueCategory,
+  I18N: 'I18N' as IssueCategory,
+} as const;
 
 /**
  * Represents a quality issue found in frontend code
