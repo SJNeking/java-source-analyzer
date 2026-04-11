@@ -296,8 +296,8 @@ export interface QualityRule {
  */
 export interface RuleCheckOptions {
   framework?: 'react' | 'vue' | 'angular' | 'svelte';
-  config?: Record<string, any>;
-  ast?: any;  // Parsed AST if available
+  config?: Record<string, unknown>;
+  ast?: unknown;  // Parsed AST if available
   dependencies?: string[];  // Import dependencies
 }
 
@@ -359,7 +359,7 @@ export interface RulesConfig {
  * AST Parser interface (pluggable)
  */
 export interface ASTParser {
-  parse(sourceCode: string, filePath: string): any;
+  parse(sourceCode: string, filePath: string): unknown;
   getLanguage(): string;
 }
 

@@ -212,10 +212,10 @@ export class HTMLReporter implements Reporter {
 </footer>
 
 <script>
-function filterIssues(severity) {
+const filterIssues = sev => {
   const rows = document.querySelectorAll('#issues-table tr');
   rows.forEach(row => {
-    if (severity === 'all' || row.dataset.severity === severity) {
+    if (sev === 'all' || row.dataset.severity === sev) {
       row.style.display = '';
     } else {
       row.style.display = 'none';
@@ -252,11 +252,7 @@ export class MarkdownReporter implements Reporter {
       const gate = analysis.quality_gate;
       md += `## Quality Gate: ${gate.passed ? '✅ PASSED' : '❌ FAILED'}\n\n`;
       if (!gate.passed) {
-        md += `**Reasons:**
-${gate.reasons.map(r => `- ${r}`).join('
-')}
-
-`;
+        md += `**Reasons:**\n${gate.reasons.map(r => `- ${r}`).join('\n')}\n\n`;
       }
     }
 

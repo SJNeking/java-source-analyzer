@@ -372,52 +372,12 @@ public class SourceUniversePro {
         cn.dolphinmind.glossary.java.analyze.extractor.MethodCallAnalyzer methodAnalyzer =
                 new cn.dolphinmind.glossary.java.analyze.extractor.MethodCallAnalyzer();
 
-        // Create JavaAssetExtractor with legacy bridge for not-yet-migrated methods
-        // Use holder pattern to avoid forward reference issue with anonymous inner class
-        final cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor[] assetExtractorRef = new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor[1];
-
-        cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor.LegacyBridge legacyBridge =
-                new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor.LegacyBridge() {
-                    public String getKind(TypeDeclaration<?> t) { return getKind(t); }
-                    public Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
-                            NodeList<Parameter> params, List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
-                        return assetExtractorRef[0].extractMethodEnhanced(d, baseAddr, params, fileLines, classAddr, globalDeps);
-                    }
-                    public List<Map<String, Object>> resolveMethodsEnhanced(TypeDeclaration<?> t, List<String> fl) {
-                        return resolveMethodsEnhanced(t, fl);
-                    }
-                    public List<Map<String, Object>> resolveFieldsEnhanced(TypeDeclaration<?> t) {
-                        return resolveFieldsEnhanced(t);
-                    }
-                    public List<Map<String, Object>> resolveFieldsMatrix(List<String> l, TypeDeclaration<?> t) {
-                        return resolveFieldsMatrix(l, t);
-                    }
-                    public List<Map<String, Object>> resolveConstructorsAligned(List<String> l, TypeDeclaration<?> t, String a) {
-                        return resolveConstructorsAligned(l, t, a);
-                    }
-                    public List<Map<String, Object>> resolveMethodsAligned(List<String> l, TypeDeclaration<?> t, String a) {
-                        return resolveMethodsAligned(l, t, a);
-                    }
-                    public Map<String, Object> getEnhancementData(String a) { return getEnhancementData(a); }
-                    public Map<String, Object> extractCallGraphSummary(TypeDeclaration<?> t) { return extractCallGraphSummary(t); }
-                    public int calculateClassLOC(TypeDeclaration<?> t, List<String> fl) { return calculateClassLOC(t, fl); }
-                    public int calculateClassComplexity(TypeDeclaration<?> t, List<String> fl) { return calculateClassComplexity(t, fl); }
-                    public int calculateInheritanceDepth(TypeDeclaration<?> t) { return calculateInheritanceDepth(t); }
-                    public List<Map<String, Object>> extractAnnos(TypeDeclaration<?> t, String a) { return extractAnnos(t, a); }
-                    public String extractNodeSource(List<String> fl, Node n, boolean ib) { return extractNodeSource(fl, n, ib); }
-                    public List<String> extractMethodTags(String mn, String rt) { return extractMethodTags(mn, rt); }
-                    public List<Map<String, Object>> resolveParametersInventory(NodeList<Parameter> p) { return resolveParametersInventory(p); }
-                    public void trackUnrecognizedSuffix(String s) { unrecognizedClassSuffixes.merge(s, 1, Integer::sum); }
-                    public void trackMethodName(String n) { allMethodNames.add(n); }
-                };
-
+        // Create JavaAssetExtractor (no LegacyBridge — all helpers extracted)
         cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor assetExtractor =
                 new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor(
                         commentService, semanticService, methodAnalyzer,
                         classCount, methodCount, fieldCount,
-                        seenDependencies,
-                        legacyBridge);
-        assetExtractorRef[0] = assetExtractor;
+                        seenDependencies);
 
         // Configure JavaParser Symbol Solver with full Maven classpath
         cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver cpResolver = null;
@@ -586,7 +546,7 @@ public class SourceUniversePro {
                                 String cnName = translator.translateIdentifier(className);
                                 projectGlossary.put(className.toLowerCase(), cnName);
 
-                                Map<String, Object> classAsset = assetExtractor.processType(type, pkg, null, fileLines, ctx, globalDependencies);
+                                Map<String, Object> classAsset = assetExtractor.processType(type, pkg, null, fileLines, ctx, globalDependencies, unrecognizedClassSuffixes);
                                 if (!classAsset.getOrDefault("description", "").toString().isEmpty()) commentFound.incrementAndGet();
 
                                 classAsset.put("module", moduleName);
@@ -1132,145 +1092,6 @@ public class SourceUniversePro {
         return assets;
     }
 
-    private static List<Map<String, String>> resolveParametersInventory(NodeList<Parameter> parameters) {
-        return parameters.stream().map(p -> {
-            Map<String, String> pMap = new LinkedHashMap<>();
-            pMap.put("name", p.getNameAsString());
-            pMap.put("type_path", getSemanticPath(p.getType()));
-            return pMap;
-        }).collect(Collectors.toList());
-    }
-
-    /**
-     * 语义路径解析：尝试解析类型的完全限定名
-     * 降级机制：当符号解析失败时，回退到 AST 结构的启发式推断
-     */
-    private static String getSemanticPath(Type type) {
-        try {
-            return type.resolve().describe();
-        } catch (Exception e) {
-            // Fallback 1: Try to infer from import statements
-            String typeName = type.asString();
-            if (!typeName.contains(".") && typeName.matches("[A-Z]\\w*")) {
-                // Likely a simple class name - return as-is, will be resolved later
-                return typeName;
-            }
-            // Fallback 2: Use AST structure (e.g., generic types)
-            return typeName;
-        }
-    }
-
-    /**
-     * 检查方法是否为重写方法
-     */
-    private static boolean checkIsOverride(MethodDeclaration m) {
-        try { return m.resolve().getQualifiedSignature().contains("Override") || m.getAnnotationByClass(Override.class).isPresent(); }
-        catch (Exception e) { return m.getAnnotationByClass(Override.class).isPresent(); }
-    }
-
-    /**
-     * 继承关系语义：提取 extends 和 implements
-     */
-    private static Map<String, List<String>> resolveHierarchySemantic(ClassOrInterfaceDeclaration cid) {
-        Map<String, List<String>> h = new LinkedHashMap<>();
-        h.put("extends", cid.getExtendedTypes().stream().map(SourceUniversePro::getSemanticPath).collect(Collectors.toList()));
-        h.put("implements", cid.getImplementedTypes().stream().map(SourceUniversePro::getSemanticPath).collect(Collectors.toList()));
-        return h;
-    }
-
-    /**
-     * 修饰符解析
-     */
-    private static List<String> resolveMods(NodeList<com.github.javaparser.ast.Modifier> modifiers) {
-        return modifiers.stream().map(m -> m.getKeyword().asString()).collect(Collectors.toList());
-    }
-
-    /**
-     * 泛型参数解析
-     */
-    private static List<String> resolveTypeParameters(TypeDeclaration<?> t) {
-        if (t instanceof ClassOrInterfaceDeclaration) {
-            return ((ClassOrInterfaceDeclaration) t).getTypeParameters().stream()
-                    .map(tp -> tp.asString()).collect(Collectors.toList());
-        }
-        return Collections.emptyList();
-    }
-
-    /**
-     * 从包名提取模块名 (例如: org.springframework.core -> spring-core)
-     */
-    private static String extractModuleName(String pkg) {
-        // 针对 JDK: java.util.concurrent -> java, javax.swing -> javax, jdk.internal -> jdk, sun.misc -> sun, com.sun.tracing -> com-sun
-        if (pkg.startsWith("java.") || pkg.startsWith("javax.") || pkg.startsWith("jdk.") || pkg.startsWith("sun.")) {
-            int dotIndex = pkg.indexOf('.');
-            return dotIndex > 0 ? pkg.substring(0, dotIndex) : pkg;
-        }
-        if (pkg.startsWith("com.sun.")) {
-            return "com-sun";
-        }
-        // 针对 Tomcat: org.apache.catalina.core -> core, org.apache.catalina.connector -> connector
-        if (pkg.startsWith("org.apache.catalina.")) {
-            String sub = pkg.substring("org.apache.catalina.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 针对 Spring Cloud: org.springframework.cloud.client -> client, org.springframework.cloud.context -> context
-        if (pkg.startsWith("org.springframework.cloud.")) {
-            String sub = pkg.substring("org.springframework.cloud.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 针对 Spring Boot: org.springframework.boot.autoconfigure -> autoconfigure, org.springframework.boot.context -> context
-        if (pkg.startsWith("org.springframework.boot.")) {
-            String sub = pkg.substring("org.springframework.boot.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 针对 Netty: io.netty.buffer -> buffer, io.netty.channel -> channel, io.netty.handler -> handler
-        if (pkg.startsWith("io.netty.")) {
-            String sub = pkg.substring("io.netty.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 针对 Dubbo: org.apache.dubbo.rpc.cluster -> rpc
-        if (pkg.startsWith("org.apache.dubbo.")) {
-            String sub = pkg.substring("org.apache.dubbo.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 针对 RocketMQ: org.apache.rocketmq.remoting.netty -> remoting
-        if (pkg.startsWith("org.apache.rocketmq.")) {
-            String sub = pkg.substring("org.apache.rocketmq.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 🚀 针对 MyBatis: org.apache.ibatis.executor -> executor, org.apache.ibatis.mapping -> mapping
-        if (pkg.startsWith("org.apache.ibatis.")) {
-            String sub = pkg.substring("org.apache.ibatis.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 🚀 针对 Redisson: org.redisson.api.RMap -> api
-        if (pkg.startsWith("org.redisson.")) {
-            String sub = pkg.substring("org.redisson.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 🚀 针对 HikariCP: com.zaxxer.hikari.pool -> pool, com.zaxxer.hikari.util -> util
-        if (pkg.startsWith("com.zaxxer.hikari.")) {
-            String sub = pkg.substring("com.zaxxer.hikari.".length());
-            int idx = sub.indexOf('.');
-            return idx != -1 ? sub.substring(0, idx) : sub;
-        }
-        // 针对 Spring: org.springframework.core -> spring-core
-        if (pkg.startsWith("org.springframework.")) {
-            String sub = pkg.substring("org.springframework.".length());
-            int dotIndex = sub.indexOf('.');
-            return "spring-" + (dotIndex > 0 ? sub.substring(0, dotIndex) : sub);
-        }
-        return pkg;
-    }
-
     /**
      * 核心功能：生成语义映射字典表
      */
@@ -1316,38 +1137,6 @@ public class SourceUniversePro {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    /**
-     * 🚀 智能标签系统：基于方法名和特征的语义分类
-     */
-    private static java.util.Set<String> extractMethodTags(String methodName, String returnType) {
-        java.util.Set<String> tags = new java.util.HashSet<>();
-        if (methodName == null) return tags;
-        
-        String lowerName = methodName.toLowerCase();
-
-        // 1. 行为维度 (CRUD)
-        if (lowerName.matches(".*(get|find|select|query|list|search|fetch).*")) tags.add("Query");
-        else if (lowerName.matches(".*(add|create|insert|save|register).*")) tags.add("Create");
-        else if (lowerName.matches(".*(update|modify|edit|change|set).*")) tags.add("Update");
-        else if (lowerName.matches(".*(delete|remove|drop|clear).*")) tags.add("Delete");
-
-        // 2. 并发维度
-        if (lowerName.matches(".*(sync|lock|unlock|mutex).*")) tags.add("Locking");
-        else if (lowerName.matches(".*(async|future|callback|executor).*")) tags.add("Async");
-        else if (lowerName.matches(".*(atomic|cas).*")) tags.add("Atomic");
-
-        // 3. 架构角色
-        if (lowerName.matches(".*(init|start|stop|destroy|close|open).*")) tags.add("Lifecycle");
-        else if (lowerName.matches(".*(config|property|setting).*")) tags.add("Config");
-        else if (lowerName.matches(".*(util|helper|convert|parse|format).*")) tags.add("Utility");
-
-        // 4. 安全与校验
-        if (lowerName.matches(".*(validate|check|verify|assert).*")) tags.add("Validation");
-        else if (lowerName.matches(".*(error|catch|rollback|retry).*")) tags.add("ErrorHandling");
-
-        return tags;
     }
 
     /**
@@ -1505,21 +1294,6 @@ public class SourceUniversePro {
                 .forEach(src -> solver.add(new JavaParserTypeSolver(src.toFile())));
     }
 
-    private static List<Map<String, Object>> extractAnnos(NodeWithAnnotations<?> n, String target) {
-        return n.getAnnotations().stream().map(a -> {
-            Map<String, Object> am = new LinkedHashMap<>();
-            am.put("name", a.getNameAsString());
-            am.put("target", target);
-            return am;
-        }).collect(Collectors.toList());
-    }
-
-    private static String getKind(TypeDeclaration<?> t) {
-        if (t instanceof ClassOrInterfaceDeclaration) return ((ClassOrInterfaceDeclaration) t).isInterface() ? "INTERFACE" : "CLASS";
-        if (t instanceof EnumDeclaration) return "ENUM";
-        return "TYPE";
-    }
-
     private static void saveAsJson(Object obj, String fileName) throws Exception {
         Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
         try (FileWriter fw = new FileWriter(fileName)) { 
@@ -1567,83 +1341,5 @@ public class SourceUniversePro {
             .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
             .limit(limit)
             .forEach(e -> System.out.printf("   - %-20s : %d 次\n", e.getKey(), e.getValue()));
-    }
-
-    // =====================================================================
-    // 🚀 JArchitect 对标：代码指标计算方法
-    // =====================================================================
-
-    /**
-     * Calculate Lines of Code (LOC) for a class.
-     * Counts non-empty, non-comment-only lines in the class body.
-     */
-    private static int calculateClassLOC(TypeDeclaration<?> type, List<String> fileLines) {
-        if (!type.getBegin().isPresent() || !type.getEnd().isPresent()) return 0;
-        int start = type.getBegin().get().line - 1; // 0-indexed
-        int end = Math.min(type.getEnd().get().line, fileLines.size());
-        int loc = 0;
-        for (int i = start; i < end && i < fileLines.size(); i++) {
-            String line = fileLines.get(i).trim();
-            if (!line.isEmpty() && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*")) {
-                loc++;
-            }
-        }
-        return loc;
-    }
-
-
-    /**
-     * Calculate approximate cyclomatic complexity for a class.
-     * Sum of decision points across all methods: if/else/for/while/switch/case/&&/||
-     */
-    private static double calculateClassComplexity(TypeDeclaration<?> type, List<String> fileLines) {
-        double totalComplexity = 0;
-        int methodCount = 0;
-
-        for (com.github.javaparser.ast.body.MethodDeclaration method : type.getMethods()) {
-            if (!method.getBody().isPresent()) continue;
-            String body = method.getBody().get().toString();
-            double complexity = 1; // Base complexity
-
-            // Count decision points
-            complexity += countPatternOccurrences(body, "\\bif\\s*\\(");
-            complexity += countPatternOccurrences(body, "\\belse\\s+if\\s*\\(");
-            complexity += countPatternOccurrences(body, "\\bfor\\s*\\(");
-            complexity += countPatternOccurrences(body, "\\bwhile\\s*\\(");
-            complexity += countPatternOccurrences(body, "\\bcase\\s+");
-            complexity += countPatternOccurrences(body, "\\bcatch\\s*\\(");
-            complexity += countPatternOccurrences(body, "&&");
-            complexity += countPatternOccurrences(body, "\\|\\|");
-            complexity += countPatternOccurrences(body, "\\?[^?]"); // Ternary
-
-            totalComplexity += complexity;
-            methodCount++;
-        }
-
-        return methodCount > 0 ? Math.round(totalComplexity * 100.0) / 100.0 : 1.0;
-    }
-
-    private static int countPatternOccurrences(String text, String regex) {
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
-        java.util.regex.Matcher matcher = pattern.matcher(text);
-        int count = 0;
-        while (matcher.find()) count++;
-        return count;
-    }
-
-    /**
-     * Calculate inheritance depth for a class.
-     * Count how many superclasses it extends.
-     */
-    private static int calculateInheritanceDepth(TypeDeclaration<?> type) {
-        if (!(type instanceof ClassOrInterfaceDeclaration)) return 0;
-        ClassOrInterfaceDeclaration classDecl = (ClassOrInterfaceDeclaration) type;
-        int depth = 0;
-
-        // Count extended classes
-        NodeList<ClassOrInterfaceType> extended = classDecl.getExtendedTypes();
-        if (!extended.isEmpty()) depth++;
-
-        return depth;
     }
 }

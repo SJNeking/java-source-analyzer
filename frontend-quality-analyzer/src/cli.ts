@@ -42,7 +42,7 @@ function logDone() {
   console.log();
 }
 
-async function sendWsEvent(event: string, data: any, port: number) {
+async function sendWsEvent(event: string, data: Record<string, unknown>, port: number) {
   if (port === 0) return;
   try {
     const msg = JSON.stringify({ event, data, timestamp: new Date().toISOString() });

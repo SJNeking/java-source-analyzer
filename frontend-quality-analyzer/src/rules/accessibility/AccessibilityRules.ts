@@ -118,7 +118,11 @@ class A11yNoInteractiveInsideInteractive implements QualityRule {
   getCategory(): IssueCategory { return 'ACCESSIBILITY'; }
   check(sourceCode: string, filePath: string): QualityIssue[] {
     const issues: QualityIssue[] = [];
-    if (/<button\s[^>]*>[\s\S]*?<button\s|<button\s[^>]*>[\s\S]*?<a\s|<a\s[^>]*>[\s\S]*?<button\s/.test(sourceCode)) {
+    // Check for truly nested interactive elements (button inside button, etc.)
+    // Only flag if there's no closing tag between the opening tags (real nesting)
+    if (/<button\s[^>]*>(?![\s\S]*?<\/button>)[\s\S]*?<button\s/.test(sourceCode) ||
+        /<button\s[^>]*>(?![\s\S]*?<\/button>)[\s\S]*?<a\s/.test(sourceCode) ||
+        /<a\s[^>]*>(?![\s\S]*?<\/a>)[\s\S]*?<button\s/.test(sourceCode)) {
       issues.push({
         rule_key: this.getRuleKey(), rule_name: this.getName(), severity: Severity.MAJOR,
         category: this.getCategory(), file_path: filePath, line: 1,

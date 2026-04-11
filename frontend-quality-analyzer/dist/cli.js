@@ -15203,16 +15203,27 @@ var NoImplicitAnyRule = class extends AbstractTypeScriptRule {
     const lines = sourceCode.split("\n");
     let fileIssueCount = 0;
     const MAX_ISSUES_PER_FILE = 5;
+    let insideTemplateLiteral = false;
     lines.forEach((line, index) => {
       if (fileIssueCount >= MAX_ISSUES_PER_FILE) {
+        return;
+      }
+      const backticks = (line.match(/`/g) || []).length;
+      if (backticks % 2 === 1) {
+        insideTemplateLiteral = !insideTemplateLiteral;
+      }
+      if (insideTemplateLiteral) {
         return;
       }
       const lineNum = index + 1;
       if (line.trim().startsWith("//") || line.trim().startsWith("*")) {
         return;
       }
-      const isModuleLevelExport = /^(export\s+(default\s+)?)?(async\s+)?function\s+\w+\s*\(/.test(line.trim()) || /^export\s+const\s+\w+\s*=/.test(line.trim());
-      if (!isModuleLevelExport) {
+      const trimmed = line.trim();
+      const isExportedFunction = /^(export\s+)(default\s+)?(async\s+)?function\s+\w+\s*\(/.test(trimmed);
+      const isExportedConst = /^export\s+(default\s+)?const\s+\w+\s*=/.test(trimmed);
+      const isExportedClass = /^export\s+(default\s+)?class\s+/.test(trimmed);
+      if (!isExportedFunction && !isExportedConst && !isExportedClass) {
         return;
       }
       const paramPattern = /(?:function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?)\(([^)]*)\)/g;
@@ -17125,7 +17136,7 @@ var A11yNoInteractiveInsideInteractive = class {
   }
   check(sourceCode, filePath) {
     const issues = [];
-    if (/<button\s[^>]*>[\s\S]*?<button\s|<button\s[^>]*>[\s\S]*?<a\s|<a\s[^>]*>[\s\S]*?<button\s/.test(sourceCode)) {
+    if (/<button\s[^>]*>(?![\s\S]*?<\/button>)[\s\S]*?<button\s/.test(sourceCode) || /<button\s[^>]*>(?![\s\S]*?<\/button>)[\s\S]*?<a\s/.test(sourceCode) || /<a\s[^>]*>(?![\s\S]*?<\/a>)[\s\S]*?<button\s/.test(sourceCode)) {
       issues.push({
         rule_key: this.getRuleKey(),
         rule_name: this.getName(),
@@ -18470,7 +18481,7 @@ var RuleEngine = class {
       for (const rule of activeRules) {
         try {
           const issues = rule.check(file.content, file.path, {
-            framework: this.detectFramework(file.path),
+            framework: this.normalizeFramework(this.detectFramework(file.path)),
             config: config?.framework_config
           });
           fileIssues.push(...issues);
@@ -18488,7 +18499,7 @@ var RuleEngine = class {
         file_size: Buffer.byteLength(file.content, "utf-8"),
         line_count: file.content.split("\n").length,
         language: this.detectLanguage(file.path),
-        framework: this.detectFramework(file.path),
+        framework: this.normalizeFramework(this.detectFramework(file.path)),
         issues: fileIssues,
         metrics: this.calculateFileMetrics(file.content, file.path)
       };
@@ -18609,6 +18620,17 @@ var RuleEngine = class {
     if (filePath.endsWith(".component.ts"))
       return "angular";
     return void 0;
+  }
+  /**
+   * Normalize framework type to match FileAnalysis interface
+   * Converts nextjs -> react, nuxt -> vue
+   */
+  normalizeFramework(framework) {
+    if (framework === "nextjs")
+      return "react";
+    if (framework === "nuxt")
+      return "vue";
+    return framework;
   }
   /**
    * Detect dominant framework in the project
@@ -18874,11 +18896,11 @@ var RuleEngine = class {
         `TypeScript coverage below threshold: ${metrics.typescript.coverage_percentage}% < ${thresholds.min_typescript_coverage}%`
       );
     }
-    if (thresholds.min_accessibility_score && metrics.accessibility.wcag_aa_compliance_score) {
-      if (metrics.accessibility.wcag_aa_compliance_score < thresholds.min_accessibility_score) {
+    if (thresholds.min_wcag_score && metrics.accessibility.wcag_aa_compliance_score) {
+      if (metrics.accessibility.wcag_aa_compliance_score < thresholds.min_wcag_score) {
         passed = false;
         reasons.push(
-          `Accessibility score below threshold: ${metrics.accessibility.wcag_aa_compliance_score} < ${thresholds.min_accessibility_score}`
+          `Accessibility score below threshold: ${metrics.accessibility.wcag_aa_compliance_score} < ${thresholds.min_wcag_score}`
         );
       }
     }
@@ -18902,7 +18924,7 @@ var RuleEngine = class {
         max_major: thresholds.max_major_issues,
         max_total: thresholds.max_total_issues,
         min_typescript_coverage: thresholds.min_typescript_coverage,
-        min_accessibility_score: thresholds.min_accessibility_score
+        min_accessibility_score: thresholds.min_wcag_score
       }
     };
   }
@@ -19121,10 +19143,10 @@ var HTMLReporter = class {
 </footer>
 
 <script>
-function filterIssues(severity) {
+const filterIssues = sev => {
   const rows = document.querySelectorAll('#issues-table tr');
   rows.forEach(row => {
-    if (severity === 'all' || row.dataset.severity === severity) {
+    if (sev === 'all' || row.dataset.severity === sev) {
       row.style.display = '';
     } else {
       row.style.display = 'none';
@@ -19423,7 +19445,7 @@ async function runAnalysis() {
       const framework = detectFramework(filePath, content);
       const metrics = calculateFileMetrics(content);
       const fileOptions = {
-        framework,
+        framework: framework === "nextjs" || framework === "nuxt" ? void 0 : framework,
         language,
         config
       };
@@ -19491,7 +19513,7 @@ function buildProjectAnalysis(sourceRoot, fileAnalyses, allIssues, engine, elaps
   const totalLines = fileAnalyses.reduce((sum, f) => sum + f.line_count, 0);
   const tsFiles = fileAnalyses.filter((f) => ["typescript", "tsx"].includes(f.language));
   const anyUsage = tsFiles.reduce((sum, f) => sum + (f.metrics?.any_type_usage || 0), 0);
-  const componentSizes = fileAnalyses.filter((f) => f.metrics && f.metrics.component_count > 0).map((f) => f.line_count);
+  const componentSizes = fileAnalyses.filter((f) => f.metrics && (f.metrics.component_count ?? 0) > 0).map((f) => f.line_count);
   const metrics = {
     typescript: {
       coverage_percentage: tsFiles.length > 0 ? tsFiles.reduce((sum, f) => sum + f.line_count, 0) / totalLines * 100 : 0,

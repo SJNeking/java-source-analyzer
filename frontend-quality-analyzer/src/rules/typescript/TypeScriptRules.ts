@@ -61,9 +61,23 @@ export class NoImplicitAnyRule extends AbstractTypeScriptRule {
     let fileIssueCount = 0;
     const MAX_ISSUES_PER_FILE = 5; // Cap per file to avoid noise
 
+    // Track whether we're inside a template literal (backtick string)
+    let insideTemplateLiteral = false;
+
     lines.forEach((line, index) => {
       // Stop reporting for this file once we hit the cap
       if (fileIssueCount >= MAX_ISSUES_PER_FILE) {
+        return;
+      }
+
+      // Toggle insideTemplateLiteral based on backtick count in this line
+      // (simplified: doesn't handle escaped backticks, but good enough)
+      const backticks = (line.match(/`/g) || []).length;
+      if (backticks % 2 === 1) {
+        insideTemplateLiteral = !insideTemplateLiteral;
+      }
+      // If we're inside a template literal, skip — it's a string, not TS code
+      if (insideTemplateLiteral) {
         return;
       }
 
@@ -74,11 +88,13 @@ export class NoImplicitAnyRule extends AbstractTypeScriptRule {
         return;
       }
 
-      // Only flag module-level exported functions/consts (public API surface)
-      // Skip class methods, internal functions, and callbacks
-      const isModuleLevelExport = /^(export\s+(default\s+)?)?(async\s+)?function\s+\w+\s*\(/.test(line.trim()) ||
-                                   /^export\s+const\s+\w+\s*=/.test(line.trim());
-      if (!isModuleLevelExport) {
+      // Only flag module-level EXPORTED functions/consts (public API surface)
+      // Skip internal functions, class methods, and callbacks
+      const trimmed = line.trim();
+      const isExportedFunction = /^(export\s+)(default\s+)?(async\s+)?function\s+\w+\s*\(/.test(trimmed);
+      const isExportedConst = /^export\s+(default\s+)?const\s+\w+\s*=/.test(trimmed);
+      const isExportedClass = /^export\s+(default\s+)?class\s+/.test(trimmed);
+      if (!isExportedFunction && !isExportedConst && !isExportedClass) {
         return;
       }
 
