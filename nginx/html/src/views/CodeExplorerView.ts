@@ -34,6 +34,9 @@ export class CodeExplorerView {
 
   public render(data: AnalysisResult): void {
     this.data = data;
+    this._currentClass = '';
+    this._currentMethod = '';
+    this.selectedCode = null;
     this.draw();
   }
 
@@ -50,10 +53,10 @@ export class CodeExplorerView {
           </div>
           <div id="tree-content" class="explorer-tree-content"></div>
         </div>
-        
-        <!-- Right: Code Panel -->
+
+        <!-- Right: Code/UML View + Audit Panel -->
         <div id="code-panel" class="explorer-code">
-          ${this.renderEmptyState()}
+          ${this.renderDefaultUmlView()}
         </div>
       </div>
     `;
@@ -67,19 +70,98 @@ export class CodeExplorerView {
 
     // Initial Render
     this.renderTree(this.data.assets || []);
+
+    // Bind click events
+    this.bindMethodClicks();
+
+    // Render default package-level UML after DOM is ready
+    setTimeout(() => this.renderPackageUml(), 100);
   }
 
   /**
-   * Render Empty State
+   * Render default package-level UML (all classes + their relationships)
    */
-  private renderEmptyState(): string {
+  private renderDefaultUmlView(): string {
     return `
-      <div class="explorer-empty">
-        <div class="explorer-empty-icon">📄</div>
-        <div class="explorer-empty-title">点击左侧方法查看源码</div>
-        <div class="explorer-empty-desc">Click a method in the tree to view source code</div>
+      <div class="explorer-code-layout">
+        <div class="explorer-code-main">
+          <div class="explorer-code-header">
+            <div class="explorer-breadcrumb">
+              <span class="breadcrumb-text">📐 项目架构总览 — 点击类名查看类图，点击方法查看源码</span>
+            </div>
+          </div>
+          <div class="uml-viewer">
+            <pre class="mermaid" id="default-mermaid">classDiagram</pre>
+          </div>
+        </div>
+        <div class="explorer-audit-panel">
+          <div class="audit-tabs" role="tablist">
+            <div class="audit-tab active" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
+            <div class="audit-tab" data-tab="tags" onclick="window.__switchAuditTab('tags')">🏷️ 标签</div>
+          </div>
+          <div class="audit-content">
+            <div class="audit-tab-panel active" id="audit-comments">
+              <div class="audit-empty">暂无评论</div>
+            </div>
+            <div class="audit-tab-panel" id="audit-tags" style="display:none;">
+              <div class="audit-empty">暂无标签</div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
+  }
+
+  /**
+   * Render package-level UML: all classes + import dependencies
+   */
+  private renderPackageUml(): void {
+    if (!this.data?.assets) return;
+
+    const assets = this.data.assets || [];
+    let mermaidCode = 'classDiagram\n';
+
+    // Add all classes with kind markers
+    assets.forEach((a: any) => {
+      const className = a.address.split('.').pop();
+      const kind = a.kind || 'CLASS';
+      const marker = kind === 'INTERFACE' ? '<<Interface>>' :
+                     kind === 'ABSTRACT_CLASS' ? '<<Abstract>>' :
+                     kind === 'ENUM' ? '<<Enum>>' : '';
+      if (marker) {
+        mermaidCode += `  class ${className} {\n    ${marker}\n  }\n`;
+      } else {
+        mermaidCode += `  class ${className} {}\n`;
+      }
+    });
+
+    // Add import relationships
+    assets.forEach((a: any) => {
+      const className = a.address.split('.').pop();
+      const imports = a.import_dependencies || [];
+      imports.slice(0, 6).forEach((dep: string) => {
+        const depName = dep.split('.').pop();
+        if (depName && depName !== className && 
+            assets.some((other: any) => other.address.split('.').pop() === depName)) {
+          mermaidCode += `  ${className} ..> ${depName}\n`;
+        }
+      });
+    });
+
+    // Use mermaid.render() API for dynamic content
+    const mmd = (window as any).mermaid;
+    if (!mmd) return;
+
+    mmd.render('pkg-uml', mermaidCode).then((result: any) => {
+      const container = document.querySelector('.uml-viewer');
+      if (container) {
+        container.innerHTML = result.svg;
+      }
+    }).catch((err: any) => {
+      console.warn('Mermaid render error:', err);
+      const container = document.querySelector('.uml-viewer');
+      if (container) container.innerHTML = `<pre style="color:var(--text-muted);font-size:10px;white-space:pre-wrap;">${mermaidCode}</pre>`;
+    });
   }
 
   /**
@@ -120,12 +202,11 @@ export class CodeExplorerView {
             <div class="code-lines">${codeContent}</div>
           </div>
         </div>
-        <!-- Bottom: Audit Panel (Comments, Tags, UML) -->
+        <!-- Bottom: Audit Panel (Comments & Tags only) -->
         <div class="explorer-audit-panel">
           <div class="audit-tabs" role="tablist">
             <div class="audit-tab active" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
             <div class="audit-tab" data-tab="tags" onclick="window.__switchAuditTab('tags')">🏷️ 标签</div>
-            <div class="audit-tab" data-tab="uml" onclick="window.__switchAuditTab('uml')">📐 UML</div>
           </div>
           <div class="audit-content">
             <!-- Comments Tab -->
@@ -164,10 +245,6 @@ export class CodeExplorerView {
                   `).join('')
                 }
               </div>
-            </div>
-            <!-- UML Tab -->
-            <div class="audit-tab-panel" id="audit-uml" style="display:none;">
-              <div class="uml-diagram" id="uml-diagram"></div>
             </div>
           </div>
         </div>
@@ -385,17 +462,20 @@ export class CodeExplorerView {
     if (codePanel) {
       codePanel.innerHTML = this.renderUmlView(asset);
       codePanel.scrollTo(0, 0);
+
+      // Render mermaid after DOM insertion
+      setTimeout(() => this.renderClassUml(asset), 100);
     }
   }
 
   /**
-   * Render UML View (class diagram on top, audit panel below)
+   * Render a single class UML diagram using mermaid.render()
    */
-  private renderUmlView(asset: any): string {
-    const kindColor = this.getKindColor(asset.kind || 'CLASS');
-    const className = asset.address.split('.').pop();
+  private async renderClassUml(asset: any): Promise<void> {
+    const target = document.getElementById('uml-render-target');
+    if (!target) return;
 
-    // Build mermaid class diagram syntax
+    const className = asset.address.split('.').pop();
     const methods = asset.methods_full || asset.methods || [];
     const fields = asset.fields_matrix || asset.fields || [];
     const imports = (asset as any).import_dependencies || [];
@@ -413,7 +493,52 @@ export class CodeExplorerView {
     });
     mermaidCode += `  }\n`;
 
-    // Add import dependencies
+    if (imports.length > 0) {
+      imports.slice(0, 10).forEach((dep: string) => {
+        const depName = dep.split('.').pop();
+        if (depName && depName !== className) {
+          mermaidCode += `  ${className} ..> ${depName}\n`;
+        }
+      });
+    }
+
+    const mmd = (window as any).mermaid;
+    if (!mmd) return;
+
+    try {
+      const uniqueId = 'uml-' + Date.now();
+      const result = await mmd.render(uniqueId, mermaidCode);
+      target.innerHTML = result.svg;
+    } catch (err) {
+      console.warn('Mermaid render error:', err);
+      target.innerHTML = `<pre style="color:var(--text-muted);font-size:10px;white-space:pre-wrap;">${mermaidCode}</pre>`;
+    }
+  }
+
+  /**
+   * Render UML View (class diagram on top, audit panel below)
+   */
+  private renderUmlView(asset: any): string {
+    const kindColor = this.getKindColor(asset.kind || 'CLASS');
+    const className = asset.address.split('.').pop();
+
+    const methods = asset.methods_full || asset.methods || [];
+    const fields = asset.fields_matrix || asset.fields || [];
+    const imports = (asset as any).import_dependencies || [];
+
+    let mermaidCode = `classDiagram\n`;
+    mermaidCode += `  class ${className} {\n`;
+    fields.slice(0, 25).forEach((f: any) => {
+      const type = f.type_path ? f.type_path.split('.').pop() : 'var';
+      mermaidCode += `    ${type} ${f.name}\n`;
+    });
+    methods.slice(0, 25).forEach((m: any) => {
+      const isPublic = m.modifiers?.includes('public');
+      const prefix = isPublic ? '+' : '-';
+      mermaidCode += `    ${prefix}${m.name}()\n`;
+    });
+    mermaidCode += `  }\n`;
+
     if (imports.length > 0) {
       imports.slice(0, 10).forEach((dep: string) => {
         const depName = dep.split('.').pop();
@@ -422,8 +547,6 @@ export class CodeExplorerView {
         }
       });
     }
-
-    const mermaidHtml = `<pre class="mermaid">${mermaidCode}</pre>`;
 
     return `
       <div class="explorer-code-layout">
@@ -436,23 +559,17 @@ export class CodeExplorerView {
             </div>
           </div>
           <div class="uml-viewer">
-            ${mermaidHtml}
+            <div id="uml-render-target"></div>
           </div>
         </div>
-        <!-- Bottom: Audit Panel -->
+        <!-- Bottom: Audit Panel (Comments & Tags only) -->
         <div class="explorer-audit-panel">
           <div class="audit-tabs" role="tablist">
-            <div class="audit-tab active" data-tab="uml" onclick="window.__switchAuditTab('uml')">📐 UML</div>
-            <div class="audit-tab" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
+            <div class="audit-tab active" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
             <div class="audit-tab" data-tab="tags" onclick="window.__switchAuditTab('tags')">🏷️ 标签</div>
           </div>
           <div class="audit-content">
-            <!-- UML Tab (active by default) -->
-            <div class="audit-tab-panel active" id="audit-uml">
-              <div class="uml-diagram" id="uml-diagram">${mermaidHtml}</div>
-            </div>
-            <!-- Comments Tab -->
-            <div class="audit-tab-panel" id="audit-comments" style="display:none;">
+            <div class="audit-tab-panel active" id="audit-comments">
               <div class="audit-comment-form">
                 <textarea id="audit-comment-input" class="audit-textarea" placeholder="添加评论或思考..."></textarea>
                 <button class="audit-submit-btn" onclick="window.__addComment()">提交</button>
@@ -471,7 +588,6 @@ export class CodeExplorerView {
                 }
               </div>
             </div>
-            <!-- Tags Tab -->
             <div class="audit-tab-panel" id="audit-tags" style="display:none;">
               <div class="audit-tag-input-row">
                 <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称...">
@@ -645,15 +761,15 @@ export class CodeExplorerView {
     const codePanel = document.getElementById('code-panel');
     if (!codePanel) return;
 
-    // Check if currently in UML mode (has uml-viewer class)
     const isUmlMode = codePanel.querySelector('.uml-viewer') !== null;
 
     if (isUmlMode) {
-      // Re-render UML view
       const asset = this.data?.assets?.find((a: any) => a.address === this._currentClass);
-      if (asset) codePanel.innerHTML = this.renderUmlView(asset);
+      if (asset) {
+        codePanel.innerHTML = this.renderUmlView(asset);
+        setTimeout(() => this.renderClassUml(asset), 100);
+      }
     } else {
-      // Re-render code view
       codePanel.innerHTML = this.renderCodePanel(this.selectedCode.content, this.selectedCode.title, this.selectedCode.kind);
     }
   }
