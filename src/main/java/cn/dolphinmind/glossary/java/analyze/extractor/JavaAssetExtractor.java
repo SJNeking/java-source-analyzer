@@ -3,11 +3,17 @@ package cn.dolphinmind.glossary.java.analyze.extractor;
 import cn.dolphinmind.glossary.java.analyze.ScannerContext;
 import cn.dolphinmind.glossary.java.analyze.translate.CommentAnalysisService;
 import cn.dolphinmind.glossary.java.analyze.translate.SemanticEnrichmentService;
+import cn.dolphinmind.glossary.java.analyze.extractor.MethodCallAnalyzer;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.stmt.ThrowStmt;
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.Modifier;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Extracts Java type assets (classes, interfaces, enums) from AST nodes.
@@ -31,8 +37,10 @@ public class JavaAssetExtractor {
     private final AtomicInteger methodCount;
     private final AtomicInteger fieldCount;
 
+    // Shared dependency tracking set
+    private final java.util.Set<String> seenDependencies;
+
     // Legacy bridge: still calls some static methods in SourceUniversePro
-    // These will be fully migrated in a future phase
     private final LegacyBridge legacyBridge;
 
     public JavaAssetExtractor(CommentAnalysisService commentService,
@@ -41,6 +49,7 @@ public class JavaAssetExtractor {
                                AtomicInteger classCount,
                                AtomicInteger methodCount,
                                AtomicInteger fieldCount,
+                               java.util.Set<String> seenDependencies,
                                LegacyBridge legacyBridge) {
         this.commentService = commentService;
         this.semanticService = semanticService;
@@ -48,6 +57,7 @@ public class JavaAssetExtractor {
         this.classCount = classCount;
         this.methodCount = methodCount;
         this.fieldCount = fieldCount;
+        this.seenDependencies = seenDependencies;
         this.legacyBridge = legacyBridge;
     }
 
@@ -108,8 +118,8 @@ public class JavaAssetExtractor {
             }
         }
 
-        // Method and field extraction (legacy bridge for now)
-        node.put("methods_full", legacyBridge.resolveMethodsSemanticEnhanced(type, fileLines));
+        // Method and field extraction
+        node.put("methods_full", resolveMethodsSemanticEnhanced(type, fileLines));
         node.put("methods_intent", legacyBridge.resolveMethodsEnhanced(type, fileLines));
         node.put("fields", legacyBridge.resolveFieldsEnhanced(type));
         node.put("enhancement", legacyBridge.getEnhancementData(address));
@@ -188,16 +198,96 @@ public class JavaAssetExtractor {
     }
 
     /**
+     * Extract method asset with full metadata.
+     * Replaces SourceUniversePro.extractMethodEnhanced().
+     */
+    public Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
+                                                      NodeList<Parameter> params, List<String> fileLines,
+                                                      String classAddr, List<Map<String, String>> globalDeps) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        String fullAddr = baseAddr + "(" + params.stream().map(p -> p.getType().asString()).collect(Collectors.joining(",")) + ")";
+
+        m.put("address", fullAddr);
+        m.put("name", d.getNameAsString());
+
+        Map<String, Object> commentDetails = commentService.extractCommentDetails(fileLines, d);
+        m.put("description", commentDetails.getOrDefault("summary", ""));
+        m.put("comment_details", commentDetails);
+
+        m.put("modifiers", methodAnalyzer.resolveMods(d.getModifiers()));
+        m.put("line_start", d.getBegin().map(p -> p.line).orElse(0));
+        m.put("line_end", d.getEnd().map(p -> p.line).orElse(0));
+        m.put("signature", d.getDeclarationAsString(false, false, false));
+
+        m.put("source_code", legacyBridge.extractNodeSource(fileLines, d, true));
+        m.put("body_code", methodAnalyzer.extractCallableBody(d));
+        m.put("code_summary", methodAnalyzer.summarizeMethodBody(d));
+        m.put("key_statements", methodAnalyzer.extractKeyStatements(d));
+        m.put("line_count", methodAnalyzer.calculateLineCount(d));
+
+        m.put("tags", legacyBridge.extractMethodTags(d.getNameAsString(),
+                d instanceof MethodDeclaration ? ((MethodDeclaration) d).getType().asString() : "void"));
+
+        if (d instanceof MethodDeclaration) {
+            MethodDeclaration md = (MethodDeclaration) d;
+            m.put("is_override", methodAnalyzer.checkIsOverride(md));
+            m.put("method_generics", md.getTypeParameters().stream().map(tp -> tp.asString()).collect(Collectors.toList()));
+            m.put("return_type_path", methodAnalyzer.getSemanticPath(md.getType()));
+            m.put("throws_matrix", md.getThrownExceptions().stream().map(methodAnalyzer::getSemanticPath).collect(Collectors.toList()));
+        }
+
+        m.put("internal_throws", d.findAll(ThrowStmt.class).stream().map(t -> t.getExpression().toString()).distinct().collect(Collectors.toList()));
+        m.put("parameters_inventory", legacyBridge.resolveParametersInventory(params));
+
+        // Extract method call chain and inject global dependencies
+        methodAnalyzer.extractMethodCalls(d, classAddr, fullAddr, globalDeps, seenDependencies);
+
+        return m;
+    }
+
+    /**
+     * Resolve methods with semantic enhancement.
+     * Replaces SourceUniversePro.resolveMethodsSemanticEnhanced().
+     */
+    public List<Map<String, Object>> resolveMethodsSemanticEnhanced(TypeDeclaration<?> type, List<String> fileLines) {
+        List<Map<String, Object>> methods = new ArrayList<>();
+        String address = type.findCompilationUnit()
+                .flatMap(cu -> cu.getPackageDeclaration())
+                .map(pd -> pd.getNameAsString() + "." + type.getNameAsString())
+                .orElse(type.getNameAsString());
+
+        List<Map<String, String>> globalDeps = new ArrayList<>();
+        type.getMethods().forEach(method -> {
+            methodCount.incrementAndGet();
+            Map<String, Object> m = extractMethodEnhanced(method, address + "#" + method.getNameAsString(),
+                    method.getParameters(), fileLines, address, globalDeps);
+
+            Set<String> semanticTags = new HashSet<>();
+            int complexity = 1;
+            complexity += method.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
+            complexity += method.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).size();
+            complexity += method.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size();
+            complexity += method.findAll(com.github.javaparser.ast.stmt.CatchClause.class).size();
+            if (complexity > 10) semanticTags.add("HighComplexity");
+            if (!method.findAll(MethodCallExpr.class).isEmpty()) semanticTags.add("InteractionHeavy");
+            if (method.getModifiers().contains(Modifier.synchronizedModifier())) semanticTags.add("ThreadSafe");
+
+            m.put("semantic_tags", semanticService.resolveBilingualTags(semanticTags));
+            m.put("complexity_score", complexity);
+            methods.add(m);
+        });
+        return methods;
+    }
+
+    /**
      * Legacy bridge: methods still in SourceUniversePro that haven't been fully migrated.
      * These will be removed once all dependencies are extracted.
      */
     public interface LegacyBridge {
         String getKind(TypeDeclaration<?> type);
         Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
-                                                   com.github.javaparser.ast.NodeList<com.github.javaparser.ast.body.Parameter> params,
-                                                   List<String> fileLines, String classAddr,
-                                                   List<Map<String, String>> globalDeps);
-        List<Map<String, Object>> resolveMethodsSemanticEnhanced(TypeDeclaration<?> type, List<String> fileLines);
+                                                   NodeList<Parameter> params, List<String> fileLines,
+                                                   String classAddr, List<Map<String, String>> globalDeps);
         List<Map<String, Object>> resolveMethodsEnhanced(TypeDeclaration<?> type, List<String> fileLines);
         List<Map<String, Object>> resolveFieldsEnhanced(TypeDeclaration<?> type);
         List<Map<String, Object>> resolveFieldsMatrix(List<String> lines, TypeDeclaration<?> t);
@@ -209,6 +299,9 @@ public class JavaAssetExtractor {
         int calculateClassComplexity(TypeDeclaration<?> type, List<String> fileLines);
         int calculateInheritanceDepth(TypeDeclaration<?> type);
         List<Map<String, Object>> extractAnnos(TypeDeclaration<?> type, String address);
+        String extractNodeSource(List<String> fileLines, com.github.javaparser.ast.Node node, boolean includeBody);
+        List<String> extractMethodTags(String methodName, String returnType);
+        List<Map<String, Object>> resolveParametersInventory(NodeList<Parameter> params);
         void trackUnrecognizedSuffix(String suffix);
         void trackMethodName(String name);
     }

@@ -2,7 +2,6 @@ package cn.dolphinmind.glossary.java.analyze;
 
 import cn.dolphinmind.glossary.java.analyze.config.RulesConfig;
 import cn.dolphinmind.glossary.java.analyze.orchestrate.AnalysisConfig;
-import cn.dolphinmind.glossary.java.analyze.orchestrate.AnalysisOrchestrator;
 import cn.dolphinmind.glossary.java.analyze.translate.SemanticTranslator;
 
 import com.github.javaparser.StaticJavaParser;
@@ -481,44 +480,51 @@ public class SourceUniversePro {
                 new cn.dolphinmind.glossary.java.analyze.extractor.MethodCallAnalyzer();
 
         // Create JavaAssetExtractor with legacy bridge for not-yet-migrated methods
+        // Use holder pattern to avoid forward reference issue with anonymous inner class
+        final cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor[] assetExtractorRef = new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor[1];
+
+        cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor.LegacyBridge legacyBridge =
+                new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor.LegacyBridge() {
+                    public String getKind(TypeDeclaration<?> t) { return getKind(t); }
+                    public Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
+                            NodeList<Parameter> params, List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
+                        return assetExtractorRef[0].extractMethodEnhanced(d, baseAddr, params, fileLines, classAddr, globalDeps);
+                    }
+                    public List<Map<String, Object>> resolveMethodsEnhanced(TypeDeclaration<?> t, List<String> fl) {
+                        return resolveMethodsEnhanced(t, fl);
+                    }
+                    public List<Map<String, Object>> resolveFieldsEnhanced(TypeDeclaration<?> t) {
+                        return resolveFieldsEnhanced(t);
+                    }
+                    public List<Map<String, Object>> resolveFieldsMatrix(List<String> l, TypeDeclaration<?> t) {
+                        return resolveFieldsMatrix(l, t);
+                    }
+                    public List<Map<String, Object>> resolveConstructorsAligned(List<String> l, TypeDeclaration<?> t, String a) {
+                        return resolveConstructorsAligned(l, t, a);
+                    }
+                    public List<Map<String, Object>> resolveMethodsAligned(List<String> l, TypeDeclaration<?> t, String a) {
+                        return resolveMethodsAligned(l, t, a);
+                    }
+                    public Map<String, Object> getEnhancementData(String a) { return getEnhancementData(a); }
+                    public Map<String, Object> extractCallGraphSummary(TypeDeclaration<?> t) { return extractCallGraphSummary(t); }
+                    public int calculateClassLOC(TypeDeclaration<?> t, List<String> fl) { return calculateClassLOC(t, fl); }
+                    public int calculateClassComplexity(TypeDeclaration<?> t, List<String> fl) { return calculateClassComplexity(t, fl); }
+                    public int calculateInheritanceDepth(TypeDeclaration<?> t) { return calculateInheritanceDepth(t); }
+                    public List<Map<String, Object>> extractAnnos(TypeDeclaration<?> t, String a) { return extractAnnos(t, a); }
+                    public String extractNodeSource(List<String> fl, Node n, boolean ib) { return extractNodeSource(fl, n, ib); }
+                    public List<String> extractMethodTags(String mn, String rt) { return extractMethodTags(mn, rt); }
+                    public List<Map<String, Object>> resolveParametersInventory(NodeList<Parameter> p) { return resolveParametersInventory(p); }
+                    public void trackUnrecognizedSuffix(String s) { unrecognizedClassSuffixes.merge(s, 1, Integer::sum); }
+                    public void trackMethodName(String n) { allMethodNames.add(n); }
+                };
+
         cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor assetExtractor =
                 new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor(
                         commentService, semanticService, methodAnalyzer,
                         classCount, methodCount, fieldCount,
-                        new cn.dolphinmind.glossary.java.analyze.extractor.JavaAssetExtractor.LegacyBridge() {
-                            public String getKind(TypeDeclaration<?> t) { return getKind(t); }
-                            public Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
-                                    com.github.javaparser.ast.NodeList<com.github.javaparser.ast.body.Parameter> params,
-                                    List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
-                                return extractMethodEnhanced(d, baseAddr, params, fileLines, classAddr, globalDeps);
-                            }
-                            public List<Map<String, Object>> resolveMethodsSemanticEnhanced(TypeDeclaration<?> t, List<String> fl) {
-                                return resolveMethodsSemanticEnhanced(t, fl);
-                            }
-                            public List<Map<String, Object>> resolveMethodsEnhanced(TypeDeclaration<?> t, List<String> fl) {
-                                return resolveMethodsEnhanced(t, fl);
-                            }
-                            public List<Map<String, Object>> resolveFieldsEnhanced(TypeDeclaration<?> t) {
-                                return resolveFieldsEnhanced(t);
-                            }
-                            public List<Map<String, Object>> resolveFieldsMatrix(List<String> l, TypeDeclaration<?> t) {
-                                return resolveFieldsMatrix(l, t);
-                            }
-                            public List<Map<String, Object>> resolveConstructorsAligned(List<String> l, TypeDeclaration<?> t, String a) {
-                                return resolveConstructorsAligned(l, t, a);
-                            }
-                            public List<Map<String, Object>> resolveMethodsAligned(List<String> l, TypeDeclaration<?> t, String a) {
-                                return resolveMethodsAligned(l, t, a);
-                            }
-                            public Map<String, Object> getEnhancementData(String a) { return getEnhancementData(a); }
-                            public Map<String, Object> extractCallGraphSummary(TypeDeclaration<?> t) { return extractCallGraphSummary(t); }
-                            public int calculateClassLOC(TypeDeclaration<?> t, List<String> fl) { return calculateClassLOC(t, fl); }
-                            public int calculateClassComplexity(TypeDeclaration<?> t, List<String> fl) { return calculateClassComplexity(t, fl); }
-                            public int calculateInheritanceDepth(TypeDeclaration<?> t) { return calculateInheritanceDepth(t); }
-                            public List<Map<String, Object>> extractAnnos(TypeDeclaration<?> t, String a) { return extractAnnos(t, a); }
-                            public void trackUnrecognizedSuffix(String s) { unrecognizedClassSuffixes.merge(s, 1, Integer::sum); }
-                            public void trackMethodName(String n) { allMethodNames.add(n); }
-                        });
+                        seenDependencies,
+                        legacyBridge);
+        assetExtractorRef[0] = assetExtractor;
 
         // Configure JavaParser Symbol Solver with full Maven classpath
         cn.dolphinmind.glossary.java.analyze.core.ClasspathResolver cpResolver = null;
@@ -1195,259 +1201,6 @@ public class SourceUniversePro {
     }
 
     /**
-     * 增强版类型处理：整合物理注释、修饰符、泛型、继承关系等完整元数据
-     */
-    private static Map<String, Object> extractMethodEnhanced(CallableDeclaration<?> d, String baseAddr,
-                                                              NodeList<Parameter> params, List<String> fileLines, String classAddr, List<Map<String, String>> globalDeps) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        String fullAddr = baseAddr + "(" + params.stream().map(p -> p.getType().asString()).collect(Collectors.joining(",")) + ")";
-
-        m.put("address", fullAddr);
-        m.put("name", d.getNameAsString());
-
-        // 🚀 结构化注释提取 (替代 bruteForceComment)
-        Map<String, Object> commentDetails = extractCommentDetails(fileLines, d);
-        m.put("description", commentDetails.getOrDefault("summary", ""));
-        m.put("comment_details", commentDetails);
-
-        m.put("modifiers", resolveMods(d.getModifiers()));
-        m.put("line_start", d.getBegin().map(p -> p.line).orElse(0));
-        m.put("line_end", d.getEnd().map(p -> p.line).orElse(0));
-        m.put("signature", d.getDeclarationAsString(false, false, false));
-
-        // 🚀 方法源码体提取
-        m.put("source_code", extractNodeSource(fileLines, d, true));
-        m.put("body_code", extractCallableBody(d));
-        m.put("code_summary", summarizeMethodBody(d));
-        m.put("key_statements", extractKeyStatements(d));
-        m.put("line_count", calculateLineCount(d));
-
-        // 🚀 注入智能标签
-        m.put("tags", extractMethodTags(d.getNameAsString(), d instanceof MethodDeclaration ? ((MethodDeclaration)d).getType().asString() : "void"));
-
-        if (d instanceof MethodDeclaration) {
-            MethodDeclaration md = (MethodDeclaration) d;
-            m.put("is_override", checkIsOverride(md));
-            m.put("method_generics", md.getTypeParameters().stream().map(tp -> tp.asString()).collect(Collectors.toList()));
-            m.put("return_type_path", getSemanticPath(md.getType()));
-            m.put("throws_matrix", md.getThrownExceptions().stream().map(SourceUniversePro::getSemanticPath).collect(Collectors.toList()));
-        }
-
-        m.put("internal_throws", d.findAll(ThrowStmt.class).stream().map(t -> t.getExpression().toString()).distinct().collect(Collectors.toList()));
-        m.put("parameters_inventory", resolveParametersInventory(params));
-
-        // 🚀 核心增强：提取方法调用链并注入全局依赖
-        extractMethodCalls(d, classAddr, fullAddr, globalDeps);
-
-        return m;
-    }
-
-    /**
-     * 提取方法内部的所有调用关系，并注入全局依赖列表
-     * 🚀 优化：只保留 public/protected 方法的跨类调用，减少噪音
-     */
-    private static void extractMethodCalls(CallableDeclaration<?> method, String classAddr, String fullAddr, List<Map<String, String>> globalDeps) {
-        // 🚩 过滤 1: 只处理 public 或 protected 方法（核心 API）
-        boolean isPublic = method.getModifiers().stream()
-                .anyMatch(m -> m.getKeyword() == com.github.javaparser.ast.Modifier.Keyword.PUBLIC);
-        boolean isProtected = method.getModifiers().stream()
-                .anyMatch(m -> m.getKeyword() == com.github.javaparser.ast.Modifier.Keyword.PROTECTED);
-
-        if (!isPublic && !isProtected) {
-            return; // 忽略 private/default 方法的内部调用
-        }
-
-        method.findAll(MethodCallExpr.class).forEach(call -> {
-            try {
-                // 利用 JavaSymbolSolver 解析被调用的方法声明
-                com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration resolved = call.resolve();
-                String targetClass = resolved.declaringType().getQualifiedName();
-                String targetMethod = resolved.getName();
-
-                // 🚩 过滤 2: 忽略 JDK、Javax、SLF4J 等外部库
-                if (targetClass.startsWith("java.") || targetClass.startsWith("javax.") ||
-                    targetClass.startsWith("jdk.") || targetClass.startsWith("org.slf4j") ||
-                    targetClass.startsWith("org.apache.log4j")) {
-                    return;
-                }
-
-                // 🚩 过滤 3: 忽略当前类内部的自调用（聚焦跨组件交互）
-                String sourceClass = classAddr.split("#")[0];
-                if (targetClass.equals(sourceClass)) {
-                    return;
-                }
-
-                // 构建目标方法地址
-                String targetAddr = targetClass + "#" + targetMethod;
-
-                // 记录 CALLS 依赖到全局列表（去重）
-                String depKey = fullAddr + "→" + targetAddr + ":CALLS";
-                if (!seenDependencies.contains(depKey)) {
-                    seenDependencies.add(depKey);
-                    Map<String, String> callDep = new LinkedHashMap<>();
-                    callDep.put("source", fullAddr);
-                    callDep.put("target", targetAddr);
-                    callDep.put("type", "CALLS");
-                    globalDeps.add(callDep);
-                }
-            } catch (Exception ignored) {
-                // 忽略无法解析的调用（如动态代理、Lambda、反射等）
-            }
-        });
-    }
-
-    /**
-     * 提取方法体的源码文本 (带行号范围)
-     */
-    private static String extractCallableBody(CallableDeclaration<?> d) {
-        if (d instanceof MethodDeclaration) {
-            java.util.Optional<com.github.javaparser.ast.stmt.BlockStmt> opt = ((MethodDeclaration) d).getBody();
-            if (!opt.isPresent()) return "";
-            return opt.get().toString();
-        } else if (d instanceof ConstructorDeclaration) {
-            com.github.javaparser.ast.stmt.BlockStmt body = ((ConstructorDeclaration) d).getBody();
-            if (body == null) return "";
-            return body.toString();
-        }
-        return "";
-    }
-
-    /**
-     * 计算方法体的行数
-     */
-    private static int calculateLineCount(CallableDeclaration<?> d) {
-        String body = extractCallableBody(d);
-        if (body.isEmpty()) return 0;
-        return body.split("\n").length;
-    }
-
-    /**
-     * 获取方法体 BlockStmt (仅供内部方法使用)
-     */
-    private static com.github.javaparser.ast.stmt.BlockStmt getCallableBody(CallableDeclaration<?> d) {
-        if (d instanceof MethodDeclaration) {
-            return ((MethodDeclaration) d).getBody().orElse(null);
-        }
-        if (d instanceof ConstructorDeclaration) {
-            return ((ConstructorDeclaration) d).getBody();
-        }
-        return null;
-    }
-
-    /**
-     * 提取方法体中的关键语句 (if/throw/return/调用外部服务等)
-     */
-    private static List<Map<String, String>> extractKeyStatements(CallableDeclaration<?> d) {
-        List<Map<String, String>> statements = new ArrayList<>();
-        com.github.javaparser.ast.stmt.BlockStmt body = getCallableBody(d);
-        if (body == null) return statements;
-
-        // 1. 提取 if 条件分支
-        body.findAll(com.github.javaparser.ast.stmt.IfStmt.class).forEach(ifStmt -> {
-            Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "CONDITION");
-            stmt.put("condition", ifStmt.getCondition().toString());
-            stmt.put("line", ifStmt.getBegin().map(p -> p.line).orElse(0) + "");
-            statements.add(stmt);
-        });
-
-        // 2. 提取 throw 语句
-        body.findAll(ThrowStmt.class).forEach(throwStmt -> {
-            Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "THROW");
-            stmt.put("exception", throwStmt.getExpression().toString());
-            stmt.put("line", throwStmt.getBegin().map(p -> p.line).orElse(0) + "");
-            statements.add(stmt);
-        });
-
-        // 3. 提取 return 语句
-        body.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).forEach(retStmt -> {
-            Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "RETURN");
-            stmt.put("value", retStmt.getExpression().map(Object::toString).orElse("void"));
-            stmt.put("line", retStmt.getBegin().map(p -> p.line).orElse(0) + "");
-            statements.add(stmt);
-        });
-
-        // 4. 提取外部服务调用 (方法调用)
-        body.findAll(MethodCallExpr.class).forEach(call -> {
-            try {
-                String scope = call.getScope().map(Object::toString).orElse("");
-                if (!scope.isEmpty() && !scope.equals("this") && !scope.equals("super")) {
-                    Map<String, String> stmt = new LinkedHashMap<>();
-                    stmt.put("type", "EXTERNAL_CALL");
-                    stmt.put("target", scope + "." + call.getNameAsString());
-                    stmt.put("line", call.getBegin().map(p -> p.line).orElse(0) + "");
-                    statements.add(stmt);
-                }
-            } catch (Exception ignored) {
-                // 忽略无法解析的调用
-            }
-        });
-
-        // 5. 提取同步块
-        body.findAll(com.github.javaparser.ast.stmt.SynchronizedStmt.class).forEach(syncStmt -> {
-            Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "SYNCHRONIZED");
-            stmt.put("expression", syncStmt.getExpression().toString());
-            stmt.put("line", syncStmt.getBegin().map(p -> p.line).orElse(0) + "");
-            statements.add(stmt);
-        });
-
-        return statements;
-    }
-
-    /**
-     * 方法体摘要：提取方法体的业务语义摘要
-     */
-    private static String summarizeMethodBody(CallableDeclaration<?> d) {
-        com.github.javaparser.ast.stmt.BlockStmt body = getCallableBody(d);
-        if (body == null) return "无方法体 (abstract/native)";
-        List<String> summaries = new ArrayList<>();
-
-        // 1. 检测异常处理
-        if (!body.findAll(com.github.javaparser.ast.stmt.CatchClause.class).isEmpty()) {
-            summaries.add("包含异常处理逻辑");
-        }
-
-        // 2. 检测条件分支
-        int ifCount = body.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
-        if (ifCount > 0) {
-            summaries.add(ifCount + " 个条件分支");
-        }
-
-        // 3. 检测循环
-        int loopCount = body.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).size() +
-                        body.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size() +
-                        body.findAll(com.github.javaparser.ast.stmt.ForStmt.class).size();
-        if (loopCount > 0) {
-            summaries.add(loopCount + " 个循环结构");
-        }
-
-        // 4. 检测方法调用
-        int callCount = body.findAll(MethodCallExpr.class).size();
-        if (callCount > 0) {
-            summaries.add(callCount + " 次方法调用");
-        }
-
-        // 5. 检测同步
-        if (!body.findAll(com.github.javaparser.ast.stmt.SynchronizedStmt.class).isEmpty()) {
-            summaries.add("使用同步块");
-        }
-
-        // 6. 检测返回
-        int returnCount = body.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).size();
-        if (returnCount > 0) {
-            summaries.add(returnCount + " 个返回点");
-        }
-
-        if (summaries.isEmpty()) {
-            return "简单方法体";
-        }
-        return String.join(", ", summaries);
-    }
-
-    /**
      * 物理注释提取：从源码行中暴力抓取注释块
      * @deprecated Use {@link cn.dolphinmind.glossary.java.analyze.translate.CommentAnalysisService#bruteForceComment}
      */
@@ -1943,41 +1696,6 @@ public class SourceUniversePro {
             result.add(tagObj);
         }
         return result;
-    }
-
-    /**
-     * 🚀 方法级语义增强：使用完整方法提取（包含源码体/注释/调用链）
-     */
-    private static java.util.List<Map<String, Object>> resolveMethodsSemanticEnhanced(TypeDeclaration<?> type, List<String> fileLines) {
-        java.util.List<Map<String, Object>> methods = new ArrayList<>();
-        String address = (String) type.findCompilationUnit()
-                .flatMap(cu -> cu.getPackageDeclaration())
-                .map(pd -> pd.getNameAsString() + "." + type.getNameAsString())
-                .orElse(type.getNameAsString());
-
-        // 使用 extractMethodEnhanced 提取完整方法信息
-        java.util.List<Map<String, String>> globalDeps = new ArrayList<>();
-        type.getMethods().forEach(method -> {
-            methodCount.incrementAndGet();
-            Map<String, Object> m = extractMethodEnhanced(method, address + "#" + method.getNameAsString(),
-                    method.getParameters(), fileLines, address, globalDeps);
-
-            // 额外添加语义标签
-            java.util.Set<String> semanticTags = new java.util.HashSet<>();
-            int complexity = 1;
-            complexity += method.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
-            complexity += method.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).size();
-            complexity += method.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size();
-            complexity += method.findAll(com.github.javaparser.ast.stmt.CatchClause.class).size();
-            if (complexity > 10) semanticTags.add("HighComplexity");
-            if (!method.findAll(MethodCallExpr.class).isEmpty()) semanticTags.add("InteractionHeavy");
-            if (method.getModifiers().contains(Modifier.synchronizedModifier())) semanticTags.add("ThreadSafe");
-
-            m.put("semantic_tags", resolveBilingualTags(semanticTags));
-            m.put("complexity_score", complexity);
-            methods.add(m);
-        });
-        return methods;
     }
 
     /**

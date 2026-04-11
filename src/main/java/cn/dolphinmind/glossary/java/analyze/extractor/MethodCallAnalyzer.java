@@ -18,37 +18,43 @@ import java.util.*;
 public class MethodCallAnalyzer {
 
     /**
-     * Extract method calls and build dependency edges.
+     * Extract method calls using JavaSymbolSolver for precise resolution.
+     * Only tracks public/protected cross-class calls to reduce noise.
      */
     public void extractMethodCalls(CallableDeclaration<?> method, String classAddr, String fullAddr,
-                                    List<Map<String, String>> globalDeps) {
-        List<String> calledMethods = new ArrayList<>();
-        List<String> calledClasses = new ArrayList<>();
+                                    List<Map<String, String>> globalDeps, java.util.Set<String> seenDeps) {
+        boolean isPublic = method.getModifiers().stream()
+                .anyMatch(m -> m.getKeyword() == com.github.javaparser.ast.Modifier.Keyword.PUBLIC);
+        boolean isProtected = method.getModifiers().stream()
+                .anyMatch(m -> m.getKeyword() == com.github.javaparser.ast.Modifier.Keyword.PROTECTED);
+        if (!isPublic && !isProtected) return;
 
-        // Extract method call expressions
         method.findAll(MethodCallExpr.class).forEach(call -> {
-            String calledMethod = call.getNameAsString();
-            calledMethods.add(calledMethod);
+            try {
+                com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration resolved = call.resolve();
+                String targetClass = resolved.declaringType().getQualifiedName();
+                String targetMethod = resolved.getName();
 
-            // Try to resolve the scope (target class)
-            call.getScope().ifPresent(scope -> {
-                String scopeStr = scope.toString();
-                if (!scopeStr.isEmpty()) {
-                    calledClasses.add(scopeStr);
+                if (targetClass.startsWith("java.") || targetClass.startsWith("javax.") ||
+                    targetClass.startsWith("jdk.") || targetClass.startsWith("org.slf4j") ||
+                    targetClass.startsWith("org.apache.log4j")) {
+                    return;
                 }
-            });
-        });
 
-        // Extract throw statements for dependency analysis
-        method.findAll(ThrowStmt.class).forEach(throwStmt -> {
-            String exception = throwStmt.getExpression().toString();
-            if (exception.contains(".")) {
-                Map<String, String> dep = new LinkedHashMap<>();
-                dep.put("source", fullAddr);
-                dep.put("target", extractSimpleType(exception));
-                dep.put("type", "throws");
-                globalDeps.add(dep);
-            }
+                String sourceClass = classAddr.split("#")[0];
+                if (targetClass.equals(sourceClass)) return;
+
+                String targetAddr = targetClass + "#" + targetMethod;
+                String depKey = fullAddr + "→" + targetAddr + ":CALLS";
+                if (!seenDeps.contains(depKey)) {
+                    seenDeps.add(depKey);
+                    Map<String, String> callDep = new LinkedHashMap<>();
+                    callDep.put("source", fullAddr);
+                    callDep.put("target", targetAddr);
+                    callDep.put("type", "CALLS");
+                    globalDeps.add(callDep);
+                }
+            } catch (Exception ignored) {}
         });
     }
 
@@ -77,8 +83,8 @@ public class MethodCallAnalyzer {
      */
     public BlockStmt getCallableBody(CallableDeclaration<?> d) {
         if (d instanceof MethodDeclaration) {
-            Optional<BlockStmt> body = ((MethodDeclaration) d).getBody();
-            return body.isPresent() ? body.get() : null;
+            Optional<BlockStmt> opt = ((MethodDeclaration) d).getBody();
+            return opt.isPresent() ? opt.get() : null;
         } else if (d instanceof ConstructorDeclaration) {
             return ((ConstructorDeclaration) d).getBody();
         }
@@ -87,36 +93,55 @@ public class MethodCallAnalyzer {
 
     /**
      * Extract key statements from a callable declaration.
+     * Includes: CONDITION, THROW, RETURN, EXTERNAL_CALL, SYNCHRONIZED
      */
     public List<Map<String, String>> extractKeyStatements(CallableDeclaration<?> d) {
         List<Map<String, String>> statements = new ArrayList<>();
         BlockStmt body = getCallableBody(d);
         if (body == null) return statements;
 
-        // Extract throw statements
-        body.findAll(ThrowStmt.class).forEach(throwStmt -> {
-            Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "throw");
-            stmt.put("expression", throwStmt.getExpression().toString());
-            stmt.put("line", throwStmt.getBegin().map(p -> String.valueOf(p.line)).orElse(""));
-            statements.add(stmt);
-        });
-
-        // Extract if statements
         body.findAll(com.github.javaparser.ast.stmt.IfStmt.class).forEach(ifStmt -> {
             Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "if");
+            stmt.put("type", "CONDITION");
             stmt.put("condition", ifStmt.getCondition().toString());
-            stmt.put("line", ifStmt.getBegin().map(p -> String.valueOf(p.line)).orElse(""));
+            stmt.put("line", ifStmt.getBegin().map(p -> p.line).orElse(0) + "");
             statements.add(stmt);
         });
 
-        // Extract return statements
+        body.findAll(ThrowStmt.class).forEach(throwStmt -> {
+            Map<String, String> stmt = new LinkedHashMap<>();
+            stmt.put("type", "THROW");
+            stmt.put("exception", throwStmt.getExpression().toString());
+            stmt.put("line", throwStmt.getBegin().map(p -> p.line).orElse(0) + "");
+            statements.add(stmt);
+        });
+
         body.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).forEach(retStmt -> {
             Map<String, String> stmt = new LinkedHashMap<>();
-            stmt.put("type", "return");
-            stmt.put("expression", retStmt.getExpression().map(Object::toString).orElse("void"));
-            stmt.put("line", retStmt.getBegin().map(p -> String.valueOf(p.line)).orElse(""));
+            stmt.put("type", "RETURN");
+            stmt.put("value", retStmt.getExpression().map(Object::toString).orElse("void"));
+            stmt.put("line", retStmt.getBegin().map(p -> p.line).orElse(0) + "");
+            statements.add(stmt);
+        });
+
+        body.findAll(MethodCallExpr.class).forEach(call -> {
+            try {
+                String scope = call.getScope().map(Object::toString).orElse("");
+                if (!scope.isEmpty() && !scope.equals("this") && !scope.equals("super")) {
+                    Map<String, String> stmt = new LinkedHashMap<>();
+                    stmt.put("type", "EXTERNAL_CALL");
+                    stmt.put("target", scope + "." + call.getNameAsString());
+                    stmt.put("line", call.getBegin().map(p -> p.line).orElse(0) + "");
+                    statements.add(stmt);
+                }
+            } catch (Exception ignored) {}
+        });
+
+        body.findAll(com.github.javaparser.ast.stmt.SynchronizedStmt.class).forEach(syncStmt -> {
+            Map<String, String> stmt = new LinkedHashMap<>();
+            stmt.put("type", "SYNCHRONIZED");
+            stmt.put("expression", syncStmt.getExpression().toString());
+            stmt.put("line", syncStmt.getBegin().map(p -> p.line).orElse(0) + "");
             statements.add(stmt);
         });
 
@@ -124,25 +149,34 @@ public class MethodCallAnalyzer {
     }
 
     /**
-     * Summarize method body by extracting key patterns.
+     * Summarize method body business semantics.
      */
     public String summarizeMethodBody(CallableDeclaration<?> d) {
-        String body = extractCallableBody(d);
-        if (body.isEmpty()) return "empty";
+        BlockStmt body = getCallableBody(d);
+        if (body == null) return "无方法体 (abstract/native)";
+        List<String> summaries = new ArrayList<>();
 
-        List<String> patterns = new ArrayList<>();
+        if (!body.findAll(com.github.javaparser.ast.stmt.CatchClause.class).isEmpty())
+            summaries.add("包含异常处理逻辑");
 
-        if (body.contains("if (") || body.contains("if(")) patterns.add("conditional");
-        if (body.contains("for (") || body.contains("for(")) patterns.add("loop");
-        if (body.contains("while (") || body.contains("while(")) patterns.add("loop");
-        if (body.contains("try {") || body.contains("try{")) patterns.add("try-catch");
-        if (body.contains("catch (") || body.contains("catch(")) patterns.add("exception");
-        if (body.contains("throw ")) patterns.add("throws");
-        if (body.contains("return ")) patterns.add("returns");
-        if (body.contains(".stream()")) patterns.add("stream");
-        if (body.contains("lambda") || body.contains("->")) patterns.add("lambda");
+        int ifCount = body.findAll(com.github.javaparser.ast.stmt.IfStmt.class).size();
+        if (ifCount > 0) summaries.add(ifCount + " 个条件分支");
 
-        return patterns.isEmpty() ? "simple" : String.join(",", patterns);
+        int loopCount = body.findAll(com.github.javaparser.ast.stmt.ForEachStmt.class).size() +
+                        body.findAll(com.github.javaparser.ast.stmt.WhileStmt.class).size() +
+                        body.findAll(com.github.javaparser.ast.stmt.ForStmt.class).size();
+        if (loopCount > 0) summaries.add(loopCount + " 个循环结构");
+
+        int callCount = body.findAll(MethodCallExpr.class).size();
+        if (callCount > 0) summaries.add(callCount + " 次方法调用");
+
+        if (!body.findAll(com.github.javaparser.ast.stmt.SynchronizedStmt.class).isEmpty())
+            summaries.add("使用同步块");
+
+        int returnCount = body.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).size();
+        if (returnCount > 0) summaries.add(returnCount + " 个返回点");
+
+        return summaries.isEmpty() ? "简单方法体" : String.join(", ", summaries);
     }
 
     /**

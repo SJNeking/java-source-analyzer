@@ -26,9 +26,7 @@ export class CodeExplorerView {
   private _comments: Array<{author: string; text: string; time: string}> = [];
   private _tags: Array<{name: string; type: string}> = [];
   private _currentMethod: string = '';
-
-  // UML chart instance
-  private umlChart: any = null;
+  private _currentClass: string = '';
 
   constructor(containerId: string = 'code-explorer-content') {
     this.containerId = containerId;
@@ -85,7 +83,7 @@ export class CodeExplorerView {
   }
 
   /**
-   * Render the Source Code Viewer with Audit Panel
+   * Render the Source Code Viewer with Audit Panel BELOW code
    */
   private renderCodePanel(code: string, title: string, kind: string): string {
     const lines = code.split('\n');
@@ -106,7 +104,7 @@ export class CodeExplorerView {
 
     return `
       <div class="explorer-code-layout">
-        <!-- Left: Code View -->
+        <!-- Top: Code View (full width) -->
         <div class="explorer-code-main">
           <div class="explorer-code-header">
             <div class="explorer-breadcrumb">
@@ -122,7 +120,7 @@ export class CodeExplorerView {
             <div class="code-lines">${codeContent}</div>
           </div>
         </div>
-        <!-- Right: Audit Panel (Comments, Tags, UML) -->
+        <!-- Bottom: Audit Panel (Comments, Tags, UML) -->
         <div class="explorer-audit-panel">
           <div class="audit-tabs" role="tablist">
             <div class="audit-tab active" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
@@ -137,8 +135,8 @@ export class CodeExplorerView {
                 <button class="audit-submit-btn" onclick="window.__addComment()">提交</button>
               </div>
               <div class="audit-comment-list">
-                ${this._comments.length === 0 ? '<div class="audit-empty">暂无评论</div>' : 
-                  this._comments.map((c, i) => `
+                ${this._comments.length === 0 ? '<div class="audit-empty">暂无评论，成为第一个评论的人</div>' :
+                  this._comments.map((c) => `
                     <div class="audit-comment-item">
                       <div class="audit-comment-meta">
                         <span class="audit-comment-author">${c.author || '匿名'}</span>
@@ -153,7 +151,7 @@ export class CodeExplorerView {
             <!-- Tags Tab -->
             <div class="audit-tab-panel" id="audit-tags" style="display:none;">
               <div class="audit-tag-input-row">
-                <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称...">
+                <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称，按回车添加...">
                 <button class="audit-tag-add-btn" onclick="window.__addTag()">添加</button>
               </div>
               <div class="audit-tag-cloud">
@@ -169,7 +167,7 @@ export class CodeExplorerView {
             </div>
             <!-- UML Tab -->
             <div class="audit-tab-panel" id="audit-uml" style="display:none;">
-              <div id="uml-chart" class="uml-chart-container"></div>
+              <div class="uml-diagram" id="uml-diagram"></div>
             </div>
           </div>
         </div>
@@ -268,8 +266,8 @@ export class CodeExplorerView {
                      kind === 'CLASS' ? '🟢' : '⚪️';
 
     return `
-      <details class="class-group">
-        <summary class="class-summary">
+      <details class="class-group" data-address="${asset.address}">
+        <summary class="class-summary" title="点击查看 UML 类图">
           <span class="class-icon">${kindIcon}</span>
           <span class="class-name">${name}</span>
           <span class="class-tags">
@@ -331,22 +329,169 @@ export class CodeExplorerView {
   }
 
   /**
-   * Initialize Event Listeners for Method Clicks
+   * Initialize Event Listeners for Method Clicks AND Class Summary Clicks
    */
   public bindMethodClicks(): void {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
     container.onclick = (e: Event) => {
-      const target = (e.target as HTMLElement).closest('.method-item');
-      if (target) {
-        const classAddr = target.getAttribute('data-class');
-        const methodName = target.getAttribute('data-method');
+      // Handle class summary click → show UML
+      const classSummary = (e.target as HTMLElement).closest('.class-summary');
+      if (classSummary) {
+        e.preventDefault();
+        const classGroup = classSummary.closest('.class-group') as HTMLElement;
+        if (classGroup) {
+          const classAddr = classGroup.getAttribute('data-address');
+          if (classAddr) this.openClass(classAddr);
+        }
+        return;
+      }
+
+      // Handle method click → show code
+      const methodItem = (e.target as HTMLElement).closest('.method-item');
+      if (methodItem) {
+        const classAddr = methodItem.getAttribute('data-class');
+        const methodName = methodItem.getAttribute('data-method');
         if (classAddr && methodName) {
           this.openMethod(classAddr, methodName);
         }
       }
     };
+  }
+
+  /**
+   * View UML for a specific class
+   */
+  private openClass(classAddr: string): void {
+    if (!this.data) return;
+
+    const asset = this.data.assets?.find((a: any) => a.address === classAddr);
+    if (!asset) return;
+
+    this._currentClass = classAddr;
+    this._currentMethod = '';
+    this.selectedCode = {
+      content: '',
+      language: 'java',
+      title: asset.address.split('.').pop(),
+      kind: asset.kind || 'CLASS'
+    };
+
+    // Load persisted data
+    this._loadFromStorage(classAddr, '__class__');
+
+    const codePanel = document.getElementById('code-panel');
+    if (codePanel) {
+      codePanel.innerHTML = this.renderUmlView(asset);
+      codePanel.scrollTo(0, 0);
+    }
+  }
+
+  /**
+   * Render UML View (class diagram on top, audit panel below)
+   */
+  private renderUmlView(asset: any): string {
+    const kindColor = this.getKindColor(asset.kind || 'CLASS');
+    const className = asset.address.split('.').pop();
+
+    // Build mermaid class diagram syntax
+    const methods = asset.methods_full || asset.methods || [];
+    const fields = asset.fields_matrix || asset.fields || [];
+    const imports = (asset as any).import_dependencies || [];
+
+    let mermaidCode = `classDiagram\n`;
+    mermaidCode += `  class ${className} {\n`;
+    fields.slice(0, 25).forEach((f: any) => {
+      const type = f.type_path ? f.type_path.split('.').pop() : 'var';
+      mermaidCode += `    ${type} ${f.name}\n`;
+    });
+    methods.slice(0, 25).forEach((m: any) => {
+      const isPublic = m.modifiers?.includes('public');
+      const prefix = isPublic ? '+' : '-';
+      mermaidCode += `    ${prefix}${m.name}()\n`;
+    });
+    mermaidCode += `  }\n`;
+
+    // Add import dependencies
+    if (imports.length > 0) {
+      imports.slice(0, 10).forEach((dep: string) => {
+        const depName = dep.split('.').pop();
+        if (depName && depName !== className) {
+          mermaidCode += `  ${className} ..> ${depName} : imports\n`;
+        }
+      });
+    }
+
+    const mermaidHtml = `<pre class="mermaid">${mermaidCode}</pre>`;
+
+    return `
+      <div class="explorer-code-layout">
+        <!-- Top: UML Diagram -->
+        <div class="explorer-code-main">
+          <div class="explorer-code-header">
+            <div class="explorer-breadcrumb">
+              <span class="kind-badge" style="background:${kindColor}20; color:${kindColor}; border:1px solid ${kindColor}40">${asset.kind}</span>
+              <span class="breadcrumb-text">📐 ${className} - 类图</span>
+            </div>
+          </div>
+          <div class="uml-viewer">
+            ${mermaidHtml}
+          </div>
+        </div>
+        <!-- Bottom: Audit Panel -->
+        <div class="explorer-audit-panel">
+          <div class="audit-tabs" role="tablist">
+            <div class="audit-tab active" data-tab="uml" onclick="window.__switchAuditTab('uml')">📐 UML</div>
+            <div class="audit-tab" data-tab="comments" onclick="window.__switchAuditTab('comments')">💬 评论</div>
+            <div class="audit-tab" data-tab="tags" onclick="window.__switchAuditTab('tags')">🏷️ 标签</div>
+          </div>
+          <div class="audit-content">
+            <!-- UML Tab (active by default) -->
+            <div class="audit-tab-panel active" id="audit-uml">
+              <div class="uml-diagram" id="uml-diagram">${mermaidHtml}</div>
+            </div>
+            <!-- Comments Tab -->
+            <div class="audit-tab-panel" id="audit-comments" style="display:none;">
+              <div class="audit-comment-form">
+                <textarea id="audit-comment-input" class="audit-textarea" placeholder="添加评论或思考..."></textarea>
+                <button class="audit-submit-btn" onclick="window.__addComment()">提交</button>
+              </div>
+              <div class="audit-comment-list">
+                ${this._comments.length === 0 ? '<div class="audit-empty">暂无评论</div>' :
+                  this._comments.map((c) => `
+                    <div class="audit-comment-item">
+                      <div class="audit-comment-meta">
+                        <span class="audit-comment-author">${c.author || '匿名'}</span>
+                        <span class="audit-comment-time">${c.time}</span>
+                      </div>
+                      <div class="audit-comment-text">${c.text}</div>
+                    </div>
+                  `).join('')
+                }
+              </div>
+            </div>
+            <!-- Tags Tab -->
+            <div class="audit-tab-panel" id="audit-tags" style="display:none;">
+              <div class="audit-tag-input-row">
+                <input type="text" id="audit-tag-input" class="audit-tag-input" placeholder="输入标签名称...">
+                <button class="audit-tag-add-btn" onclick="window.__addTag()">添加</button>
+              </div>
+              <div class="audit-tag-cloud">
+                ${this._tags.length === 0 ? '<div class="audit-empty">暂无标签</div>' :
+                  this._tags.map((t) => `
+                    <span class="audit-tag-badge" style="background:${this.getKindColor(t.type)}15; color:${this.getKindColor(t.type)}; border:1px solid ${this.getKindColor(t.type)}40">
+                      ${t.name}
+                      <span class="audit-tag-remove" onclick="window.__removeTag('${t.name}')">✕</span>
+                    </span>
+                  `).join('')
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   /**
@@ -387,67 +532,130 @@ export class CodeExplorerView {
     const title = `${classAddr.split('.').pop()}.${methodName}()`;
 
     this._currentMethod = methodName;
+    this._currentClass = classAddr;
     this.selectedCode = { content: code, language: 'java', title, kind };
+
+    // Load persisted data from localStorage
+    this._loadFromStorage(classAddr, methodName);
 
     const codePanel = document.getElementById('code-panel');
     if (codePanel) {
       codePanel.innerHTML = this.renderCodePanel(code, title, kind);
       codePanel.scrollTo(0, 0);
-
-      // Initialize UML chart if visible
-      setTimeout(() => this.renderUmlChart(asset), 100);
     }
   }
 
   /**
-   * Render UML class diagram using ECharts
+   * Generate mermaid.js UML class diagram
    */
-  private renderUmlChart(asset: any): void {
-    const chartDom = document.getElementById('uml-chart');
-    if (!chartDom || !asset) return;
-    
-    // Dispose old chart
-    if (this.umlChart) { this.umlChart.dispose(); this.umlChart = null; }
-
-    const chart = echarts.init(chartDom);
-    this.umlChart = chart;
+  private async renderUmlDiagram(asset: any): Promise<void> {
+    const container = document.getElementById('uml-diagram');
+    if (!container || !asset) return;
 
     const methods = asset.methods_full || asset.methods || [];
     const fields = asset.fields_matrix || asset.fields || [];
-    const kindColor = this.getKindColor(asset.kind || 'CLASS');
+    const className = asset.address.split('.').pop();
 
-    const methodNodes = methods.slice(0, 15).map((m: any, i: number) => ({
-      id: `method_${i}`, name: m.name, category: 1
-    }));
-    const fieldNodes = fields.slice(0, 10).map((f: any, i: number) => ({
-      id: `field_${i}`, name: f.name, category: 2
-    }));
-
-    const links = [
-      ...methodNodes.map((m: any) => ({ source: 'root', target: m.id })),
-      ...fieldNodes.map((f: any) => ({ source: 'root', target: f.id }))
-    ];
-
-    chart.setOption({
-      backgroundColor: 'transparent',
-      tooltip: { trigger: 'item', formatter: '{b}' },
-      series: [{
-        type: 'graph', layout: 'force', roam: false,
-        data: [
-          { id: 'root', name: asset.address.split('.').pop(), category: 0, symbolSize: 50, itemStyle: { color: kindColor } },
-          ...methodNodes.map((n: any) => ({ ...n, symbolSize: 25, itemStyle: { color: '#60a5fa' } })),
-          ...fieldNodes.map((n: any) => ({ ...n, symbolSize: 20, itemStyle: { color: '#a78bfa' } }))
-        ],
-        links,
-        categories: [{ name: 'Class' }, { name: 'Method' }, { name: 'Field' }],
-        force: { repulsion: 80, edgeLength: 60, gravity: 0.1 },
-        label: { show: true, position: 'bottom', fontSize: 10, color: '#cbd5e1' },
-        edgeSymbol: ['none', 'arrow'], edgeSymbolSize: [0, 5],
-        lineStyle: { color: '#475569', width: 1 }
-      }]
+    // Build mermaid class diagram syntax
+    let mermaidCode = `classDiagram\n`;
+    mermaidCode += `  class ${className} {\n`;
+    
+    // Add fields
+    fields.slice(0, 20).forEach((f: any) => {
+      const type = f.type_path ? f.type_path.split('.').pop() : 'var';
+      mermaidCode += `    ${type} ${f.name}\n`;
     });
+    
+    // Add methods
+    methods.slice(0, 20).forEach((m: any) => {
+      const isPublic = m.modifiers?.includes('public');
+      const prefix = isPublic ? '+' : '-';
+      mermaidCode += `    ${prefix}${m.name}()\n`;
+    });
+    
+    mermaidCode += `  }\n`;
 
-    setTimeout(() => chart.resize(), 50);
+    // Add relationships (imports as dependencies)
+    const imports = (asset as any).import_dependencies || [];
+    if (imports.length > 0) {
+      const extDeps = imports.slice(0, 8);
+      extDeps.forEach((dep: string) => {
+        const depName = dep.split('.').pop();
+        if (depName && depName !== className) {
+          mermaidCode += `  ${className} ..> ${depName} : imports\n`;
+        }
+      });
+    }
+
+    container.innerHTML = `<pre class="mermaid">${mermaidCode}</pre>`;
+
+    // Render with mermaid.js
+    try {
+      if ((window as any).mermaid) {
+        await (window as any).mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
+      }
+    } catch (e) {
+      container.innerHTML = `<div class="uml-error"><pre>${mermaidCode}</pre><p>Mermaid 渲染失败，显示原始语法</p></div>`;
+    }
+  }
+
+  /**
+   * Load comments and tags from localStorage
+   */
+  private _loadFromStorage(classAddr: string, methodName: string): void {
+    const key = `audit_${classAddr}#${methodName}`;
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const data = JSON.parse(stored);
+        this._comments = data.comments || [];
+        this._tags = data.tags || [];
+      } else {
+        this._comments = [];
+        this._tags = [];
+      }
+    } catch {
+      this._comments = [];
+      this._tags = [];
+    }
+  }
+
+  /**
+   * Save comments and tags to localStorage
+   */
+  private _saveToStorage(): void {
+    if (!this._currentClass || !this._currentMethod) return;
+    const key = `audit_${this._currentClass}#${this._currentMethod}`;
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        comments: this._comments,
+        tags: this._tags,
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (e) {
+      console.warn('Failed to save to localStorage:', e);
+    }
+  }
+
+  /**
+   * Re-render the audit panel content after changes
+   */
+  private _rerenderAuditPanel(): void {
+    if (!this.selectedCode) return;
+    const codePanel = document.getElementById('code-panel');
+    if (!codePanel) return;
+
+    // Check if currently in UML mode (has uml-viewer class)
+    const isUmlMode = codePanel.querySelector('.uml-viewer') !== null;
+
+    if (isUmlMode) {
+      // Re-render UML view
+      const asset = this.data?.assets?.find((a: any) => a.address === this._currentClass);
+      if (asset) codePanel.innerHTML = this.renderUmlView(asset);
+    } else {
+      // Re-render code view
+      codePanel.innerHTML = this.renderCodePanel(this.selectedCode.content, this.selectedCode.title, this.selectedCode.kind);
+    }
   }
 }
 
@@ -469,13 +677,12 @@ export class CodeExplorerView {
     p.classList.toggle('active', p.id === `audit-${tab}`);
   });
 
-  // Resize UML chart when switching to UML tab
+  // Render mermaid when switching to UML tab
   if (tab === 'uml') {
     setTimeout(() => {
-      const chartDom = document.getElementById('uml-chart');
-      if (chartDom) {
-        const chart = echarts.getInstanceByDom(chartDom);
-        if (chart) chart.resize();
+      const diagram = document.getElementById('uml-diagram');
+      if (diagram && (window as any).mermaid) {
+        (window as any).mermaid.run({ nodes: diagram.querySelectorAll('.mermaid') });
       }
     }, 50);
   }
@@ -484,7 +691,7 @@ export class CodeExplorerView {
 (window as any).__addComment = () => {
   const input = document.getElementById('audit-comment-input') as HTMLTextAreaElement;
   if (!input || !input.value.trim()) return;
-  
+
   const view = window.codeExplorerView as any;
   if (view) {
     view._comments = view._comments || [];
@@ -493,17 +700,15 @@ export class CodeExplorerView {
       text: input.value.trim(),
       time: new Date().toLocaleTimeString()
     });
-    // Re-render the panel to show new comment
-    if (view.selectedCode) {
-      view.renderCode(view.selectedCode.content, view._currentMethod || '', view.selectedCode.title);
-    }
+    view._saveToStorage();
+    view._rerenderAuditPanel();
   }
 };
 
 (window as any).__addTag = () => {
   const input = document.getElementById('audit-tag-input') as HTMLInputElement;
   if (!input || !input.value.trim()) return;
-  
+
   const view = window.codeExplorerView as any;
   if (view) {
     view._tags = view._tags || [];
@@ -512,10 +717,8 @@ export class CodeExplorerView {
       type: view.selectedCode?.kind || 'CLASS'
     });
     input.value = '';
-    // Re-render
-    if (view.selectedCode) {
-      view.renderCode(view.selectedCode.content, view._currentMethod || '', view.selectedCode.title);
-    }
+    view._saveToStorage();
+    view._rerenderAuditPanel();
   }
 };
 
@@ -523,8 +726,7 @@ export class CodeExplorerView {
   const view = window.codeExplorerView as any;
   if (view) {
     view._tags = (view._tags || []).filter((t: any) => t.name !== name);
-    if (view.selectedCode) {
-      view.renderCode(view.selectedCode.content, view._currentMethod || '', view.selectedCode.title);
-    }
+    view._saveToStorage();
+    view._rerenderAuditPanel();
   }
 };
