@@ -27,9 +27,22 @@ public class Bm25Searcher {
     }
 
     /**
+     * 无参构造 (内存模式, 不执行数据库操作)
+     */
+    public Bm25Searcher() {
+        this.jdbcUrl = null;
+        this.username = null;
+        this.password = null;
+    }
+
+    /**
      * 初始化 (添加 tsvector 列和 GIN 索引)
      */
     public void initialize() {
+        if (jdbcUrl == null) {
+            logger.info("BM25 searcher skipped (in-memory mode)");
+            return;
+        }
         try {
             connection = DriverManager.getConnection(jdbcUrl, username, password);
             createSearchColumn();
@@ -44,6 +57,7 @@ public class Bm25Searcher {
      * 关键词检索 (Top-K)
      */
     public List<RagSlice> search(String query, int topK) {
+        if (jdbcUrl == null) return Collections.emptyList();
         List<RagSlice> results = new ArrayList<>();
         if (query == null || query.trim().isEmpty()) return results;
 

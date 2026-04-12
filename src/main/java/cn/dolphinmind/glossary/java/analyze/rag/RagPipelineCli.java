@@ -9,6 +9,7 @@ import cn.dolphinmind.glossary.java.analyze.rag.service.EmbeddingService;
 import cn.dolphinmind.glossary.java.analyze.rag.service.OllamaEmbeddingService;
 import cn.dolphinmind.glossary.java.analyze.rag.service.OpenAIEmbeddingService;
 import cn.dolphinmind.glossary.java.analyze.rag.store.PgVectorStore;
+import cn.dolphinmind.glossary.java.analyze.rag.store.InMemoryVectorStore;
 import cn.dolphinmind.glossary.java.analyze.rag.store.VectorStore;
 import cn.dolphinmind.glossary.java.analyze.slicing.CodeSlicer;
 import cn.dolphinmind.glossary.java.analyze.unified.UnifiedIssue;
@@ -165,8 +166,8 @@ public class RagPipelineCli {
         EmbeddingService embeddingService;
         if ("ollama".equals(embeddingProvider)) {
             embeddingService = new OllamaEmbeddingService(
-                    params.getOrDefault("--embedding-endpoint", "http://localhost:11434/api/embeddings"),
-                    params.getOrDefault("--embedding-model", "nomic-embed-text"));
+                    params.getOrDefault("--embedding-endpoint", config.getString("ollama.endpoint", "http://localhost:11434/api/embeddings")),
+                    params.getOrDefault("--embedding-model", config.getString("ollama.embed-model", "nomic-embed-text")));
         } else {
             String apiKey = params.getOrDefault("--api-key", config.getString("openai.api-key", ""));
             if (apiKey.isEmpty()) {
@@ -174,28 +175,81 @@ public class RagPipelineCli {
             }
             embeddingService = new OpenAIEmbeddingService(
                     apiKey,
-                    params.getOrDefault("--embedding-endpoint", "https://api.openai.com/v1/embeddings"),
-                    params.getOrDefault("--embedding-model", "text-embedding-3-small"));
+                    params.getOrDefault("--embedding-endpoint", config.getString("openai.endpoint", "https://api.openai.com/v1/embeddings")),
+                    params.getOrDefault("--embedding-model", config.getString("openai.embed-model", "text-embedding-3-small")));
         }
 
-        // Vector Store
+        // Vector Store (auto检测 PGVector 是否可用)
+        VectorStore vectorStore;
         String jdbcUrl = params.getOrDefault("--database-url", config.getDatabaseUrl());
         String dbUser = params.getOrDefault("--database-user", config.getDatabaseUser());
         String dbPassword = params.getOrDefault("--database-password", config.getDatabasePassword());
-        VectorStore vectorStore = new PgVectorStore(jdbcUrl, dbUser, dbPassword, embeddingService.getDimension());
 
-        // BM25 Searcher
-        Bm25Searcher bm25Searcher = new Bm25Searcher(jdbcUrl, dbUser, dbPassword);
+        if (isPgVectorAvailable(jdbcUrl, dbUser, dbPassword)) {
+            vectorStore = new PgVectorStore(jdbcUrl, dbUser, dbPassword, embeddingService.getDimension());
+            System.out.println("  Using PGVector store");
+        } else {
+            vectorStore = new InMemoryVectorStore();
+            System.out.println("  Using in-memory vector store (PGVector not available)");
+        }
+
+        // BM25 Searcher (also auto-detect)
+        Bm25Searcher bm25Searcher;
+        if (vectorStore instanceof PgVectorStore) {
+            bm25Searcher = new Bm25Searcher(jdbcUrl, dbUser, dbPassword);
+        } else {
+            // For in-memory, BM25 is not applicable; use a no-op
+            bm25Searcher = new Bm25Searcher(null, null, null);
+        }
 
         // LLM Client
         LlmClient llmClient;
         String llmApiKey = params.getOrDefault("--api-key", config.getString("openai.api-key", ""));
-        String llmModel = params.getOrDefault("--llm-model", "gpt-4");
-        String llmEndpoint = params.getOrDefault("--llm-endpoint", "https://api.openai.com/v1/chat/completions");
+        String llmModel = params.getOrDefault("--llm-model", config.getString("ollama.chat-model", "qwen2.5-coder:32b"));
+        String llmEndpoint;
 
-        llmClient = new OpenAIChatClient(llmApiKey, llmEndpoint, llmModel, 0.3);
+        // Auto-detect Ollama
+        if ("ollama".equals(llmProvider) || llmApiKey.isEmpty()) {
+            llmEndpoint = params.getOrDefault("--llm-endpoint", config.getString("ollama.endpoint", "http://localhost:11434"));
+            // Ollama uses /v1/chat/completions for OpenAI-compatible endpoint
+            if (!llmEndpoint.contains("/v1/")) {
+                llmEndpoint = llmEndpoint.endsWith("/") ? llmEndpoint + "v1/chat/completions" : llmEndpoint + "/v1/chat/completions";
+            }
+            System.out.println("  Using Ollama LLM: " + llmModel + " at " + llmEndpoint);
+        } else {
+            llmEndpoint = params.getOrDefault("--llm-endpoint", config.getString("openai.endpoint", "https://api.openai.com/v1/chat/completions"));
+            System.out.println("  Using OpenAI LLM: " + llmModel);
+        }
 
-        return new RagPipeline(embeddingService, vectorStore, bm25Searcher, llmClient);
+        double temperature = 0.3;
+        try { temperature = Double.parseDouble(params.getOrDefault("--temperature", "0.3")); }
+        catch (NumberFormatException ignored) {}
+
+        llmClient = new OpenAIChatClient(llmApiKey.isEmpty() ? "ollama" : llmApiKey, llmEndpoint, llmModel, temperature);
+
+        int topK = 10;
+        try { topK = Integer.parseInt(params.getOrDefault("--top-k", "10")); }
+        catch (NumberFormatException ignored) {}
+
+        return new RagPipeline(embeddingService, vectorStore, bm25Searcher, llmClient, topK);
+    }
+
+    /**
+     * 检测 PGVector 是否可用
+     */
+    private static boolean isPgVectorAvailable(String jdbcUrl, String user, String password) {
+        try {
+            java.sql.Connection conn = java.sql.DriverManager.getConnection(jdbcUrl, user, password);
+            java.sql.Statement stmt = conn.createStatement();
+            java.sql.ResultSet rs = stmt.executeQuery(
+                    "SELECT 1 FROM pg_extension WHERE extname = 'vector'");
+            boolean available = rs.next();
+            stmt.close();
+            conn.close();
+            return available;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @SuppressWarnings("unchecked")

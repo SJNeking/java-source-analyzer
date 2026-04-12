@@ -89,9 +89,8 @@ public class OpenAIChatClient implements LlmClient {
 
         body.add("messages", messages);
 
-        if (jsonMode) {
-            body.addProperty("response_format", "json_object");
-        }
+        // response_format is not supported by all providers (Ollama may reject it)
+        // We rely on system prompt to enforce JSON output instead
 
         return body;
     }
@@ -126,8 +125,8 @@ public class OpenAIChatClient implements LlmClient {
 
     private String parseChatResponse(String responseBody) {
         JsonObject json = gson.fromJson(responseBody, JsonObject.class);
-        return json.getAsJsonObject("choices")
-                .getAsJsonArray().get(0).getAsJsonObject()
+        return json.getAsJsonArray("choices")
+                .get(0).getAsJsonObject()
                 .getAsJsonObject("message")
                 .get("content").getAsString();
     }
@@ -144,13 +143,31 @@ public class OpenAIChatClient implements LlmClient {
         }
 
         try {
-            JsonObject json = gson.fromJson(content, JsonObject.class);
-            JsonArray issuesArray = json.getAsJsonArray("issues");
+            JsonElement parsed = gson.fromJson(content, JsonElement.class);
+            JsonArray issuesArray = null;
+
+            // Handle different response formats
+            if (parsed.isJsonArray()) {
+                // LLM returned a raw array of issues
+                issuesArray = parsed.getAsJsonArray();
+            } else if (parsed.isJsonObject()) {
+                JsonObject obj = parsed.getAsJsonObject();
+                if (obj.has("issues")) {
+                    issuesArray = obj.getAsJsonArray("issues");
+                } else {
+                    // Single issue object
+                    issuesArray = new JsonArray();
+                    issuesArray.add(obj);
+                }
+            }
+
             if (issuesArray == null) return Collections.emptyList();
 
             List<UnifiedIssue> issues = new ArrayList<>();
             for (int i = 0; i < issuesArray.size(); i++) {
-                JsonObject issueJson = issuesArray.get(i).getAsJsonObject();
+                JsonElement el = issuesArray.get(i);
+                if (!el.isJsonObject()) continue;
+                JsonObject issueJson = el.getAsJsonObject();
                 UnifiedIssue issue = UnifiedIssue.builder()
                         .source(cn.dolphinmind.glossary.java.analyze.unified.IssueSource.AI)
                         .ruleKey(getStr(issueJson, "ruleKey", "AI_REVIEW"))
@@ -172,7 +189,7 @@ public class OpenAIChatClient implements LlmClient {
             return issues;
         } catch (Exception e) {
             logger.warning("Failed to parse review response as JSON: " + e.getMessage());
-            logger.warning("Response preview: " + content.substring(0, Math.min(200, content.length())));
+            logger.warning("Response preview: " + content.substring(0, Math.min(300, content.length())));
             return Collections.emptyList();
         }
     }

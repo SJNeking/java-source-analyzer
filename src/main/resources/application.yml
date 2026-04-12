@@ -7,12 +7,12 @@ app:
   version: "1.0.0"
 
 # ============================================================
-# PostgreSQL Database
+# PostgreSQL Database (本地 Docker: redisson_brain_db)
 # ============================================================
 database:
-  url: ${DATABASE_URL:jdbc:postgresql://localhost:15432/codeguardian}
-  username: ${DATABASE_USER:codeguardian}
-  password: ${DATABASE_PASSWORD:codeguardian_secret}
+  url: ${DATABASE_URL:jdbc:postgresql://localhost:15432/postgres}
+  username: ${DATABASE_USER:root}
+  password: ${DATABASE_PASSWORD:123456}
   max-pool-size: 20
   connection-timeout: 30000
 
@@ -30,7 +30,24 @@ redis:
   timeout-ms: 5000
 
 # ============================================================
-# MinIO Object Storage
+# Ollama (本地 LLM)
+# ============================================================
+ollama:
+  endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
+  chat-model: ${OLLAMA_CHAT_MODEL:qwen2.5-coder:32b}
+  embed-model: ${OLLAMA_EMBED_MODEL:nomic-embed-text}
+
+# ============================================================
+# OpenAI (备用, 需 API Key)
+# ============================================================
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  endpoint: ${OPENAI_ENDPOINT:https://api.openai.com/v1}
+  chat-model: ${OPENAI_CHAT_MODEL:gpt-4}
+  embed-model: ${OPENAI_EMBED_MODEL:text-embedding-3-small}
+
+# ============================================================
+# MinIO Object Storage (暂未运行, 需时启动)
 # ============================================================
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:19000}
@@ -57,4 +74,4 @@ analysis:
 # ============================================================
 logging:
   level: INFO
-  format: JSON  # TEXT or JSON (production should use JSON)
+  format: TEXT
