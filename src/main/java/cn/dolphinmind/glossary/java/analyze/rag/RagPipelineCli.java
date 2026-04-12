@@ -13,10 +13,12 @@ import cn.dolphinmind.glossary.java.analyze.rag.store.InMemoryVectorStore;
 import cn.dolphinmind.glossary.java.analyze.rag.store.VectorStore;
 import cn.dolphinmind.glossary.java.analyze.slicing.CodeSlicer;
 import cn.dolphinmind.glossary.java.analyze.unified.UnifiedIssue;
+import cn.dolphinmind.glossary.java.analyze.security.SecurityUtils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.logging.Logger;
@@ -59,9 +61,20 @@ public class RagPipelineCli {
         }
 
         try {
+            // Security: Validate file paths to prevent Path Traversal
+            SecurityUtils.validatePath(analysisResultPath, new File("."));
+            SecurityUtils.validateExtension(analysisResultPath, "json");
+            
+            Path sourceRootPath = SecurityUtils.validatePath(sourceRoot, null);
+            
+            if (outputPath != null) {
+                SecurityUtils.validatePath(outputPath, new File("."));
+                SecurityUtils.validateExtension(outputPath, "json");
+            }
+
             System.out.println("=== RAG Pipeline ===");
-            System.out.println("Source: " + sourceRoot);
-            System.out.println("Analysis: " + analysisResultPath);
+            System.out.println("Source: " + SecurityUtils.sanitizeLogInput(sourceRootPath.toString()));
+            System.out.println("Analysis: " + SecurityUtils.sanitizeLogInput(analysisResultPath));
             System.out.println("Embedding: " + embeddingProvider);
             System.out.println("LLM: " + llmProvider);
             System.out.println();
@@ -73,7 +86,7 @@ public class RagPipelineCli {
             Map<String, Object> analysisResult = new Gson().fromJson(jsonContent, Map.class);
 
             CodeSlicer slicer = new CodeSlicer();
-            List<RagSlice> slices = convertToRagSlices(slicer, Paths.get(sourceRoot), analysisResult);
+            List<RagSlice> slices = convertToRagSlices(slicer, sourceRootPath, analysisResult);
             System.out.println("  Generated " + slices.size() + " code slices");
 
             // Step 2: Initialize RAG Pipeline
@@ -126,6 +139,9 @@ public class RagPipelineCli {
     @SuppressWarnings("unchecked")
     private static List<RagSlice> convertToRagSlices(CodeSlicer slicer, Path sourceRoot,
                                                       Map<String, Object> analysisResult) throws Exception {
+        // Security: Validate sourceRoot is within allowed boundaries (optional, but good practice)
+        // For now, we assume the user running the CLI has permissions.
+        
         List<RagSlice> ragSlices = new ArrayList<>();
 
         // Use CodeSlicer to generate slices from analysis result
@@ -266,9 +282,11 @@ public class RagPipelineCli {
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--")) {
                 if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
-                    params.put(args[i], args[++i]);
+                    String value = args[++i];
+                    // Security: Sanitize log inputs
+                    params.put(SecurityUtils.sanitizeLogInput(args[i]), SecurityUtils.sanitizeLogInput(value));
                 } else {
-                    params.put(args[i], "");
+                    params.put(SecurityUtils.sanitizeLogInput(args[i]), "");
                 }
             }
         }

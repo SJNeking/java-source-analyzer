@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Logger;
+import cn.dolphinmind.glossary.java.analyze.security.SecurityUtils;
 
 /**
  * 结果合并器 CLI 工具
@@ -262,10 +263,25 @@ public class ResultMerger {
 
     private void validate() {
         if (staticInputPath == null) throw new IllegalArgumentException("--static required");
+        
+        // Security: Validate paths
+        SecurityUtils.validatePath(staticInputPath, new File("."));
+        SecurityUtils.validateExtension(staticInputPath, "json");
+
         if (!new java.io.File(staticInputPath).exists())
             throw new IllegalArgumentException("File not found: " + staticInputPath);
-        if (aiInputPath != null && !new java.io.File(aiInputPath).exists())
-            throw new IllegalArgumentException("File not found: " + aiInputPath);
+            
+        if (aiInputPath != null) {
+            SecurityUtils.validatePath(aiInputPath, new File("."));
+            SecurityUtils.validateExtension(aiInputPath, "json");
+            if (!new java.io.File(aiInputPath).exists())
+                throw new IllegalArgumentException("File not found: " + aiInputPath);
+        }
+        
+        if (outputPath != null) {
+            SecurityUtils.validatePath(outputPath, new File("."));
+            SecurityUtils.validateExtension(outputPath, "json");
+        }
     }
 
     private static void printUsage() {
