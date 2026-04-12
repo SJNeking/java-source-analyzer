@@ -187,4 +187,16 @@ export const Style = {
   },
 };
 
+// Padding / spacing shortcuts
+export const padding = {
+  XS: '4px', SM: '6px', MD: '8px', LG: '10px', XL: '12px',
+  '2XL': '16px', '3XL': '20px', '4XL': '24px', '5XL': '40px',
+};
+
+// Common font sizes
+export const font = {
+  XS: '10px', SM: '11px', MD: '12px', LG: '13px', XL: '14px',
+  '2XL': '16px', '3XL': '18px', '4XL': '24px', '5XL': '48px',
+};
+
 export default Style;

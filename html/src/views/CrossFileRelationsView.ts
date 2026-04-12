@@ -11,6 +11,7 @@ import { Component, type Child } from '../framework/component';
 import { EventDelegator } from '../framework/events';
 import { Logger } from '../utils/logger';
 import { COLORS, TEXT, LAYOUT } from '../constants';
+import { Style } from '../utils/style-helpers';
 
 interface CrossFileRelation {
   source_path?: string;
@@ -216,7 +217,7 @@ export class CrossFileRelationsView extends Component {
           this.text(`${confidencePercent.toFixed(0)}%`),
         ]),
       ]),
-      this.el('td', { style: { fontSize: '12px', color: '#a0aec0', maxWidth: '200px' } as Partial<CSSStyleDeclaration> },
+      this.el('td', { style: { fontSize: Style.font.MD, color: Style.grayLt, maxWidth: '200px' } as Partial<CSSStyleDeclaration> },
         [this.text(this.truncateText(rel.evidence || '', 40))]),
     ]);
   }

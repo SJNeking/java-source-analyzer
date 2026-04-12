@@ -9,7 +9,8 @@ import type { AnalysisResult } from '../types';
 import { Component } from '../framework/component';
 import { CONFIG, SEVERITY } from '../config';
 import { Logger } from '../utils/logger';
-import { CLS, LABEL, ICON } from '../constants';
+import { CLS, LABEL, ICON, C } from '../constants';
+import { Style } from '../utils/style-helpers';
 
 declare const echarts: any;
 
@@ -134,14 +135,14 @@ export class MetricsDashboardView extends Component {
           `${LABEL.METRICS.MAX} ${LABEL.METRICS.INHERITANCE_DEPTH}`,
           `${LABEL.METRICS.AVG} ${LABEL.METRICS.METHOD_LENGTH}`,
         ],
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.15)' } },
-        axisLabel: { color: '#94a3b8', rotate: 30, fontSize: 10 },
+        axisLine: { lineStyle: { color: C.CHART_AXIS_LINE } },
+        axisLabel: { color: Style.slate[400], rotate: 30, fontSize: 10 },
       },
       yAxis: {
         type: 'value' as const,
-        axisLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.15)' } },
-        axisLabel: { color: '#94a3b8', fontSize: 10 },
-        splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.08)' } },
+        axisLine: { lineStyle: { color: C.CHART_AXIS_LINE } },
+        axisLabel: { color: Style.slate[400], fontSize: 10 },
+        splitLine: { lineStyle: { color: C.CHART_GRID_LINE } },
       },
       series: [{
         data: [
@@ -187,7 +188,7 @@ export class MetricsDashboardView extends Component {
     const data = Object.entries(typeCounts).map(([name, value]) => ({
       name,
       value,
-      itemStyle: { color: CONFIG.colorMap[name as keyof typeof CONFIG.colorMap] || '#94a3b8' },
+      itemStyle: { color: CONFIG.colorMap[name as keyof typeof CONFIG.colorMap] || Style.slate[400] },
     }));
 
     chart.setOption({
@@ -199,20 +200,20 @@ export class MetricsDashboardView extends Component {
       legend: {
         orient: 'vertical' as const,
         left: 'left',
-        textStyle: { color: '#cbd5e1', fontSize: 11 },
+        textStyle: { color: Style.slate[300], fontSize: 11 },
         formatter: (name: string) => kindLabels[name] || name,
       },
       series: [{
-        name: '类类型',
+        name: LABEL.METRICS.CLASS_TYPE_LABEL,
         type: 'pie' as const,
         radius: ['40%', '70%'],
         center: ['55%', '50%'],
         label: {
-          color: '#cbd5e1',
+          color: Style.slate[300],
           fontSize: 11,
           formatter: '{b}: {d}%',
         },
-        labelLine: { lineStyle: { color: '#94a3b8' } },
+        labelLine: { lineStyle: { color: Style.slate[400] } },
         data: data.map(d => ({
           ...d,
           name: kindLabels[d.name] || d.name,

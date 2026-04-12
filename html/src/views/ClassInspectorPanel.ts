@@ -4,12 +4,14 @@
  * Uses Component base class for DOM creation instead of innerHTML.
  * Uses event delegation instead of inline event handlers.
  * Uses centralized constants for labels and config.
+ * Uses Style helpers for all colors and style objects.
  */
 
 import type { Asset, MethodAsset, FieldAsset } from '../types';
 import { Component, type Child } from '../framework/component';
 import { EventDelegator } from '../framework/events';
-import { ICON, LABEL } from '../constants';
+import { ICON, LABEL, CLS, C } from '../constants';
+import { Style } from '../utils/style-helpers';
 
 const PANEL_CONFIG = {
   WIDTH: 550,
@@ -21,15 +23,6 @@ const PANEL_CONFIG = {
   BLUR: 4,
   MAX_FIELDS: 10,
   CACHE_LIMIT: 50,
-} as const;
-
-const FALLBACK = {
-  BG: '#0f172a',
-  BORDER: 'rgba(255,255,255,0.1)',
-  CODE_BG: '#020617',
-  BORDER_LIGHT: 'rgba(255,255,255,0.05)',
-  BTN_BG: 'rgba(255,255,255,0.05)',
-  KEYWORD: '#c084fc',
 } as const;
 
 export class ClassInspectorPanel extends Component {
@@ -47,7 +40,6 @@ export class ClassInspectorPanel extends Component {
   }
 
   public buildRoot(): HTMLElement {
-    // This class manages its own DOM (panel/backdrop) and doesn't use Component's render flow
     return this.el('div', null, []);
   }
 
@@ -105,14 +97,16 @@ export class ClassInspectorPanel extends Component {
 
   private createBackdrop(): void {
     this.backdrop = document.createElement('div');
-    this.backdrop.style.cssText = `
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: ${PANEL_CONFIG.BACKDROP_Z};
-      opacity: 0; pointer-events: none;
-      transition: opacity ${PANEL_CONFIG.TRANSITION} ease;
-      backdrop-filter: blur(${PANEL_CONFIG.BLUR}px);
-    `;
+    Object.assign(this.backdrop.style, {
+      position: 'fixed',
+      inset: '0',
+      background: 'rgba(0,0,0,0.5)',
+      zIndex: String(PANEL_CONFIG.BACKDROP_Z),
+      opacity: '0',
+      pointerEvents: 'none',
+      transition: `opacity ${PANEL_CONFIG.TRANSITION} ease`,
+      backdropFilter: `blur(${PANEL_CONFIG.BLUR}px)`,
+    } as Partial<CSSStyleDeclaration>);
     this.backdrop.addEventListener('click', () => this.hide());
     document.body.appendChild(this.backdrop);
   }
@@ -120,19 +114,20 @@ export class ClassInspectorPanel extends Component {
   private createMainPanel(): void {
     this.panel = document.createElement('div');
     this.panel.id = 'class-inspector';
-    this.panel.style.cssText = `
-      position: fixed;
-      top: ${PANEL_CONFIG.TOP_OFFSET}px;
-      right: -${PANEL_CONFIG.WIDTH}px;
-      bottom: 0;
-      width: ${PANEL_CONFIG.WIDTH}px;
-      background: var(--bg-primary, ${FALLBACK.BG});
-      border-left: 1px solid var(--border-color, ${FALLBACK.BORDER});
-      z-index: ${PANEL_CONFIG.Z_INDEX};
-      transition: right ${PANEL_CONFIG.TRANSITION} cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex; flex-direction: column;
-      box-shadow: ${PANEL_CONFIG.BOX_SHADOW};
-    `;
+    Object.assign(this.panel.style, {
+      position: 'fixed',
+      top: `${PANEL_CONFIG.TOP_OFFSET}px`,
+      right: `-${PANEL_CONFIG.WIDTH}px`,
+      bottom: '0',
+      width: `${PANEL_CONFIG.WIDTH}px`,
+      background: `var(--bg-primary, ${Style.slate[900]})`,
+      borderLeft: `1px solid var(--border-color, ${Style.border.white10})`,
+      zIndex: String(PANEL_CONFIG.Z_INDEX),
+      transition: `right ${PANEL_CONFIG.TRANSITION} cubic-bezier(0.4, 0, 0.2, 1)`,
+      display: 'flex',
+      flexDirection: 'column',
+      boxShadow: PANEL_CONFIG.BOX_SHADOW,
+    } as Partial<CSSStyleDeclaration>);
 
     this.renderPanelHeader();
     this.createContentContainer();
@@ -143,22 +138,82 @@ export class ClassInspectorPanel extends Component {
     if (!this.panel) return;
 
     const header = this.el('div', {
-      style: { padding: '20px', borderBottom: '1px solid var(--border-light, rgba(255,255,255,0.05))', background: 'var(--code-bg, #020617)' } as Partial<CSSStyleDeclaration>,
+      style: {
+        padding: '20px',
+        borderBottom: `1px solid var(--border-light, ${Style.border.white20})`,
+        background: `var(--code-bg, ${Style.slate[950]})`,
+      } as Partial<CSSStyleDeclaration>,
     }, [
-      this.el('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' } as Partial<CSSStyleDeclaration> }, [
+      this.el('div', {
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: '6px',
+        } as Partial<CSSStyleDeclaration>,
+      }, [
         this.el('div', { style: { flex: 1, minWidth: 0 } as unknown as Partial<CSSStyleDeclaration> }, [
-          this.el('div', { id: 'inspector-title', style: { fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'monospace' } as Partial<CSSStyleDeclaration> },
-            [this.text(LABEL.COMMON.LOADING)]),
-          this.el('div', { id: 'inspector-fqn', style: { fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as Partial<CSSStyleDeclaration> }),
+          this.el('div', {
+            id: 'inspector-title',
+            style: {
+              fontSize: '18px',
+              fontWeight: '700',
+              color: 'var(--text-primary)',
+              fontFamily: 'monospace',
+            } as Partial<CSSStyleDeclaration>,
+          }, [this.text(LABEL.COMMON.LOADING)]),
+          this.el('div', {
+            id: 'inspector-fqn',
+            style: {
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              marginTop: '6px',
+              fontFamily: 'monospace',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            } as Partial<CSSStyleDeclaration>,
+          }),
         ]),
-        this.el('button', { id: 'inspector-close', style: { background: 'var(--btn-bg, rgba(255,255,255,0.05))', border: '1px solid var(--border-color, rgba(255,255,255,0.1))', color: 'var(--text-dim)', fontSize: '14px', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer' } as Partial<CSSStyleDeclaration> },
-          [this.text('✕')]),
+        this.el('button', {
+          id: 'inspector-close',
+          style: {
+            background: `var(--btn-bg, ${Style.border.white20})`,
+            border: `1px solid var(--border-color, ${Style.border.white10})`,
+            color: 'var(--text-dim)',
+            fontSize: '14px',
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+          } as Partial<CSSStyleDeclaration>,
+        }, [this.text(ICON.MISC.CROSS)]),
       ]),
       this.el('div', { id: 'inspector-tab-bar', style: { display: 'flex', gap: '16px' } as Partial<CSSStyleDeclaration> }, [
-        this.el('div', { className: 'inspector-tab-btn', 'data-tab': 'info', style: { fontSize: '11px', fontWeight: '600', color: 'var(--accent)', cursor: 'pointer', paddingBottom: '6px', borderBottom: '2px solid var(--accent)' } as Partial<CSSStyleDeclaration> },
-          [this.text(LABEL.EXPLORER.DETAIL_HEADER)]),
-        this.el('div', { className: 'inspector-tab-btn', 'data-tab': 'code', style: { fontSize: '11px', fontWeight: '600', color: 'var(--text-muted)', cursor: 'pointer', paddingBottom: '6px', borderBottom: '2px solid transparent' } as Partial<CSSStyleDeclaration> },
-          [this.text(LABEL.EXPLORER.SOURCE_TAB)]),
+        this.el('div', {
+          className: 'inspector-tab-btn',
+          'data-tab': 'info',
+          style: {
+            fontSize: '11px',
+            fontWeight: '600',
+            color: 'var(--accent)',
+            cursor: 'pointer',
+            paddingBottom: '6px',
+            borderBottom: '2px solid var(--accent)',
+          } as Partial<CSSStyleDeclaration>,
+        }, [this.text(LABEL.INSPECTOR.TAB_INFO)]),
+        this.el('div', {
+          className: 'inspector-tab-btn',
+          'data-tab': 'code',
+          style: {
+            fontSize: '11px',
+            fontWeight: '600',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            paddingBottom: '6px',
+            borderBottom: '2px solid transparent',
+          } as Partial<CSSStyleDeclaration>,
+        }, [this.text(LABEL.INSPECTOR.TAB_SOURCE)]),
       ]),
     ]);
 
@@ -170,23 +225,23 @@ export class ClassInspectorPanel extends Component {
 
     this.contentContainer = document.createElement('div');
     this.contentContainer.id = 'inspector-content';
-    this.contentContainer.style.cssText = `
-      flex: 1; overflow: hidden; position: relative;
-      background: var(--bg-secondary);
-    `;
+    Object.assign(this.contentContainer.style, {
+      flex: '1',
+      overflow: 'hidden',
+      position: 'relative',
+      background: 'var(--bg-secondary)',
+    } as Partial<CSSStyleDeclaration>);
     this.panel.appendChild(this.contentContainer);
   }
 
   private setupEventListeners(): void {
     if (this.delegator) this.delegator.destroy();
 
-    // Close button
     const closeBtn = document.getElementById('inspector-close');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => this.hide());
     }
 
-    // Tab switching via event delegation on the tab bar
     const tabBar = document.getElementById('inspector-tab-bar');
     if (tabBar) {
       this.delegator = new EventDelegator(tabBar as HTMLElement);
@@ -200,7 +255,7 @@ export class ClassInspectorPanel extends Component {
   private updateHeader(asset: Asset): void {
     const titleEl = document.getElementById('inspector-title');
     const fqnEl = document.getElementById('inspector-fqn');
-    const shortName = asset.address.split('.').pop() || LABEL.COMMON.UNKNOWN;
+    const shortName = asset.address.split('.').pop() || LABEL.INSPECTOR.UNKNOWN;
 
     if (titleEl) titleEl.textContent = shortName;
     if (fqnEl) {
@@ -252,29 +307,54 @@ export class ClassInspectorPanel extends Component {
     const fields = asset.fields_matrix || asset.fields || [];
 
     const children: Child[] = [
-      this.el('div', { style: { fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.7' } as Partial<CSSStyleDeclaration> }, [
-        this.renderInfoSection(LABEL.COMMON.CLASS_TYPE, asset.kind || LABEL.EXPLORER.JAVA_LABEL, { color: 'var(--accent)' }),
+      this.el('div', {
+        style: {
+          fontSize: '13px',
+          color: 'var(--text-secondary)',
+          lineHeight: '1.7',
+        } as Partial<CSSStyleDeclaration>,
+      }, [
+        this.renderInfoSection(LABEL.INSPECTOR.TYPE_LABEL, asset.kind || LABEL.INSPECTOR.UNKNOWN, { color: 'var(--accent)' }),
         asset.description ? this.renderDescriptionSection(asset.description) : this.el('div', null, []),
         fields.length > 0 ? this.renderFieldsSection(fields) : this.el('div', null, []),
       ]),
     ];
 
-    return this.el('div', { style: { padding: '20px', overflowY: 'auto', height: '100%' } as Partial<CSSStyleDeclaration> }, children);
+    return this.el('div', {
+      style: {
+        padding: '20px',
+        overflowY: 'auto',
+        height: '100%',
+      } as Partial<CSSStyleDeclaration>,
+    }, children);
   }
 
   private renderInfoSection(label: string, value: string, valueStyle?: Partial<CSSStyleDeclaration>): HTMLElement {
     return this.el('div', { style: { marginBottom: '24px' } as Partial<CSSStyleDeclaration> }, [
-      this.el('div', { style: { color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600', fontSize: '11px' } as Partial<CSSStyleDeclaration> }, [this.text(label)]),
       this.el('div', {
-        style: { padding: '10px', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border)', ...valueStyle } as Partial<CSSStyleDeclaration>,
+        style: {
+          ...Style.muted('11px'),
+          fontWeight: '600',
+        } as Partial<CSSStyleDeclaration>,
+      }, [this.text(label)]),
+      this.el('div', {
+        style: {
+          ...Style.valueBox(),
+          ...valueStyle,
+        } as Partial<CSSStyleDeclaration>,
       }, [this.text(value)]),
     ]);
   }
 
   private renderDescriptionSection(description: string): HTMLElement {
     return this.el('div', { style: { marginBottom: '24px' } as Partial<CSSStyleDeclaration> }, [
-      this.el('div', { style: { color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600', fontSize: '11px' } as Partial<CSSStyleDeclaration> }, [this.text(LABEL.COMMON.DESCRIPTION)]),
-      this.el('div', { style: { padding: '10px', background: 'var(--bg-tertiary)', borderRadius: '6px', border: '1px solid var(--border)' } as Partial<CSSStyleDeclaration> },
+      this.el('div', {
+        style: {
+          ...Style.muted('11px'),
+          fontWeight: '600',
+        } as Partial<CSSStyleDeclaration>,
+      }, [this.text(LABEL.INSPECTOR.DESC_LABEL)]),
+      this.el('div', { style: Style.valueBox() as Partial<CSSStyleDeclaration> },
         [this.text(description)]),
     ]);
   }
@@ -287,17 +367,36 @@ export class ClassInspectorPanel extends Component {
       const typeName = fieldType.split('.').pop() || LABEL.EXPLORER.JAVA_LABEL;
 
       return this.el('div', {
-        style: { fontFamily: 'monospace', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '4px' } as Partial<CSSStyleDeclaration>,
+        style: {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'var(--bg-secondary)',
+          padding: '6px 10px',
+          borderRadius: '4px',
+        } as Partial<CSSStyleDeclaration>,
       }, [
         this.el('span', { style: { color: 'var(--purple-primary)' } as Partial<CSSStyleDeclaration> }, [this.text(typeName)]),
-        this.el('span', { style: { color: 'var(--gray-300)' } as Partial<CSSStyleDeclaration> }, [this.text(field.name)]),
+        this.el('span', { style: { color: Style.slate[300] } as Partial<CSSStyleDeclaration> }, [this.text(field.name)]),
       ]);
     });
 
     return this.el('div', { style: { marginBottom: '24px' } as Partial<CSSStyleDeclaration> }, [
-      this.el('div', { style: { color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600', fontSize: '11px' } as Partial<CSSStyleDeclaration> },
-        [this.text(`${LABEL.EXPLORER.FIELDS} (${fields.length})`)]),
-      this.el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } as Partial<CSSStyleDeclaration> }, items),
+      this.el('div', {
+        style: {
+          ...Style.muted('11px'),
+          fontWeight: '600',
+        } as Partial<CSSStyleDeclaration>,
+      }, [this.text(`${LABEL.INSPECTOR.FIELDS_LABEL} (${fields.length})`)]),
+      this.el('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        } as Partial<CSSStyleDeclaration>,
+      }, items),
     ]);
   }
 
@@ -309,14 +408,31 @@ export class ClassInspectorPanel extends Component {
     const methods = this.currentAsset.methods_full || this.currentAsset.methods || [];
 
     if (!methods.length) {
-      return this.el('div', { style: { padding: '20px', textAlign: 'center', color: 'var(--text-muted)' } as Partial<CSSStyleDeclaration> },
-        [this.text(LABEL.EMPTY.GENERIC.TITLE)]);
+      return this.el('div', {
+        style: {
+          padding: '20px',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+        } as Partial<CSSStyleDeclaration>,
+      }, [this.text(LABEL.INSPECTOR.NO_SOURCE)]);
     }
 
     const items = methods.map((method: MethodAsset, index: number) => this.renderMethodCard(method, index));
 
-    return this.el('div', { style: { padding: '20px', overflowY: 'auto', height: '100%' } as Partial<CSSStyleDeclaration> }, [
-      this.el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } as Partial<CSSStyleDeclaration> }, items),
+    return this.el('div', {
+      style: {
+        padding: '20px',
+        overflowY: 'auto',
+        height: '100%',
+      } as Partial<CSSStyleDeclaration>,
+    }, [
+      this.el('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        } as Partial<CSSStyleDeclaration>,
+      }, items),
     ]);
   }
 
@@ -327,25 +443,50 @@ export class ClassInspectorPanel extends Component {
     const children: Child[] = [
       this.el('div', {
         'data-method-index': String(index),
-        style: { padding: '10px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)' } as Partial<CSSStyleDeclaration>,
+        style: {
+          padding: '10px 14px',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: 'var(--bg-secondary)',
+        } as Partial<CSSStyleDeclaration>,
       }, [
-        this.el('div', { style: { fontFamily: 'monospace', fontSize: '12px', color: 'var(--accent)' } as Partial<CSSStyleDeclaration> },
-          [this.text(method.name || LABEL.COMMON.UNKNOWN)]),
-        this.el('span', { style: { fontSize: '10px', color: 'var(--text-muted)' } as Partial<CSSStyleDeclaration> },
+        this.el('div', {
+          style: {
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            color: 'var(--accent)',
+          } as Partial<CSSStyleDeclaration>,
+        }, [this.text(method.name || LABEL.INSPECTOR.UNKNOWN)]),
+        this.el('span', { style: Style.muted('10px') as Partial<CSSStyleDeclaration> },
           [this.text(isExpanded ? ICON.EXPAND.OPEN : ICON.EXPAND.CLOSED)]),
       ]),
     ];
 
     if (isExpanded && code) {
       const codeEl = this.el('pre', {
-        style: { padding: '12px', margin: 0, fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--code-bg)', overflowX: 'auto', fontFamily: 'monospace' } as unknown as Partial<CSSStyleDeclaration>,
+        style: {
+          padding: '12px',
+          margin: 0,
+          fontSize: '11px',
+          color: 'var(--text-secondary)',
+          background: `var(--code-bg, ${Style.slate[950]})`,
+          overflowX: 'auto',
+          fontFamily: 'monospace',
+        } as unknown as Partial<CSSStyleDeclaration>,
       }, []);
       codeEl.innerHTML = this.highlightCode(code);
       children.push(codeEl);
     }
 
     return this.el('div', {
-      style: { background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' } as Partial<CSSStyleDeclaration>,
+      style: {
+        background: 'var(--bg-tertiary)',
+        border: '1px solid var(--border)',
+        borderRadius: '6px',
+        overflow: 'hidden',
+      } as Partial<CSSStyleDeclaration>,
     }, children);
   }
 
@@ -369,12 +510,14 @@ export class ClassInspectorPanel extends Component {
   private highlightCode(code: string): string {
     let escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+    const keywordColor = Style.purple;
+
     const rules: Array<[RegExp, string]> = [
       [/(\/\/[^\n]*)/g, 'color:var(--code-comment);'],
       [/(\/\*[\s\S]*?\*\/)/g, 'color:var(--code-comment);'],
-      [/\b(public|private|protected|static|final|abstract|synchronized|volatile)\b/g, `color:${FALLBACK.KEYWORD};font-weight:bold;`],
+      [/\b(public|private|protected|static|final|abstract|synchronized|volatile)\b/g, `color:${keywordColor};font-weight:bold;`],
       [/\b(class|interface|enum|extends|implements|new|this|super)\b/g, 'color:var(--accent);font-weight:bold;'],
-      [/\b(if|else|for|while|return|try|catch|throw)\b/g, `color:${FALLBACK.KEYWORD};font-weight:bold;`],
+      [/\b(if|else|for|while|return|try|catch|throw)\b/g, `color:${keywordColor};font-weight:bold;`],
       [/\b(String|int|boolean|long|void|List|Map)\b/g, 'color:var(--code-type);'],
       [/@\w+/g, 'color:var(--warning);'],
       [/(&quot;[^&]*?&quot;)/g, 'color:var(--danger);'],

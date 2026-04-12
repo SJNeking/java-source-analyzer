@@ -4,6 +4,7 @@
  * Visualizes method call chains using layered swimlane diagram.
  * Uses Component base class for selector UI.
  * Uses event delegation instead of inline handlers.
+ * All hardcoded strings and colors replaced with constants.
  */
 
 import * as echarts from 'echarts';
@@ -11,6 +12,8 @@ import type { AnalysisResult, Asset, MethodAsset } from '../types';
 import { Component, type Child } from '../framework/component';
 import { EventDelegator } from '../framework/events';
 import { Logger } from '../utils/logger';
+import { Style } from '../utils/style-helpers';
+import { ICON, LABEL, CLS, C } from '../constants';
 
 interface CallChainNode {
   id: string;
@@ -86,14 +89,14 @@ export class CallChainView extends Component {
     if (controllers.length === 0) {
       return this.el('div', { style: { padding: '40px' } as Partial<CSSStyleDeclaration> }, [
         this.el('div', { className: 'section-header' }, [
-          this.el('span', null, [this.text('🔍')]),
-          this.el('span', null, [this.text('选择入口方法以追踪调用链路')]),
+          this.el('span', null, [this.text(ICON.SECTION.CALL_CHAIN)]),
+          this.el('span', null, [this.text(LABEL.CALL_CHAIN.SELECT_ENTRY)]),
         ]),
         this.el('div', { style: { textAlign: 'center', padding: '60px', color: 'var(--text-muted)' } as Partial<CSSStyleDeclaration> }, [
-          this.el('div', { style: { fontSize: '48px', marginBottom: '16px' } as Partial<CSSStyleDeclaration> }, [this.text('🔍')]),
-          this.el('div', null, [this.text('未检测到 Controller 类')]),
+          this.el('div', { style: { fontSize: '48px', marginBottom: '16px' } as Partial<CSSStyleDeclaration> }, [this.text(ICON.UI.SEARCH)]),
+          this.el('div', null, [this.text(LABEL.CALL_CHAIN.NO_CONTROLLER)]),
           this.el('div', { style: { marginTop: '8px', fontSize: '12px' } as Partial<CSSStyleDeclaration> },
-            [this.text('提示: 确保后端分析包含了 Spring MVC 或 REST API 控制器')]),
+            [this.text(LABEL.CALL_CHAIN.TIP_CONTROLLER)]),
         ]),
       ]);
     }
@@ -112,21 +115,21 @@ export class CallChainView extends Component {
         } as Partial<CSSStyleDeclaration>,
       }, [
         this.el('div', { style: { fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '8px' } as Partial<CSSStyleDeclaration> },
-          [this.text(`🌐 ${controller.address.split('.').pop()}`)]),
+          [this.text(`${ICON.LAYER.CONTROLLER} ${controller.address.split('.').pop()}`)]),
         this.el('div', { style: { fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'monospace', marginBottom: '8px' } as Partial<CSSStyleDeclaration> },
           [this.text(controller.address)]),
-        this.el('div', { style: { fontSize: '11px', color: 'var(--blue-primary)' } as Partial<CSSStyleDeclaration> },
-          [this.text(`📝 ${(controller.methods_full || controller.methods || []).length} 个方法`)]),
+        this.el('div', { style: { fontSize: '11px', color: Style.blueCall } as Partial<CSSStyleDeclaration> },
+          [this.text(LABEL.COMPONENT.METHOD_COUNT((controller.methods_full || controller.methods || []).length).replace('⚙️ ', `${ICON.CODE.JAVA} `))]),
       ])
     );
 
     const children: Child[] = [
       this.el('div', { className: 'section-header' }, [
-        this.el('span', null, [this.text('🔍')]),
-        this.el('span', null, [this.text('选择入口方法以追踪调用链路')]),
+        this.el('span', null, [this.text(ICON.SECTION.CALL_CHAIN)]),
+        this.el('span', null, [this.text(LABEL.CALL_CHAIN.SELECT_ENTRY)]),
       ]),
       this.el('div', { style: { marginBottom: '16px', fontSize: '12px', color: 'var(--text-muted)' } as Partial<CSSStyleDeclaration> },
-        [this.text(`检测到 ${controllers.length} 个 Controller 类`)]),
+        [this.text(LABEL.CALL_CHAIN.DETECTED_CONTROLLERS(controllers.length))]),
       this.el('div', {
         style: { marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' } as Partial<CSSStyleDeclaration>,
       }, cards),
@@ -135,7 +138,7 @@ export class CallChainView extends Component {
     if (controllers.length > 20) {
       children.push(
         this.el('div', { style: { textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)', fontSize: '12px' } as Partial<CSSStyleDeclaration> },
-          [this.text('显示前 20 个 Controller，使用搜索框查找特定类')])
+          [this.text(LABEL.CALL_CHAIN.SHOWING_FIRST)])
       );
     }
 
@@ -164,7 +167,7 @@ export class CallChainView extends Component {
           transition: 'all 0.2s',
         } as Partial<CSSStyleDeclaration>,
       }, [
-        this.el('div', { style: { fontFamily: 'monospace', fontSize: '12px', color: 'var(--accent)' } as Partial<CSSStyleDeclaration> },
+        this.el('div', { style: { fontFamily: 'monospace', fontSize: '12px', color: Style.blueCall } as Partial<CSSStyleDeclaration> },
           [this.text(`${method.name}()`)]),
         method.description ? this.el('div', { style: { fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' } as Partial<CSSStyleDeclaration> },
           [this.text(method.description.substring(0, 80) + (method.description.length > 80 ? '...' : ''))]) : this.el('div', null, []),
@@ -173,9 +176,8 @@ export class CallChainView extends Component {
 
     return this.el('div', { style: { padding: '40px' } as Partial<CSSStyleDeclaration> }, [
       this.el('div', { className: 'section-header' }, [
-        this.el('span', { id: 'call-chain-back', style: { cursor: 'pointer' } as Partial<CSSStyleDeclaration> }, [this.text('←')]),
-        this.el('span', null, [this.text('返回')]),
-        this.el('span', { style: { marginLeft: 'auto' } as Partial<CSSStyleDeclaration> }, [this.text(`${asset.address.split('.').pop()} - 选择入口方法`)]),
+        this.el('span', { id: 'call-chain-back', style: { cursor: 'pointer' } as Partial<CSSStyleDeclaration> }, [this.text(LABEL.COMPONENT.BACK)]),
+        this.el('span', { style: { marginLeft: 'auto' } as Partial<CSSStyleDeclaration> }, [this.text(`${asset.address.split('.').pop()} - ${LABEL.CALL_CHAIN.SELECT_ENTRY}`)]),
       ]),
       this.el('div', {
         style: { marginTop: '20px', display: 'grid', gap: '12px' } as Partial<CSSStyleDeclaration>,
@@ -256,9 +258,9 @@ export class CallChainView extends Component {
       if (container) {
         container.innerHTML = `
           <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-            <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
-            <div>未检测到调用链路</div>
-            <div style="margin-top: 8px; font-size: 12px;">该方法可能没有调用其他内部方法</div>
+            <div style="font-size: 48px; margin-bottom: 16px;">${ICON.LINK.CHAIN}</div>
+            <div>${LABEL.CALL_CHAIN.NO_CHAIN}</div>
+            <div style="margin-top: 8px; font-size: 12px;">${LABEL.CALL_CHAIN.TIP_NO_CHAIN}</div>
           </div>
         ` as unknown as string;
       }
@@ -271,23 +273,23 @@ export class CallChainView extends Component {
         trigger: 'item',
         triggerOn: 'mousemove',
         backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        borderColor: '#334155',
+        borderColor: Style.slate[700],
         borderWidth: 1,
-        textStyle: { color: '#e2e8f0' },
+        textStyle: { color: Style.slate[200] },
         formatter: (params: any) => {
           if (params.dataType === 'node') {
             const node = params.data as CallChainNode;
             return `
               <div style="padding: 6px;">
                 <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;">${node.methodName}</div>
-                <div style="font-size: 10px; color: #94a3b8; font-family: monospace; margin-bottom: 6px;">${node.className}</div>
-                <div style="font-size: 10px; color: #64748b; margin-bottom: 4px;">层级: ${this.getLayerLabel(node.layer)}</div>
+                <div style="font-size: 10px; color: ${Style.slate[400]}; font-family: monospace; margin-bottom: 6px;">${node.className}</div>
+                <div style="font-size: 10px; color: ${Style.slate[600]}; margin-bottom: 4px;">${LABEL.CALL_CHAIN.LAYER_LABEL} ${this.getLayerLabel(node.layer)}</div>
                 ${node.qualityIssues ? `
-                  <div style="display: flex; gap: 8px; font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #334155;">
-                    ${node.qualityIssues.critical > 0 ? `<span style="color: #fb7185;">🔴 ${node.qualityIssues.critical} 严重</span>` : ''}
-                    ${node.qualityIssues.major > 0 ? `<span style="color: #fbbf24;">🟠 ${node.qualityIssues.major} 重要</span>` : ''}
-                    ${node.qualityIssues.minor > 0 ? `<span style="color: #38bdf8;">🔵 ${node.qualityIssues.minor} 提示</span>` : ''}
-                    ${!node.qualityIssues.critical && !node.qualityIssues.major && !node.qualityIssues.minor ? '<span style="color: #22c55e;">✅ 无问题</span>' : ''}
+                  <div style="display: flex; gap: 8px; font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid ${Style.slate[700]};">
+                    ${node.qualityIssues.critical > 0 ? `<span style="color: ${Style.redLt};">${ICON.SEVERITY.CRITICAL} ${node.qualityIssues.critical} ${LABEL.QUALITY.CRITICAL}</span>` : ''}
+                    ${node.qualityIssues.major > 0 ? `<span style="color: ${Style.amber};">${ICON.SEVERITY.MAJOR} ${node.qualityIssues.major} ${LABEL.QUALITY.MAJOR}</span>` : ''}
+                    ${node.qualityIssues.minor > 0 ? `<span style="color: ${Style.blueLt};">${ICON.SEVERITY.MINOR} ${node.qualityIssues.minor} ${LABEL.QUALITY.MINOR}</span>` : ''}
+                    ${!node.qualityIssues.critical && !node.qualityIssues.major && !node.qualityIssues.minor ? `<span style="color: ${Style.teal};">${LABEL.GRAPH.SEV_OK}</span>` : ''}
                   </div>
                 ` : ''}
               </div>
@@ -295,12 +297,15 @@ export class CallChainView extends Component {
           }
           if (params.dataType === 'edge') {
             const link = params.data as CallChainLink;
+            const linkIcon = link.type === 'violation' ? ICON.CALL_LINK.VIOLATION
+              : link.type === 'risk' ? ICON.CALL_LINK.RISK
+              : ICON.CALL_LINK.NORMAL;
             return `
               <div style="padding: 4px;">
                 <div style="font-size: 11px; margin-bottom: 4px;">
-                  ${link.type === 'violation' ? '⚠️ 架构违规' : link.type === 'risk' ? '🔥 高风险调用' : '📞 正常调用'}
+                  ${linkIcon}
                 </div>
-                ${link.label ? `<div style="font-size: 10px; color: #94a3b8;">${link.label}</div>` : ''}
+                ${link.label ? `<div style="font-size: 10px; color: ${Style.slate[400]};">${link.label}</div>` : ''}
               </div>
             `;
           }
@@ -318,10 +323,10 @@ export class CallChainView extends Component {
           itemStyle: {
             color: this.getLayerColor(node.layer),
             borderWidth: node.qualityIssues?.critical ? 2 : 1,
-            borderColor: node.qualityIssues?.critical ? '#ef4444' : undefined,
+            borderColor: node.qualityIssues?.critical ? C.VIOLATION_RED : undefined,
           },
           label: {
-            color: '#e2e8f0',
+            color: Style.slate[200],
             fontSize: 10,
             formatter: (p: any) => p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
           },
@@ -330,7 +335,7 @@ export class CallChainView extends Component {
           source: link.source,
           target: link.target,
           lineStyle: {
-            color: link.type === 'violation' ? '#ef4444' : link.type === 'risk' ? '#f59e0b' : '#3b82f6',
+            color: link.type === 'violation' ? C.VIOLATION_RED : link.type === 'risk' ? C.RISK_AMBER : Style.blueCall,
             curveness: 0.5,
             opacity: link.type === 'violation' ? 0.8 : 0.4,
             width: link.type === 'violation' ? 3 : 1.5,
@@ -341,10 +346,10 @@ export class CallChainView extends Component {
         lineStyle: { curveness: 0.5 },
         label: { position: 'right', distance: 5 },
         levels: [
-          { depth: 0, itemStyle: { borderWidth: 2, borderColor: '#1e40af' } },
-          { depth: 1, itemStyle: { borderWidth: 2, borderColor: '#059669' } },
-          { depth: 2, itemStyle: { borderWidth: 2, borderColor: '#7c3aed' } },
-          { depth: 3, itemStyle: { borderWidth: 2, borderColor: '#6b7280' } },
+          { depth: 0, itemStyle: { borderWidth: 2, borderColor: C.LEVEL_0_BORDER } },
+          { depth: 1, itemStyle: { borderWidth: 2, borderColor: C.LEVEL_1_BORDER } },
+          { depth: 2, itemStyle: { borderWidth: 2, borderColor: C.LEVEL_2_BORDER } },
+          { depth: 3, itemStyle: { borderWidth: 2, borderColor: C.LEVEL_3_BORDER } },
         ],
       }],
     };
@@ -444,23 +449,12 @@ export class CallChainView extends Component {
   }
 
   private getLayerColor(layer: string): string {
-    switch (layer) {
-      case 'controller': return '#3b82f6';
-      case 'service': return '#10b981';
-      case 'repository': return '#8b5cf6';
-      case 'external': return '#6b7280';
-      default: return '#9ca3af';
-    }
+    return Style.layerColor(layer);
   }
 
   private getLayerLabel(layer: string): string {
-    switch (layer) {
-      case 'controller': return '🌐 Controller 层';
-      case 'service': return '⚙️ Service 层';
-      case 'repository': return '💾 Repository 层';
-      case 'external': return '🔌 外部调用';
-      default: return layer;
-    }
+    const names = LABEL.CALL_CHAIN.LAYER_NAMES;
+    return (names as Record<string, string>)[layer] || layer;
   }
 
   public cleanup(): void {

@@ -3,18 +3,15 @@
  *
  * Uses Component base class for DOM creation.
  * Uses event delegation instead of inline onclick.
- * Uses centralized constants for HTTP method icons.
+ * All colors, labels, icons centralized in constants/style-helpers.
  */
 
 import type { AnalysisResult } from '../types';
 import { Component, type Child } from '../framework/component';
 import { EventDelegator } from '../framework/events';
 import { Logger } from '../utils/logger';
-import { ICON } from '../constants';
-
-const HTTP_METHOD_COLORS: Record<string, string> = {
-  GET: '#48bb78', POST: '#4299e1', PUT: '#ed8936', DELETE: '#f56565', PATCH: '#9f7aea', ANY: '#a0aec0',
-};
+import { Style } from '../utils/style-helpers';
+import { ICON, LABEL, CLS } from '../constants';
 
 export class ApiEndpointView extends Component {
   private containerId: string;
@@ -70,21 +67,21 @@ export class ApiEndpointView extends Component {
   }
 
   private renderEmptyState(): HTMLElement {
-    return this.el('div', { className: 'empty-state' }, [
+    return this.el('div', { className: CLS.EMPTY_STATE }, [
       this.el('div', { className: 'empty-state-icon' }, [this.text(ICON.HTTP.ANY)]),
-      this.el('div', { className: 'empty-state-title' }, [this.text('暂无 API 端点数据')]),
-      this.el('div', { className: 'empty-state-desc' }, [
-        this.text('当前项目未检测到 Spring API 端点。'),
+      this.el('div', { className: 'empty-state-title' }, [this.text(LABEL.API.NO_ENDPOINTS)]),
+      this.el('div', { className: CLS.EMPTY_DESC }, [
+        this.text(LABEL.API.NO_ENDPOINTS_DESC),
         this.el('br', {}), this.el('br', {}),
         this.text('可能原因:'),
         this.el('br', {}),
-        this.text('1. 项目未使用 Spring Boot 框架'),
+        this.text('1. ' + LABEL.API.REASON_1),
         this.el('br', {}),
-        this.text('2. 未使用 @RestController / @Controller 注解'),
+        this.text('2. ' + LABEL.API.REASON_2),
         this.el('br', {}),
-        this.text('3. 数据文件是早期版本，未包含 Spring 分析'),
+        this.text('3. ' + LABEL.API.REASON_3),
         this.el('br', {}), this.el('br', {}),
-        this.text('💡 确保项目是 Spring Boot 项目，使用最新版分析工具重新分析。'),
+        this.text(ICON.UI.INFO + ' ' + LABEL.API.SUGGEST),
       ]),
     ]);
   }
@@ -94,35 +91,36 @@ export class ApiEndpointView extends Component {
     const httpBreakdown = summary.httpMethodBreakdown || {};
 
     const cards: Child[] = [
-      this.el('div', { className: 'stat-card' }, [
+      this.el('div', { className: CLS.STAT_CARD }, [
         this.el('div', { className: 'stat-card-icon' }, [this.text(ICON.HTTP.ANY)]),
         this.el('div', { className: 'stat-card-value' }, [this.text(totalEndpoints)]),
-        this.el('div', { className: 'stat-card-label' }, [this.text('API 端点')]),
+        this.el('div', { className: 'stat-card-label' }, [this.text(LABEL.API.LABEL)]),
       ]),
-      this.el('div', { className: 'stat-card' }, [
+      this.el('div', { className: CLS.STAT_CARD }, [
         this.el('div', { className: 'stat-card-icon' }, [this.text('📦')]),
         this.el('div', { className: 'stat-card-value' }, [this.text(beanCount)]),
-        this.el('div', { className: 'stat-card-label' }, [this.text('Spring Beans')]),
+        this.el('div', { className: 'stat-card-label' }, [this.text(LABEL.API.BEANS)]),
       ]),
-      this.el('div', { className: 'stat-card' }, [
+      this.el('div', { className: CLS.STAT_CARD }, [
         this.el('div', { className: 'stat-card-icon' }, [this.text('🔀')]),
         this.el('div', { className: 'stat-card-value' }, [this.text(depCount)]),
-        this.el('div', { className: 'stat-card-label' }, [this.text('Bean 依赖')]),
+        this.el('div', { className: 'stat-card-label' }, [this.text(LABEL.API.BEAN_DEPS)]),
       ]),
     ];
 
     for (const [method, count] of Object.entries(httpBreakdown)) {
-      const icon = this.getHttpMethodIcon(method);
+      const icon = Style.httpIcon(method);
+      const color = Style.httpMethod(method);
       cards.push(
-        this.el('div', { className: 'stat-card' }, [
-          this.el('div', { className: 'stat-card-icon' }, [this.text(icon)]),
+        this.el('div', { className: CLS.STAT_CARD }, [
+          this.el('div', { className: 'stat-card-icon', style: { color } as Partial<CSSStyleDeclaration> }, [this.text(icon)]),
           this.el('div', { className: 'stat-card-value' }, [this.text(String(count))]),
           this.el('div', { className: 'stat-card-label' }, [this.text(method)]),
         ])
       );
     }
 
-    return this.el('div', { className: 'card-grid' }, cards);
+    return this.el('div', { className: CLS.CARD_GRID }, cards);
   }
 
   private renderMethodFilters(endpoints: any[]): HTMLElement {
@@ -136,7 +134,7 @@ export class ApiEndpointView extends Component {
       this.el('button', {
         className: `quality-filter-btn${!this.activeMethodFilter ? ' active' : ''}`,
         'data-filter': 'all',
-      }, [this.text(`全部 (${endpoints.length})`)]),
+      }, [this.text(LABEL.API.FILTER_ALL(endpoints.length))]),
     ];
 
     for (const [method, count] of Object.entries(methodCounts)) {
@@ -145,7 +143,7 @@ export class ApiEndpointView extends Component {
           className: 'quality-filter-btn',
           'data-filter': method,
           'data-method': method,
-        }, [this.text(`${this.getHttpMethodIcon(method)} ${method} (${count})`)])
+        }, [this.text(`${Style.httpIcon(method)} ${method} (${count})`)])
       );
     }
 
@@ -154,9 +152,9 @@ export class ApiEndpointView extends Component {
 
   private renderEndpointsListContent(endpoints: any[]): HTMLElement {
     if (endpoints.length === 0) {
-      return this.el('div', { className: 'empty-state', style: { padding: '40px' } as Partial<CSSStyleDeclaration> }, [
+      return this.el('div', { className: CLS.EMPTY_STATE, style: { padding: '40px' } as Partial<CSSStyleDeclaration> }, [
         this.el('div', { className: 'empty-state-icon' }, [this.text('🎉')]),
-        this.el('div', { className: 'empty-state-title' }, [this.text('无匹配的端点')]),
+        this.el('div', { className: 'empty-state-title' }, [this.text(LABEL.API.NO_MATCH)]),
       ]);
     }
 
@@ -174,7 +172,7 @@ export class ApiEndpointView extends Component {
     return this.el('div', null, [
       this.el('div', { className: 'section-header' }, [
         this.el('span', null, [this.text('📋')]),
-        this.el('span', null, [this.text(`API 端点 (${endpoints.length})`)]),
+        this.el('span', null, [this.text(LABEL.API.HEADER(endpoints.length))]),
       ]),
       ...groups,
     ]);
@@ -185,12 +183,12 @@ export class ApiEndpointView extends Component {
 
     return this.el('div', { style: { marginBottom: '24px' } as Partial<CSSStyleDeclaration> }, [
       this.el('div', {
-        style: { background: 'rgba(20, 25, 40, 0.85)', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' } as Partial<CSSStyleDeclaration>,
+        style: { background: Style.bg.cardDark, borderRadius: '12px', padding: '16px', marginBottom: '12px', border: `1px solid ${Style.border.white10}` } as Partial<CSSStyleDeclaration>,
       }, [
         this.el('div', { style: { fontSize: '16px', fontWeight: '700', color: 'var(--green-primary)', fontFamily: "'Courier New', monospace" } as Partial<CSSStyleDeclaration> },
           [this.text(className)]),
         this.el('div', { style: { fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px' } as Partial<CSSStyleDeclaration> },
-          [this.text(`${endpoints.length} 个端点`)]),
+          [this.text(LABEL.API.ENDPOINT_COUNT(endpoints.length))]),
       ]),
       this.el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } as Partial<CSSStyleDeclaration> }, cards),
     ]);
@@ -201,7 +199,7 @@ export class ApiEndpointView extends Component {
     const path = endpoint.path || '/';
     const description = endpoint.description || '';
     const params = endpoint.parameters || [];
-    const color = this.getHttpMethodColor(httpMethod);
+    const color = Style.httpMethod(httpMethod);
 
     const headerChildren: Child[] = [
       this.el('span', {
@@ -222,7 +220,7 @@ export class ApiEndpointView extends Component {
 
     if (params.length > 0) {
       children.push(this.el('div', { style: { fontSize: '12px', color: 'var(--gray-600)' } as Partial<CSSStyleDeclaration> }, [
-        this.el('strong', null, [this.text('参数: ')]),
+        this.el('strong', null, [this.text(LABEL.API.PARAMS)]),
         this.text(params.join(', ')),
       ]));
     }
@@ -233,7 +231,7 @@ export class ApiEndpointView extends Component {
     );
 
     return this.el('div', {
-      style: { background: 'rgba(20, 25, 40, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '10px', padding: '14px', borderLeft: `4px solid ${color}` } as Partial<CSSStyleDeclaration>,
+      style: { background: Style.bg.cardDarker, border: `1px solid ${Style.border.white08}`, borderRadius: '10px', padding: '14px', borderLeft: `4px solid ${color}` } as Partial<CSSStyleDeclaration>,
     }, children);
   }
 
@@ -250,14 +248,6 @@ export class ApiEndpointView extends Component {
 
       this.update();
     });
-  }
-
-  private getHttpMethodIcon(method: string): string {
-    return ICON.HTTP[method as keyof typeof ICON.HTTP] || '⚪';
-  }
-
-  private getHttpMethodColor(method: string): string {
-    return HTTP_METHOD_COLORS[method] || '#a0aec0';
   }
 
   public cleanup(): void {

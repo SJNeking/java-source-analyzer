@@ -256,5 +256,5 @@ export function cleanDescription(description: string, maxLength: number = 30): s
  * @returns Color string
  */
 export function getNodeColor(node: GraphNode): string {
-  return node.color || '#c9d1d9';
+  return node.color || '#94a3b8';
 }

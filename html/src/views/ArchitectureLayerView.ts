@@ -3,12 +3,14 @@
  *
  * Uses Component base class for DOM creation.
  * Uses centralized constants for icons and labels.
+ * Uses Style helpers for all colors.
  */
 
 import type { AnalysisResult } from '../types';
 import { Component, type Child } from '../framework/component';
 import { Logger } from '../utils/logger';
-import { ICON, LABEL } from '../constants';
+import { Style, padding, font } from '../utils/style-helpers';
+import { ICON, LABEL, CLS, C, LAYOUT } from '../constants';
 
 interface ArchitectureViolation {
   sourceClass?: string;
@@ -37,7 +39,7 @@ export class ArchitectureLayerView extends Component {
       Logger.error(`Container not found: ${this.containerId}`);
       return;
     }
-    
+
     // Call parent mount to render into container
     this.mount(container);
   }
@@ -62,23 +64,14 @@ export class ArchitectureLayerView extends Component {
   }
 
   private renderEmptyState(): HTMLElement {
-    return this.el('div', { className: 'empty-state' }, [
-      this.el('div', { className: 'empty-state-icon' }, [this.text(ICON.LAYER.UTIL)]),
-      this.el('div', { className: 'empty-state-title' }, [this.text('暂无架构分层数据')]),
-      this.el('div', { className: 'empty-state-desc' }, [
-        this.el('span', null, [this.text('当前数据文件未包含架构分层分析结果。')]),
+    return this.el('div', { className: CLS.EMPTY_STATE }, [
+      this.el('div', { className: CLS.EMPTY_ICON }, [this.text(ICON.LAYER.UTIL)]),
+      this.el('div', { className: CLS.EMPTY_TITLE }, [this.text('暂无架构分层数据')]),
+      this.el('div', { className: CLS.EMPTY_DESC }, [
+        this.el('span', null, [this.text(LABEL.ARCHITECTURE.EMPTY_DESC)]),
         this.el('br', {}),
         this.el('br', {}),
-        this.el('span', null, [this.text('架构分层分析可以:')]),
-        this.el('br', {}),
-        this.el('span', null, [this.text('• 自动识别 Controller / Service / Repository / Entity 层')]),
-        this.el('br', {}),
-        this.el('span', null, [this.text('• 显示层间依赖关系矩阵')]),
-        this.el('br', {}),
-        this.el('span', null, [this.text('• 检测架构违规（如 Controller 直接调用 Repository）')]),
-        this.el('br', {}),
-        this.el('br', {}),
-        this.el('span', null, [this.text('💡 使用最新版本的 Java 分析工具重新分析项目。')]),
+        this.el('span', null, [this.text(`${ICON.UI.INFO} ${LABEL.ARCHITECTURE.EMPTY_SUGGEST}`)]),
       ]),
     ]);
   }
@@ -89,7 +82,7 @@ export class ArchitectureLayerView extends Component {
 
     // Layer count cards
     for (const [layer, count] of Object.entries(layerCounts)) {
-      const icon = ICON.LAYER[layer as keyof typeof ICON.LAYER] || '📁';
+      const icon = ICON.LAYER[layer as keyof typeof ICON.LAYER] || ICON.ASSET_TYPE.MAVEN_POM;
       cards.push(
         this.el('div', { className: 'stat-card' }, [
           this.el('div', { className: 'stat-card-icon' }, [this.text(icon)]),
@@ -101,8 +94,8 @@ export class ArchitectureLayerView extends Component {
 
     // Violations card
     const violationIcon = totalViolations > 0 ? ICON.UI.WARNING : ICON.UI.CHECK;
-    const violationColor = totalViolations > 0 ? '#f56565' : '#48bb78';
-    const borderColor = totalViolations > 0 ? 'rgba(245, 101, 101, 0.4)' : 'rgba(72, 187, 120, 0.4)';
+    const violationColor = totalViolations > 0 ? Style.red : Style.green;
+    const borderColor = totalViolations > 0 ? Style.border.red : Style.border.green;
 
     cards.push(
       this.el('div', { className: 'stat-card', style: { border: `1px solid ${borderColor}` } as Partial<CSSStyleDeclaration> }, [
@@ -119,20 +112,18 @@ export class ArchitectureLayerView extends Component {
     const layers = Object.keys(layerCounts);
     if (layers.length === 0) return this.el('div', null, []);
 
-    // Build table header
     const headerCells: Child[] = [
-      this.el('th', null, [this.text('源层 → 目标层')]),
+      this.el('th', null, [this.text(`${LABEL.ARCHITECTURE.SOURCE_LAYER} → ${LABEL.ARCHITECTURE.TARGET_LAYER}`)]),
       ...layers.map(l => this.el('th', null, [this.text(l)])),
     ];
 
-    // Build table rows
     const rows = layers.map(sourceLayer => {
       const cells: Child[] = [
-        this.el('td', { style: { fontWeight: '600', color: 'var(--blue-primary)' } as Partial<CSSStyleDeclaration> }, [this.text(sourceLayer)]),
+        this.el('td', { style: { fontWeight: '600', color: Style.blueCall } as Partial<CSSStyleDeclaration> }, [this.text(sourceLayer)]),
         ...layers.map(targetLayer => {
           const count = layerGraph[sourceLayer]?.[targetLayer] || 0;
           return this.el('td', {
-            style: { textAlign: 'center', color: count > 0 ? 'var(--gray-300)' : 'var(--gray-700)' } as Partial<CSSStyleDeclaration>,
+            style: { textAlign: 'center', color: count > 0 ? Style.slate[300] : Style.slate[700] } as Partial<CSSStyleDeclaration>,
           }, [this.text(count > 0 ? count : '-')]);
         }),
       ];
@@ -143,8 +134,8 @@ export class ArchitectureLayerView extends Component {
     const tbody = this.el('tbody', null, rows);
     const table = this.el('table', { className: 'relations-table' }, [thead, tbody]);
 
-    return this.el('div', { className: 'metrics-chart' }, [
-      this.el('div', { className: 'metrics-chart-title' }, [this.text('🔀 层间依赖关系')]),
+    return this.el('div', { className: CLS.METRICS_CHART }, [
+      this.el('div', { className: CLS.METRICS_CHART_TITLE }, [this.text(LABEL.ARCHITECTURE.LAYER_GRAPH_TITLE)]),
       table,
     ]);
   }
@@ -152,19 +143,19 @@ export class ArchitectureLayerView extends Component {
   private renderViolations(violations: ArchitectureViolation[]): HTMLElement {
     if (violations.length === 0) {
       return this.el('div', {
-        className: 'metrics-chart',
-        style: { borderColor: 'rgba(72, 187, 120, 0.3)' } as Partial<CSSStyleDeclaration>,
+        className: CLS.METRICS_CHART,
+        style: { borderColor: Style.border.greenSoft } as Partial<CSSStyleDeclaration>,
       }, [
         this.el('div', {
-          className: 'metrics-chart-title',
-          style: { color: 'var(--green-primary)' } as Partial<CSSStyleDeclaration>,
+          className: CLS.METRICS_CHART_TITLE,
+          style: { color: Style.green } as Partial<CSSStyleDeclaration>,
         }, [this.text(LABEL.ARCHITECTURE.NO_VIOLATIONS)]),
-        this.el('div', { style: { textAlign: 'center', padding: '40px', color: 'var(--gray-500)' } as Partial<CSSStyleDeclaration> },
-          [this.text('恭喜！未检测到架构分层违规。')]),
+        this.el('div', { style: { textAlign: 'center', padding: Style.padding.LG, color: Style.slate[500] } as Partial<CSSStyleDeclaration> },
+          [this.text(LABEL.ARCHITECTURE.NO_VIOLATIONS_MSG)]),
       ]);
     }
 
-    const items = violations.slice(0, 50).map(v => this.renderViolation(v));
+    const items = violations.slice(0, LAYOUT.MAX_VIOLATIONS_DISPLAY).map(v => this.renderViolation(v));
     return this.el('div', null, [
       this.el('div', { className: 'section-header' }, [
         this.el('span', null, [this.text(ICON.UI.WARNING)]),
@@ -184,7 +175,7 @@ export class ArchitectureLayerView extends Component {
       ]),
       this.el('div', { className: 'quality-message' }, [this.text(v.description || '')]),
       this.el('div', { className: 'quality-meta' }, [
-        this.el('strong', null, [this.text('类型: ')]),
+        this.el('strong', null, [this.text(LABEL.ARCHITECTURE.TYPE_LABEL)]),
         this.text(v.violationType || ''),
       ]),
     ];

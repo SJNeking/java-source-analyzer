@@ -129,15 +129,15 @@ export function transformToGraph(result: AnalysisResult): GraphData {
     let qualityGrade: 'A' | 'B' | 'C' | 'D' | 'E' = 'A';
     
     if (quality.critical > 0) {
-      borderColor = '#fb7185'; // Red for Critical
+      borderColor = 'rgba(251, 113, 133, 1)';
       borderWidth = 2.5;
       qualityGrade = 'D';
     } else if (quality.major > 0) {
-      borderColor = '#fbbf24'; // Orange for Major
+      borderColor = 'rgba(251, 191, 36, 1)';
       borderWidth = 2;
       qualityGrade = 'C';
     } else if (quality.minor > 0) {
-      borderColor = '#38bdf8'; // Blue for Minor
+      borderColor = 'rgba(56, 189, 248, 1)';
       borderWidth = 1.5;
       qualityGrade = 'B';
     }

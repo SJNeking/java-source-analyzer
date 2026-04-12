@@ -54,7 +54,7 @@ done
 
 # 进入前端目录
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-FRONTEND_DIR="$SCRIPT_DIR/nginx/html"
+FRONTEND_DIR="$SCRIPT_DIR/html"
 cd "$FRONTEND_DIR" || exit
 
 # 构建前端

@@ -11,6 +11,8 @@ import type { AnalysisResult, Asset, MethodAsset } from '../types';
 import { Component, type Child } from '../framework/component';
 import { EventDelegator } from '../framework/events';
 import { Logger } from '../utils/logger';
+import { Style } from '../utils/style-helpers';
+import { ICON, LABEL, CLS, C } from '../constants';
 
 interface MethodCallNode {
   id: string;
@@ -69,7 +71,7 @@ export class MethodCallView extends Component {
 
     const cards = displayed.map(asset =>
       this.el('div', {
-        className: 'class-card',
+        className: CLS.CARD_GRID,
         'data-class': asset.address,
         style: {
           padding: '16px',
@@ -86,15 +88,15 @@ export class MethodCallView extends Component {
           [this.text(asset.address)]),
         this.el('div', { style: { marginTop: '8px', display: 'flex', gap: '8px', fontSize: '10px' } as Partial<CSSStyleDeclaration> }, [
           this.el('span', { style: { color: 'var(--blue-primary)' } as Partial<CSSStyleDeclaration> },
-            [this.text(`📝 ${(asset.methods_full || asset.methods || []).length} 方法`)]),
+            [this.text(LABEL.COMPONENT.METHOD_COUNT((asset.methods_full || asset.methods || []).length))]),
         ]),
       ])
     );
 
     const children: Child[] = [
       this.el('div', { className: 'section-header' }, [
-        this.el('span', null, [this.text('📊')]),
-        this.el('span', null, [this.text('选择类以查看方法调用关系')]),
+        this.el('span', null, [this.text(ICON.SECTION.METHOD_CALL)]),
+        this.el('span', null, [this.text(LABEL.METHOD_CALL.SELECT_CLASS)]),
       ]),
       this.el('div', {
         style: { marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' } as Partial<CSSStyleDeclaration>,
@@ -104,7 +106,7 @@ export class MethodCallView extends Component {
     if (classes.length > 50) {
       children.push(
         this.el('div', { style: { textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)', fontSize: '12px' } as Partial<CSSStyleDeclaration> },
-          [this.text('显示前 50 个类，使用搜索框查找特定类')])
+          [this.text(LABEL.METHOD_CALL.SHOWING_FIRST(50))])
       );
     }
 
@@ -157,7 +159,7 @@ export class MethodCallView extends Component {
         container.innerHTML = `
           <div style="padding: 40px; text-align: center; color: var(--text-muted);">
             <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
-            <div>该类没有方法</div>
+            <div>${LABEL.METHOD_CALL.NO_METHODS}</div>
           </div>
         `;
       }
@@ -216,8 +218,8 @@ export class MethodCallView extends Component {
         container.innerHTML = `
           <div style="padding: 40px; text-align: center; color: var(--text-muted);">
             <div style="font-size: 48px; margin-bottom: 16px;">🔗</div>
-            <div>该类方法之间没有内部调用关系</div>
-            <div style="margin-top: 8px; font-size: 12px;">提示: 方法可能只调用了外部类的方法</div>
+            <div>${LABEL.METHOD_CALL.NO_CALLS}</div>
+            <div style="margin-top: 8px; font-size: 12px;">${LABEL.METHOD_CALL.TIP_EXTERNAL}</div>
           </div>
         `;
       }
@@ -230,15 +232,15 @@ export class MethodCallView extends Component {
         trigger: 'item',
         triggerOn: 'mousemove',
         backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        borderColor: '#334155',
+        borderColor: Style.slate[700],
         borderWidth: 1,
-        textStyle: { color: '#e2e8f0' },
+        textStyle: { color: Style.slate[200] },
         formatter: (params: any) => {
           if (params.dataType === 'node') {
             return `
               <div style="padding: 4px;">
                 <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">${params.name}</div>
-                <div style="font-size: 11px; color: #94a3b8;">调用次数: ${params.value}</div>
+                <div style="font-size: 11px; color: ${Style.slate[400]};">${LABEL.METHOD_CALL.CALL_TIMES} ${params.value}</div>
               </div>
             `;
           }
@@ -249,11 +251,11 @@ export class MethodCallView extends Component {
                 <div style="font-size: 12px; margin-bottom: 6px; font-family: monospace;">
                   ${params.data.source.split('.').pop()} → ${params.data.target.split('.').pop()}
                 </div>
-                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px;">调用 ${params.value} 次</div>
+                <div style="font-size: 11px; color: ${Style.slate[400]}; margin-bottom: 4px;">${LABEL.METHOD_CALL.CALL_COUNT(params.value)}</div>
                 ${calls.length > 0 ? `
-                  <div style="font-size: 10px; color: #64748b; max-width: 300px;">
+                  <div style="font-size: 10px; color: ${Style.slate[600]}; max-width: 300px;">
                     ${calls.slice(0, 3).map((c: string) => `<div>• ${c}</div>`).join('')}
-                    ${calls.length > 3 ? `<div>... 还有 ${calls.length - 3} 次调用</div>` : ''}
+                    ${calls.length > 3 ? `<div>${LABEL.METHOD_CALL.MORE_CALLS(calls.length - 3)}</div>` : ''}
                   </div>
                 ` : ''}
               </div>
@@ -269,8 +271,8 @@ export class MethodCallView extends Component {
           id: node.id,
           name: node.name,
           value: node.value,
-          itemStyle: { color: node.category === 'internal' ? '#3b82f6' : '#6b7280' },
-          label: { color: '#e2e8f0', fontSize: 11 },
+          itemStyle: { color: node.category === 'internal' ? Style.blueCall : Style.gray },
+          label: { color: Style.slate[200], fontSize: 11 },
         })),
         links: links.map(link => ({
           source: link.source,
@@ -281,7 +283,7 @@ export class MethodCallView extends Component {
         })),
         lineStyle: { color: 'source', curveness: 0.5 },
         label: { position: 'right', distance: 5 },
-        levels: [{ depth: 0, itemStyle: { borderWidth: 2, borderColor: '#1e40af' } }],
+        levels: [{ depth: 0, itemStyle: { borderWidth: 2, borderColor: C.LEVEL_0_BORDER } }],
       }],
     };
 

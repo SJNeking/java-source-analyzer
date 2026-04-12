@@ -65,6 +65,14 @@ export const LABEL = {
     VIOLATION_TYPE: '违规类型',
     CLASS: '类',
     NO_VIOLATIONS: '✅ 无架构违规',
+    NO_VIOLATIONS_MSG: '恭喜！未检测到架构分层违规。',
+    LAYER_GRAPH_TITLE: '🔀 层间依赖关系',
+    EMPTY_TITLE: '暂无架构分层数据',
+    EMPTY_DESC: '当前数据文件未包含架构分层分析结果。',
+    EMPTY_SUGGEST: '使用最新版本的 Java 分析工具重新分析项目。',
+    CAN_DETECT_1: '自动识别 Controller / Service / Repository / Entity 层',
+    CAN_DETECT_2: '显示层间依赖关系矩阵',
+    CAN_DETECT_3: '检测架构违规（如 Controller 直接调用 Repository）',
     LAYERS: '层级',
     DEPENDENCIES: '依赖',
   },
@@ -83,6 +91,7 @@ export const LABEL = {
     MAX: '最大',
     INHERITANCE_DEPTH: '继承深度',
     METHOD_LENGTH: '方法长度',
+    CLASS_TYPE_LABEL: '类类型',
   },
 
   // Quality Gate
@@ -228,6 +237,18 @@ export const LABEL = {
     EDGE_IMPORT: '📦 Import 依赖关系',
     EDGE_VIOLATION: '⚠️ 架构违规：越层调用',
     EDGE_REF: '引用该类的数量',
+  },
+
+  // Class Inspector
+  INSPECTOR: {
+    LOADING: '加载中...',
+    NO_SOURCE: '暂无源码',
+    TAB_INFO: '📋 信息',
+    TAB_SOURCE: '📄 源码',
+    TYPE_LABEL: '类型',
+    DESC_LABEL: '描述',
+    FIELDS_LABEL: '字段',
+    UNKNOWN: 'Unknown',
   },
 
   // Common
