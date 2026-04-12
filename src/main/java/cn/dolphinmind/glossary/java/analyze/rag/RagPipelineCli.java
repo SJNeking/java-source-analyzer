@@ -14,6 +14,8 @@ import cn.dolphinmind.glossary.java.analyze.rag.store.VectorStore;
 import cn.dolphinmind.glossary.java.analyze.slicing.CodeSlicer;
 import cn.dolphinmind.glossary.java.analyze.unified.UnifiedIssue;
 import cn.dolphinmind.glossary.java.analyze.security.SecurityUtils;
+import cn.dolphinmind.glossary.java.analyze.monitoring.HealthChecker;
+import cn.dolphinmind.glossary.java.analyze.monitoring.MetricsCollector;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -44,6 +46,16 @@ public class RagPipelineCli {
 
         if (params.containsKey("--help")) {
             printUsage();
+            return;
+        }
+
+        if (params.containsKey("--health")) {
+            runHealthCheck(params);
+            return;
+        }
+
+        if (params.containsKey("--metrics")) {
+            runMetrics();
             return;
         }
 
@@ -301,6 +313,8 @@ public class RagPipelineCli {
         System.out.println("  --analysisResult <file>       Static analysis result JSON");
         System.out.println();
         System.out.println("Optional:");
+        System.out.println("  --health                      Run health checks and exit");
+        System.out.println("  --metrics                     Print metrics in Prometheus format and exit");
         System.out.println("  --output <file>               Output AI results JSON");
         System.out.println("  --query <text>                Review query (default: 'review code quality')");
         System.out.println("  --embedding-provider <name>   ollama | openai (default: ollama)");
@@ -312,5 +326,28 @@ public class RagPipelineCli {
         System.out.println("  --database-user <user>        Database username");
         System.out.println("  --database-password <pass>    Database password");
         System.out.println("  --help                        Show this help");
+    }
+
+    private static void runHealthCheck(Map<String, String> params) {
+        AppConfig config = AppConfig.getInstance();
+        String dbUrl = params.getOrDefault("--database-url", config.getDatabaseUrl());
+        String dbUser = params.getOrDefault("--database-user", config.getDatabaseUser());
+        String dbPass = params.getOrDefault("--database-password", config.getDatabasePassword());
+        String ollama = params.getOrDefault("--ollama-endpoint", config.getString("ollama.endpoint", "http://localhost:11434"));
+        String minio = params.getOrDefault("--minio-endpoint", config.getString("minio.endpoint", "http://localhost:19000"));
+
+        HealthChecker checker = new HealthChecker(dbUrl, dbUser, dbPass, ollama, minio);
+        Map<String, Object> health = checker.checkAll();
+        
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        System.out.println(gson.toJson(health));
+        
+        if ("DOWN".equals(health.get("status"))) {
+            System.exit(1);
+        }
+    }
+
+    private static void runMetrics() {
+        System.out.println(MetricsCollector.getInstance().exportPrometheus());
     }
 }
