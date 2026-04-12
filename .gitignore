@@ -1025,3 +1025,5 @@ html/data/
 html/dist/
 html/node_modules/
 *.log
+nginx/
+html/data/analysis-results/
