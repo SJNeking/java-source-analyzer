@@ -37,7 +37,15 @@ export type IssueCategory =
   | 'STYLING'           // CSS/styling consistency
   | 'TESTING'           // Test quality
   | 'BUILD'             // Build configuration
-  | 'I18N';             // Internationalization
+  | 'I18N'              // Internationalization
+  | 'ERROR_HANDLING'    // Error handling patterns
+  | 'STATE_MANAGEMENT'  // State management best practices
+  | 'EVENT_HANDLING'    // Event handling anti-patterns
+  | 'API_DESIGN'        // API/client communication
+  | 'BUNDLE_OPTIMIZATION' // Bundle size and loading
+  | 'LIFECYCLE_TIMING'  // Component lifecycle issues
+  | 'COMPONENT_DESIGN'  // Component design patterns
+  | 'DATA_VALIDATION';  // Data validation and sanitization
 
 /**
  * IssueCategory constants for runtime usage
@@ -55,6 +63,14 @@ export const IssueCategory = {
   TESTING: 'TESTING' as IssueCategory,
   BUILD: 'BUILD' as IssueCategory,
   I18N: 'I18N' as IssueCategory,
+  ERROR_HANDLING: 'ERROR_HANDLING' as IssueCategory,
+  STATE_MANAGEMENT: 'STATE_MANAGEMENT' as IssueCategory,
+  EVENT_HANDLING: 'EVENT_HANDLING' as IssueCategory,
+  API_DESIGN: 'API_DESIGN' as IssueCategory,
+  BUNDLE_OPTIMIZATION: 'BUNDLE_OPTIMIZATION' as IssueCategory,
+  LIFECYCLE_TIMING: 'LIFECYCLE_TIMING' as IssueCategory,
+  COMPONENT_DESIGN: 'COMPONENT_DESIGN' as IssueCategory,
+  DATA_VALIDATION: 'DATA_VALIDATION' as IssueCategory,
 } as const;
 
 /**

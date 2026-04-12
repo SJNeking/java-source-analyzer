@@ -1,0 +1,32 @@
+{
+  "name": "java-source-analyzer-frontend",
+  "version": "1.0.0",
+  "description": "TypeScript frontend for Java Source Analyzer - Visualizes code analysis results",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "dev": "node build.js --watch",
+    "clean": "rm -rf dist/*"
+  },
+  "keywords": [
+    "java",
+    "source-code",
+    "analyzer",
+    "visualization",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/echarts": "^5.0.0",
+    "esbuild": "^0.28.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@types/dompurify": "^3.0.5",
+    "dompurify": "^3.3.3",
+    "echarts": "^5.5.0"
+  }
+}

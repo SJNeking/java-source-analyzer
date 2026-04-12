@@ -1,0 +1,85 @@
+# Frontend Quality Analyzer — GitLab CI/CD
+#
+# Usage:
+# 1. Place in .gitlab-ci.yml or include as a template
+# 2. Customize SOURCE_ROOT and QUALITY_THRESHOLDS
+# 3. Pipeline will fail if quality gate fails
+
+frontend-quality-check:
+  stage: test
+  image: node:20-alpine
+  timeout: 10m
+
+  variables:
+    SOURCE_ROOT: "./src"
+    OUTPUT_DIR: "./analysis-output"
+    MAX_CRITICAL: "0"
+    MAX_MAJOR: "10"
+
+  cache:
+    key:
+      files:
+        - frontend-quality-analyzer/package-lock.json
+    paths:
+      - frontend-quality-analyzer/node_modules/
+
+  script:
+    - cd frontend-quality-analyzer
+    - npm ci --prefer-offline
+    - npm run build
+    - |
+      node dist/cli.js \
+        --sourceRoot $SOURCE_ROOT \
+        --outputDir $OUTPUT_DIR \
+        --format json \
+        --verbose
+
+    - |
+      OUTPUT_FILE=$(ls -t $OUTPUT_DIR/*_full_*.json | head -1)
+      if [ -z "$OUTPUT_FILE" ]; then
+        echo "❌ No analysis output found"
+        exit 1
+      fi
+
+      TOTAL_ISSUES=$(node -e "console.log(require('$OUTPUT_FILE').total_issues)")
+      CRITICAL=$(node -e "console.log(require('$OUTPUT_FILE').by_severity.CRITICAL)")
+      MAJOR=$(node -e "console.log(require('$OUTPUT_FILE').by_severity.MAJOR)")
+
+      echo "=========================================="
+      echo "🔬 Frontend Quality Report"
+      echo "=========================================="
+      echo "🔴 Critical: $CRITICAL"
+      echo "🟠 Major:    $MAJOR"
+      echo "📊 Total:    $TOTAL_ISSUES"
+      echo "=========================================="
+
+      # Check thresholds
+      FAILED=false
+      if [ "$CRITICAL" -gt "$MAX_CRITICAL" ]; then
+        echo "❌ Critical issues ($CRITICAL) exceed threshold ($MAX_CRITICAL)"
+        FAILED=true
+      fi
+      if [ "$MAJOR" -gt "$MAX_MAJOR" ]; then
+        echo "❌ Major issues ($MAJOR) exceed threshold ($MAX_MAJOR)"
+        FAILED=true
+      fi
+
+      if [ "$FAILED" = true ]; then
+        echo "❌ Quality gate FAILED"
+        exit 1
+      else
+        echo "✅ Quality gate PASSED"
+      fi
+
+  artifacts:
+    when: always
+    paths:
+      - frontend-quality-analyzer/analysis-output/
+    expire_in: 30 days
+    reports:
+      junit: frontend-quality-analyzer/analysis-output/*.json  # If JUnit format generated
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == "develop"

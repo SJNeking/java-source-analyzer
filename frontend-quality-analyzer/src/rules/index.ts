@@ -43,20 +43,48 @@ import { BuildConfigRules } from './build-config/BuildConfigRules';
 // i18n Rules
 import { I18nRules } from './i18n/I18nRules';
 
+// Error Handling Rules
+import { ErrorHandlingRules } from './error-handling/ErrorHandlingRules';
+
+// State Management Rules
+import { StateManagementRules } from './state-management/StateManagementRules';
+
+// Extended Security Rules
+import { ExtendedSecurityRules } from './security/ExtendedSecurityRules';
+
+// Event Handling Rules
+import { EventHandlingRules } from './event-handling/EventHandlingRules';
+
+// API Design Rules
+import { APIDesignRules } from './api-design/APIDesignRules';
+
+// Bundle Optimization Rules
+import { BundleOptimizationRules } from './bundle-optimization/BundleOptimizationRules';
+
+// Lifecycle/Timing Rules
+import { LifecycleTimingRules } from './lifecycle-timing/LifecycleTimingRules';
+
+// Component Design Rules
+import { ComponentDesignRules } from './component-design/ComponentDesignRules';
+
+// Data Validation Rules
+import { DataValidationRules } from './data-validation/DataValidationRules';
+
 /**
- * Get all default rules (100+ rules)
+ * Get all default rules (150+ rules)
  */
 export function getAllDefaultRules(): QualityRule[] {
   const rules: QualityRule[] = [];
 
-  // TypeScript: 12 rules
+  // TypeScript: 6 rules
   rules.push(...TypeScriptRules.all());
 
-  // React: 12 rules
+  // React: 6 rules
   rules.push(...ReactRules.all());
 
-  // Security: 12 rules
+  // Security: 16 rules (6 original + 10 extended)
   rules.push(...SecurityRules.all());
+  rules.push(...ExtendedSecurityRules.all());
 
   // Vue: 10 rules
   rules.push(...VueRules.all());
@@ -70,7 +98,7 @@ export function getAllDefaultRules(): QualityRule[] {
   // Accessibility: 10 rules
   rules.push(...AccessibilityRules.all());
 
-  // Architecture: 8 rules
+  // Architecture: 34 rules (8 original + 26 new)
   rules.push(...ArchitectureRules.all());
 
   // Styling: 8 rules
@@ -84,6 +112,30 @@ export function getAllDefaultRules(): QualityRule[] {
 
   // i18n: 5 rules
   rules.push(...I18nRules.all());
+
+  // Error Handling: 8 rules (NEW)
+  rules.push(...ErrorHandlingRules.all());
+
+  // State Management: 8 rules (NEW)
+  rules.push(...StateManagementRules.all());
+
+  // Event Handling: 6 rules (NEW)
+  rules.push(...EventHandlingRules.all());
+
+  // API Design: 8 rules (NEW)
+  rules.push(...APIDesignRules.all());
+
+  // Bundle Optimization: 6 rules (NEW)
+  rules.push(...BundleOptimizationRules.all());
+
+  // Lifecycle/Timing: 6 rules (NEW)
+  rules.push(...LifecycleTimingRules.all());
+
+  // Component Design: 6 rules (NEW)
+  rules.push(...ComponentDesignRules.all());
+
+  // Data Validation: 6 rules (NEW)
+  rules.push(...DataValidationRules.all());
 
   return rules;
 }

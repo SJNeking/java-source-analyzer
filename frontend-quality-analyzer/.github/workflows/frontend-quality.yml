@@ -1,0 +1,143 @@
+# Frontend Quality Analyzer — CI/CD Integration
+#
+# Usage:
+# 1. Place in .github/workflows/frontend-quality.yml
+# 2. Customize sourceRoot and thresholds in the run step
+# 3. PR will be blocked if quality gate fails
+
+name: Frontend Quality Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality-check:
+    name: 🔬 Frontend Quality Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend-quality-analyzer/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend-quality-analyzer
+        run: npm ci
+
+      - name: Build analyzer
+        working-directory: frontend-quality-analyzer
+        run: npm run build
+
+      - name: Run quality analysis
+        id: quality
+        working-directory: frontend-quality-analyzer
+        continue-on-error: true
+        run: |
+          node dist/cli.js \
+            --sourceRoot ./src \
+            --outputDir ./analysis-output \
+            --format json \
+            --exclude "node_modules,dist" \
+            --verbose
+
+      - name: Check quality gate result
+        id: gate
+        run: |
+          OUTPUT_FILE=$(ls -t ./analysis-output/*_full_*.json | head -1)
+          if [ -z "$OUTPUT_FILE" ]; then
+            echo "❌ No analysis output found"
+            exit 1
+          fi
+
+          TOTAL_ISSUES=$(node -e "console.log(require('$OUTPUT_FILE').total_issues)")
+          CRITICAL=$(node -e "console.log(require('$OUTPUT_FILE').by_severity.CRITICAL)")
+          MAJOR=$(node -e "console.log(require('$OUTPUT_FILE').by_severity.MAJOR)")
+
+          echo "total_issues=$TOTAL_ISSUES" >> $GITHUB_OUTPUT
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+
+          echo "### Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔴 Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟠 Major: $MAJOR" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Total: $TOTAL_ISSUES" >> $GITHUB_STEP_SUMMARY
+
+          # Fail if critical issues exist (default threshold)
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "❌ Quality gate FAILED: $CRITICAL critical issues found"
+            echo "gate_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ Quality gate PASSED"
+            echo "gate_status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-quality-report
+          path: frontend-quality-analyzer/analysis-output/
+          retention-days: 30
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const outputDir = 'frontend-quality-analyzer/analysis-output';
+            const files = fs.readdirSync(outputDir).filter(f => f.endsWith('.json'));
+            if (files.length === 0) return;
+
+            const report = JSON.parse(fs.readFileSync(`${outputDir}/${files[0]}`, 'utf8'));
+            const { CRITICAL, MAJOR, MINOR, INFO } = report.by_severity;
+
+            const body = `## 🔬 Frontend Quality Report
+
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | ${CRITICAL} |
+            | 🟠 Major | ${MAJOR} |
+            | 🟡 Minor | ${MINOR} |
+            | 🔵 Info | ${INFO} |
+
+            **Quality Gate:** ${report.quality_gate?.passed ? '✅ PASSED' : '❌ FAILED'}
+            **Technical Debt:** ${report.technical_debt?.total_remediation_hours || 0}h
+
+            ${report.quality_gate?.passed ? '' : `\n**Reasons:**\n${report.quality_gate?.reasons?.join('\n') || 'Unknown'}`}
+            `;
+
+            // Delete previous comments
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            for (const comment of comments) {
+              if (comment.body?.includes('Frontend Quality Report') && comment.user?.login === 'github-actions[bot]') {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: comment.id,
+                });
+              }
+            }
+
+            // Post new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });

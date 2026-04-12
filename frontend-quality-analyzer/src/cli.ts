@@ -10,6 +10,7 @@ import { WebSocketServer } from 'ws';
 import { RuleEngine } from './engine/RuleEngine';
 import { ProjectAnalysis, FileAnalysis, RulesConfig, QualityIssue, Reporter, IssueCategory, Severity, FrontendMetrics } from './types';
 import { JSONReporter, HTMLReporter, MarkdownReporter } from './reporters';
+import { XSSTaintTracker, ComponentDependencyAnalyzer, CrossFileRelationAnalyzer } from './analysis';
 
 const program = new Command();
 
@@ -301,7 +302,15 @@ async function runAnalysis(): Promise<void> {
 
   // Generate reports
   log('\n📝 Generating reports...', 'cyan');
-  generateReports(projectAnalysis, outputDir);
+
+  // Run advanced analysis
+  log('🔬 Running advanced analysis...', 'cyan');
+  const advancedResults = runAdvancedAnalysis(fileAnalyses, files, sourceRoot);
+
+  // Merge advanced results into analysis
+  (projectAnalysis as Record<string, unknown>).advanced_analysis = advancedResults;
+
+  generateReports(projectAnalysis, outputDir, advancedResults);
 
   // Print summary
   printSummary(projectAnalysis, elapsed);
@@ -450,9 +459,72 @@ function detectProjectFramework(fileAnalyses: FileAnalysis[]): string | undefine
   return sorted.length > 0 ? sorted[0][0] : undefined;
 }
 
+// ==================== Advanced Analysis ====================
+
+function runAdvancedAnalysis(
+  fileAnalyses: FileAnalysis[],
+  files: string[],
+  sourceRoot: string
+): Record<string, unknown> {
+  const results: Record<string, unknown> = {};
+
+  try {
+    // Read all file contents
+    const fileContents = files.map(f => ({
+      path: f,
+      content: fs.readFileSync(f, 'utf-8'),
+    }));
+
+    // 1. XSS Taint Analysis
+    const taintTracker = new XSSTaintTracker();
+    const taintFlows: Array<Record<string, unknown>> = [];
+    for (const file of fileContents) {
+      const flows = taintTracker.analyze(file.content, file.path);
+      for (const flow of flows) {
+        taintFlows.push({
+          source: flow.source,
+          sink: flow.sink,
+          path_length: flow.path.length,
+          severity: flow.severity,
+        } as Record<string, unknown>);
+      }
+    }
+    results.xss_taint_flows = taintFlows;
+
+    // 2. Component Dependency Graph
+    const compAnalyzer = new ComponentDependencyAnalyzer();
+    const compGraph = compAnalyzer.analyze(fileContents);
+    results.component_graph = {
+      total_components: compGraph.nodes.length,
+      total_dependencies: compGraph.edges.length,
+      circular_dependencies: compGraph.circularDependencies.length,
+      orphan_components: compGraph.orphanComponents.length,
+      coupling_score: compGraph.couplingScore,
+      longest_chain_length: compGraph.maxCouplingPath.length,
+    };
+
+    // 3. Cross-file Relations
+    const relationAnalyzer = new CrossFileRelationAnalyzer();
+    const { relations, summary } = relationAnalyzer.analyze(fileContents);
+    results.cross_file_relations = {
+      total_relations: summary.totalRelations,
+      by_type: summary.byType,
+      missing_test_files: summary.missingRelations.length,
+      orphan_files: summary.orphanFiles.length,
+    };
+
+  } catch (err) {
+    if (options.verbose) {
+      log(`  ⚠️  Advanced analysis error: ${err}`, 'yellow');
+    }
+  }
+
+  return results;
+}
+
 // ==================== Report Generation ====================
 
-function generateReports(analysis: ProjectAnalysis, outputDir: string): void {
+function generateReports(analysis: ProjectAnalysis, outputDir: string, advancedResults?: Record<string, unknown>): void {
   const format = options.format.toLowerCase();
   const projectName = analysis.project_name;
   const timestamp = new Date().toISOString().replace(/[-:T]/g, '').substring(0, 14);

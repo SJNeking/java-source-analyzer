@@ -17312,6 +17312,7 @@ var A11yFormLabelAssociated = class {
 var ArchitectureRules = class {
   static all() {
     return [
+      // Original rules
       new ArchNoCircularImport(),
       new ArchComponentTooDeep(),
       new ArchPageDirectApiCall(),
@@ -17319,7 +17320,37 @@ var ArchitectureRules = class {
       new ArchMixedResponsibility(),
       new ArchMagicString(),
       new ArchDeepImportPath(),
-      new ArchNoBarrelExport()
+      new ArchNoBarrelExport(),
+      // Hardcoding rules (NEW)
+      new ArchHardcodedAPIEndpoint(),
+      new ArchHardcodedURL(),
+      new ArchHardcodedColor(),
+      new ArchHardcodedConfigValue(),
+      new ArchHardcodedEnvironmentValue(),
+      new ArchHardcodedTokenOrSecret(),
+      new ArchHardcodedFilePath(),
+      new ArchMagicNumber(),
+      // Architecture boundary and layer separation (NEW)
+      new ArchLayerBoundaryViolation(),
+      new ArchCrossLayerImport(),
+      new ArchNoServiceLayer(),
+      new ArchNoDomainBoundary(),
+      new ArchBypassStateManagement(),
+      new ArchDirectStoreMutation(),
+      // Data flow clarity rules (NEW)
+      new ArchPropDrilling(),
+      new ArchNoUnidirectionalDataFlow(),
+      new ArchStateScatteredEverywhere(),
+      new ArchNoDataSourceAbstraction(),
+      new ArchCallbackHell(),
+      new ArchImplicitDataType(),
+      // Single Responsibility Principle violations (NEW)
+      new ArchGodComponent(),
+      new ArchFunctionTooLong(),
+      new ArchFileTooLarge(),
+      new ArchTooManyResponsibilities(),
+      new ArchNoHookAbstraction(),
+      new ArchMixedDataSources()
     ];
   }
 };
@@ -17564,6 +17595,867 @@ var ArchNoBarrelExport = class {
           confidence: 0.8
         });
       }
+    }
+    return issues;
+  }
+};
+var ArchHardcodedAPIEndpoint = class {
+  getRuleKey() {
+    return "FE-ARCH-009";
+  }
+  getName() {
+    return "Hardcoded API endpoint detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const apiPattern = /['"]https?:\/\/[^'"]*(api|v\d+|graphql|rest)[^'"]*['"]/gi;
+    const matches = sourceCode.match(apiPattern) || [];
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} hardcoded API endpoint(s) found`,
+        remediation: "Extract API endpoints to a configuration file or environment variables",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var ArchHardcodedURL = class {
+  getRuleKey() {
+    return "FE-ARCH-010";
+  }
+  getName() {
+    return "Hardcoded URL detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const urlPattern = /['"]https?:\/\/[^\s'"]{10,}['"]/g;
+    const matches = sourceCode.match(urlPattern) || [];
+    const suspiciousUrls = matches.filter(
+      (url) => !/example\.com|placeholder|localhost:3000|localhost:5173/.test(url)
+    );
+    if (suspiciousUrls.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${suspiciousUrls.length} hardcoded URL(s) found`,
+        remediation: "Use environment variables or configuration for URLs",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ArchHardcodedColor = class {
+  getRuleKey() {
+    return "FE-ARCH-011";
+  }
+  getName() {
+    return "Hardcoded color value detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hexPattern = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g;
+    const rgbPattern = /rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+/g;
+    const hexMatches = sourceCode.match(hexPattern) || [];
+    const rgbMatches = sourceCode.match(rgbPattern) || [];
+    const totalMatches = hexMatches.length + rgbMatches.length;
+    if (totalMatches > 3) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${totalMatches} hardcoded color value(s) detected`,
+        remediation: "Use CSS variables or a design token system",
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var ArchHardcodedConfigValue = class {
+  getRuleKey() {
+    return "FE-ARCH-012";
+  }
+  getName() {
+    return "Hardcoded configuration value detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const configPatterns = [
+      /['"]timeout['"]\s*:\s*\d+/i,
+      /['"]maxRetries['"]\s*:\s*\d+/i,
+      /['"]pageSize['"]\s*:\s*\d+/i,
+      /['"]limit['"]\s*:\s*\d+/i,
+      /const\s+(TIMEOUT|MAX_SIZE|PAGE_SIZE|LIMIT)\s*=\s*\d+/i
+    ];
+    const matches = configPatterns.filter((pattern) => pattern.test(sourceCode));
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Hardcoded configuration value detected",
+        remediation: "Extract to configuration file or environment variables",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var ArchHardcodedEnvironmentValue = class {
+  getRuleKey() {
+    return "FE-ARCH-013";
+  }
+  getName() {
+    return "Hardcoded environment-specific value detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const envPatterns = [
+      /['"]development['"]|['"]production['"]|['"]staging['"]|['"]test['"]/i
+    ];
+    const shouldUseEnvPattern = /process\.env|import\.meta\.env/;
+    const hasHardcodedEnv = envPatterns.some((pattern) => pattern.test(sourceCode));
+    const notUsingEnvVars = !shouldUseEnvPattern.test(sourceCode);
+    if (hasHardcodedEnv && notUsingEnvVars) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Environment-specific value hardcoded",
+        remediation: "Use process.env (Node.js) or import.meta.env (Vite) for environment variables",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ArchHardcodedTokenOrSecret = class {
+  getRuleKey() {
+    return "FE-ARCH-014";
+  }
+  getName() {
+    return "Hardcoded token or secret detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const tokenPatterns = [
+      /['"][A-Za-z0-9]{20,}['"]/,
+      /apiKey|api_key|secret|password|token/i,
+      /Bearer\s+[A-Za-z0-9._-]+/,
+      /AKIA[0-9A-Z]{16}/
+    ];
+    const matches = tokenPatterns.filter((pattern) => pattern.test(sourceCode));
+    if (matches.length >= 2) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Potential hardcoded token, API key, or secret detected",
+        remediation: "NEVER hardcode secrets. Use environment variables or secret management",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ArchHardcodedFilePath = class {
+  getRuleKey() {
+    return "FE-ARCH-015";
+  }
+  getName() {
+    return "Hardcoded file path detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const pathPatterns = [
+      /['"]\/[a-z]+\/[a-z]+\/[a-z]+['"]/i,
+      /['"][A-Z]:\\[^'"]+['"]/i,
+      /['"]\/tmp\/|['"]\/var\/|['"]\/etc\//i
+    ];
+    const matches = pathPatterns.filter((pattern) => pattern.test(sourceCode));
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Hardcoded file path detected",
+        remediation: "Use path resolution utilities or configuration",
+        confidence: 0.65
+      });
+    }
+    return issues;
+  }
+};
+var ArchMagicNumber = class {
+  getRuleKey() {
+    return "FE-ARCH-016";
+  }
+  getName() {
+    return "Magic number detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const numberPattern = /\b\d{2,}\b/g;
+    const numbers = sourceCode.match(numberPattern) || [];
+    const magicNumbers = numbers.filter((n) => {
+      const num = parseInt(n);
+      return ![10, 100, 1e3, 60, 24, 365].includes(num);
+    });
+    if (magicNumbers.length > 5) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${magicNumbers.length} magic number(s) found`,
+        remediation: "Extract numbers to named constants for better readability",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ArchLayerBoundaryViolation = class {
+  getRuleKey() {
+    return "FE-ARCH-017";
+  }
+  getName() {
+    return "Layer boundary violation detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isUIComponent = /components?\/|ui\/|widgets?\//i.test(filePath);
+    const hasDataLayerAccess = /store|repository|database|orm|prisma|sequelize/i.test(sourceCode);
+    if (isUIComponent && hasDataLayerAccess) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "UI component directly accessing data layer",
+        remediation: "Use service layer or data hooks to maintain layer boundaries",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ArchCrossLayerImport = class {
+  getRuleKey() {
+    return "FE-ARCH-018";
+  }
+  getName() {
+    return "Cross-layer import detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /components?\//i.test(filePath);
+    const isPage = /pages?|views?|screens?/i.test(filePath);
+    const importsDomain = /from\s+['"].*domain\/|from\s+['"].*entities?\//i.test(sourceCode);
+    const importsInfrastructure = /from\s+['"].*infrastructure\/|from\s+['"].*data\//i.test(sourceCode);
+    if ((isComponent || isPage) && (importsDomain || importsInfrastructure)) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Presentation layer importing domain/infrastructure directly",
+        remediation: "Use application layer (services/useCases) to mediate",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var ArchNoServiceLayer = class {
+  getRuleKey() {
+    return "FE-ARCH-019";
+  }
+  getName() {
+    return "Business logic in component (missing service layer)";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    const hasBusinessLogic = /if\s*\(.*(?:calculate|validate|transform|filter|sort|process)/i.test(sourceCode) || /for\s*\(.*(?:calculate|validate|transform|filter|sort|process)/i.test(sourceCode);
+    if (isComponent && hasBusinessLogic) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Business logic detected in component",
+        remediation: "Extract to service layer or custom hook",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ArchNoDomainBoundary = class {
+  getRuleKey() {
+    return "FE-ARCH-020";
+  }
+  getName() {
+    return "Domain entity manipulation outside domain layer";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const notInDomain = !/domain\/|entities?\//i.test(filePath);
+    const hasEntityManipulation = /interface\s+\w*(?:Entity|Model|Domain)|type\s+\w*(?:Entity|Model|Domain)/i.test(sourceCode);
+    if (notInDomain && hasEntityManipulation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Domain entity definition outside domain layer",
+        remediation: "Move entity definitions to domain/entities layer",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ArchBypassStateManagement = class {
+  getRuleKey() {
+    return "FE-ARCH-021";
+  }
+  getName() {
+    return "Bypassing centralized state management";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasGlobalStore = /redux|mobx|zustand|recoil|pinia|ngrx/i.test(sourceCode);
+    const bypassesWithLocal = /(useState|useReducer|ref\(|data\s*:\s*\{)/.test(sourceCode);
+    const hasComplexState = /interface\s+\w*State|type\s+\w*State/i.test(sourceCode);
+    if (hasGlobalStore && bypassesWithLocal && hasComplexState) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Complex state managed locally while global state available",
+        remediation: "Consider using centralized state management for consistency",
+        confidence: 0.6
+      });
+    }
+    return issues;
+  }
+};
+var ArchDirectStoreMutation = class {
+  getRuleKey() {
+    return "FE-ARCH-022";
+  }
+  getName() {
+    return "Direct store mutation detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const mutationPatterns = [
+      /store\.\w+\s*=/,
+      /state\.\w+\s*=/
+    ];
+    const hasDirectMutation = mutationPatterns.some((pattern) => pattern.test(sourceCode));
+    if (hasDirectMutation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Direct state mutation detected",
+        remediation: "Use actions/reducers/mutations for state changes",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var ArchPropDrilling = class {
+  getRuleKey() {
+    return "FE-ARCH-023";
+  }
+  getName() {
+    return "Prop drilling detected (passing through 3+ levels)";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const propPatterns = [
+      /\{\s*\.\.\.(?:props|data|state)\s*\}/g,
+      /(?:data|state|props)\.\w+(?:\.\w+){2,}/g
+    ];
+    const matches = propPatterns.reduce((acc, pattern) => {
+      return acc + (sourceCode.match(pattern) || []).length;
+    }, 0);
+    if (matches > 3) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Potential prop drilling detected",
+        remediation: "Use Context API, composition, or state management",
+        confidence: 0.65
+      });
+    }
+    return issues;
+  }
+};
+var ArchNoUnidirectionalDataFlow = class {
+  getRuleKey() {
+    return "FE-ARCH-024";
+  }
+  getName() {
+    return "Bidirectional data flow detected";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const bidirectionalPatterns = [
+      /onUpdate\([^)]*\)\s*=>\s*\{[^}]*\.\w+\s*=/,
+      /callback.*setState|callback.*mutation/i,
+      /emit\(['"]update/i
+    ];
+    const hasBidirectional = bidirectionalPatterns.some((pattern) => pattern.test(sourceCode));
+    if (hasBidirectional) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Bidirectional data flow detected",
+        remediation: "Use unidirectional data flow: parent -> child via props, child -> parent via callbacks",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ArchStateScatteredEverywhere = class {
+  getRuleKey() {
+    return "FE-ARCH-025";
+  }
+  getName() {
+    return "State scattered across multiple components";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const stateDeclarations = (sourceCode.match(/useState|useReducer|ref\(|reactive\(|state\s*=/g) || []).length;
+    if (stateDeclarations > 5) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${stateDeclarations} state declaration(s) in single file`,
+        remediation: "Consolidate related state using custom hooks or state management",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var ArchNoDataSourceAbstraction = class {
+  getRuleKey() {
+    return "FE-ARCH-026";
+  }
+  getName() {
+    return "No data source abstraction";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    const hasDataFetching = /fetch\(|axios\.|useQuery|useMutation|\.get\(|\.post\(/.test(sourceCode);
+    const hasRepositoryPattern = /repository|datasource|service/i.test(sourceCode);
+    if (isComponent && hasDataFetching && !hasRepositoryPattern) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Data fetching without abstraction layer",
+        remediation: "Create repository/service layer for data access",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ArchCallbackHell = class {
+  getRuleKey() {
+    return "FE-ARCH-027";
+  }
+  getName() {
+    return "Callback hell or deeply nested promises";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const lines = sourceCode.split("\n");
+    let maxNesting = 0;
+    let currentNesting = 0;
+    lines.forEach((line) => {
+      const opens = (line.match(/\.then\(|\.catch\(|=>\s*\{|if\s*\(/g) || []).length;
+      const closes = (line.match(/^\s*\}\)|\s*\);/g) || []).length;
+      currentNesting += opens - closes;
+      maxNesting = Math.max(maxNesting, currentNesting);
+    });
+    if (maxNesting > 3) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Deeply nested async code (depth: ${maxNesting})`,
+        remediation: "Use async/await or extract to separate functions",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var ArchImplicitDataType = class {
+  getRuleKey() {
+    return "FE-ARCH-028";
+  }
+  getName() {
+    return "Implicit data type (missing TypeScript types)";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isTypeScript = /\.tsx?$/.test(filePath);
+    const hasUntypedState = /useState\(\)/.test(sourceCode) && !/useState<\w+>/.test(sourceCode);
+    const hasUntypedProps = /: React\.FC\(\)/.test(sourceCode) || /props\s*:\s*any/.test(sourceCode);
+    const hasUntypedFetch = /fetch\([^)]+\)\.then/.test(sourceCode) && !/interface|type/.test(sourceCode);
+    if (isTypeScript && (hasUntypedState || hasUntypedProps || hasUntypedFetch)) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Data flow without explicit TypeScript typing",
+        remediation: "Add explicit TypeScript interfaces for all data structures",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ArchGodComponent = class {
+  getRuleKey() {
+    return "FE-ARCH-029";
+  }
+  getName() {
+    return "God component (too large and too many responsibilities)";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const lines = sourceCode.split("\n").length;
+    const hasMultipleResponsibilities = [
+      /useState|useReducer/,
+      /useEffect|watch/,
+      /fetch|axios|useQuery/,
+      /router|navigate|history/,
+      /form|submit|validation/i,
+      /modal|dialog|toast/
+    ].filter((pattern) => pattern.test(sourceCode)).length;
+    if (lines > 300 && hasMultipleResponsibilities >= 3) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `God component: ${lines} lines with ${hasMultipleResponsibilities} responsibilities`,
+        remediation: "Split into smaller, focused components. Extract logic to custom hooks/services.",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var ArchFunctionTooLong = class {
+  getRuleKey() {
+    return "FE-ARCH-030";
+  }
+  getName() {
+    return "Function too long";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const functionPattern = /(async\s+)?function\s+\w+\s*\([^)]*\)\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs;
+    const arrowFunctionPattern = /const\s+\w+\s*=\s*(async\s+)?\([^)]*\)\s*=>\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs;
+    const functions = sourceCode.match(functionPattern) || sourceCode.match(arrowFunctionPattern) || [];
+    functions.forEach((func) => {
+      const lineCount = (func.match(/\n/g) || []).length;
+      if (lineCount > 50) {
+        issues.push({
+          rule_key: this.getRuleKey(),
+          rule_name: this.getName(),
+          severity: Severity.MINOR,
+          category: this.getCategory(),
+          file_path: filePath,
+          line: 1,
+          message: `Function too long: ${lineCount} lines (max recommended: 50)`,
+          remediation: "Extract sub-functions following single responsibility principle",
+          confidence: 0.8
+        });
+      }
+    });
+    return issues;
+  }
+};
+var ArchFileTooLarge = class {
+  getRuleKey() {
+    return "FE-ARCH-031";
+  }
+  getName() {
+    return "File too large";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const lineCount = sourceCode.split("\n").length;
+    if (lineCount > 400) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `File too large: ${lineCount} lines (max recommended: 400)`,
+        remediation: "Split into multiple files following single responsibility principle",
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var ArchTooManyResponsibilities = class {
+  getRuleKey() {
+    return "FE-ARCH-032";
+  }
+  getName() {
+    return "Component has too many responsibilities";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const responsibilities = [
+      { name: "State Management", pattern: /useState|useReducer|ref\(/ },
+      { name: "Data Fetching", pattern: /fetch\(|axios\.|useQuery/ },
+      { name: "Routing", pattern: /useNavigate|useRouter|router\./ },
+      { name: "Form Handling", pattern: /onSubmit|validation|formData/i },
+      { name: "Animation", pattern: /useAnimation|gsap|framer-motion/ },
+      { name: "Analytics", pattern: /analytics|trackEvent|gtag/ },
+      { name: "Authentication", pattern: /login|logout|auth|token/i },
+      { name: "Internationalization", pattern: /i18n|t\(|translate/ }
+    ];
+    const presentResponsibilities = responsibilities.filter((r) => r.pattern.test(sourceCode));
+    if (presentResponsibilities.length >= 4) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Component handles ${presentResponsibilities.length} responsibilities: ${presentResponsibilities.map((r) => r.name).join(", ")}`,
+        remediation: "Split responsibilities using SRP. Extract to custom hooks, services, or sub-components.",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var ArchNoHookAbstraction = class {
+  getRuleKey() {
+    return "FE-ARCH-033";
+  }
+  getName() {
+    return "Reusable logic not extracted to custom hooks";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReactComponent = /\.tsx$/.test(filePath) && /function\s+\w+|const\s+\w+\s*=\s*\(\)/.test(sourceCode);
+    const hasReusableLogic = /(useEffect.*fetch|useState.*debounce|useEffect.*subscribe)/s.test(sourceCode);
+    const noCustomHooks = !/use[A-Z]\w+/.test(sourceCode) || !/function\s+use[A-Z]\w+/.test(sourceCode);
+    if (isReactComponent && hasReusableLogic && noCustomHooks) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Reusable logic not extracted to custom hooks",
+        remediation: "Extract reusable logic to custom hooks (useFetch, useDebounce, etc.)",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ArchMixedDataSources = class {
+  getRuleKey() {
+    return "FE-ARCH-034";
+  }
+  getName() {
+    return "Component mixing multiple data sources";
+  }
+  getCategory() {
+    return "ARCHITECTURE";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const dataSources = [
+      /useSelector|useStore/,
+      /useContext/,
+      /useState/,
+      /useQuery/
+    ];
+    const mixedSources = dataSources.filter((pattern) => pattern.test(sourceCode));
+    if (mixedSources.length >= 2) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Component uses ${mixedSources.length} different data sources`,
+        remediation: "Unify data source management. Use one state management solution consistently.",
+        confidence: 0.75
+      });
     }
     return issues;
   }
@@ -18372,12 +19264,2261 @@ var I18nPluralNotHandled = class {
   }
 };
 
+// src/rules/error-handling/ErrorHandlingRules.ts
+var ErrorHandlingRules = class {
+  static all() {
+    return [
+      new ErrUncaughtPromise(),
+      new ErrSwallowedError(),
+      new ErrGenericErrorType(),
+      new ErrMissingErrorBoundary(),
+      new ErrSilentFailure(),
+      new ErrMissingLoadingState(),
+      new ErrInconsistentErrorHandling(),
+      new ErrMissingErrorMessages()
+    ];
+  }
+};
+var ErrUncaughtPromise = class {
+  getRuleKey() {
+    return "FE-ERR-001";
+  }
+  getName() {
+    return "Uncaught promise rejection";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const thenWithoutCatch = /(?:\.then\([^)]+\)(?!\s*\.catch))/g;
+    const matches = sourceCode.match(thenWithoutCatch) || [];
+    const asyncWithoutTry = /async\s+\w+\s*\([^)]*\)\s*(?!\s*{[\s\S]*try)[^{]*{/g;
+    const asyncMatches = sourceCode.match(asyncWithoutTry) || [];
+    if (matches.length > 0 || asyncMatches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length + asyncMatches.length} promise(s) without error handling`,
+        remediation: "Add .catch() or wrap async code in try/catch",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ErrSwallowedError = class {
+  getRuleKey() {
+    return "FE-ERR-002";
+  }
+  getName() {
+    return "Swallowed error (empty catch block)";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const emptyCatch = /catch\s*\([^)]*\)\s*\{[\s\/*]*\}/g;
+    const matches = sourceCode.match(emptyCatch) || [];
+    const onlyConsoleError = /catch\s*\([^)]*\)\s*\{[\s]*console\.(error|warn|log)[\s\S]*?\}/g;
+    const consoleMatches = sourceCode.match(onlyConsoleError) || [];
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} empty catch block(s) - errors are silently ignored`,
+        remediation: "Handle error: show user feedback, log to error tracking, or rethrow",
+        confidence: 0.95
+      });
+    }
+    return issues;
+  }
+};
+var ErrGenericErrorType = class {
+  getRuleKey() {
+    return "FE-ERR-003";
+  }
+  getName() {
+    return "Generic error type in catch block";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isTypeScript = /\.tsx?$/.test(filePath);
+    if (!isTypeScript)
+      return issues;
+    const genericCatch = /catch\s*\(\s*\w+\s*:\s*any\s*\)/g;
+    const anyCatch = sourceCode.match(genericCatch) || [];
+    const untypedCatch = /catch\s*\(\s*\w+\s*\)/g;
+    const untyped = sourceCode.match(untypedCatch) || [];
+    if (anyCatch.length > 0 || untyped.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Generic error type: ${anyCatch.length + untyped.length} catch block(s)`,
+        remediation: "Use proper error type: catch(e: Error) or instanceof checks",
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var ErrMissingErrorBoundary = class {
+  getRuleKey() {
+    return "FE-ERR-004";
+  }
+  getName() {
+    return "Component may need Error Boundary wrapper";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReactComponent = /\.tsx$/.test(filePath);
+    if (!isReactComponent)
+      return issues;
+    const hasAsync = /useEffect.*async|useQuery|useMutation|fetch\(|axios\./.test(sourceCode);
+    const hasErrorHandling = /catch|onError|error\s*=/i.test(sourceCode);
+    const hasErrorBoundary = /ErrorBoundary|error\s*boundary/i.test(sourceCode);
+    if (hasAsync && !hasErrorHandling && !hasErrorBoundary) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Async component without error handling or Error Boundary",
+        remediation: "Wrap in Error Boundary or add error state handling",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ErrSilentFailure = class {
+  getRuleKey() {
+    return "FE-ERR-005";
+  }
+  getName() {
+    return "Silent failure (console.error in production code)";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const consoleErrorInCatch = /catch[^{]*\{[^}]*console\.error/g;
+    const matches = sourceCode.match(consoleErrorInCatch) || [];
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} console.error without proper error handling`,
+        remediation: "Use error tracking service (Sentry, etc.) and show user feedback",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var ErrMissingLoadingState = class {
+  getRuleKey() {
+    return "FE-ERR-006";
+  }
+  getName() {
+    return "Async data fetching without loading state";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasDataFetching = /useQuery|useMutation|fetch\(|axios\./.test(sourceCode);
+    const hasLoadingState = /loading|isLoading|pending|fetching/i.test(sourceCode);
+    if (hasDataFetching && !hasLoadingState) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Data fetching without loading indicator",
+        remediation: "Add loading state to improve UX during async operations",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ErrInconsistentErrorHandling = class {
+  getRuleKey() {
+    return "FE-ERR-007";
+  }
+  getName() {
+    return "Inconsistent error handling patterns";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const patterns = {
+      tryCatch: (sourceCode.match(/try\s*\{/g) || []).length,
+      dotCatch: (sourceCode.match(/\.catch\(/g) || []).length,
+      onError: (sourceCode.match(/onError|onFailure/g) || []).length
+    };
+    const usedPatterns = Object.values(patterns).filter((count) => count > 0).length;
+    if (usedPatterns >= 2) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Mixed error handling: try/catch(${patterns.tryCatch}), .catch(${patterns.dotCatch}), onError(${patterns.onError})`,
+        remediation: "Use consistent error handling approach throughout the file",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ErrMissingErrorMessages = class {
+  getRuleKey() {
+    return "FE-ERR-008";
+  }
+  getName() {
+    return "Missing user-facing error messages";
+  }
+  getCategory() {
+    return "ERROR_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasErrorHandling = /catch|\.catch|onError/.test(sourceCode);
+    const hasUserFeedback = /setError|showError|toast|notification|alert|message/i.test(sourceCode);
+    if (hasErrorHandling && !hasUserFeedback) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Error handling without user feedback",
+        remediation: "Show error message to user via toast, notification, or inline message",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/state-management/StateManagementRules.ts
+var StateManagementRules = class {
+  static all() {
+    return [
+      new StateDerivedStateNotMemoized(),
+      new StateStaleClosure(),
+      new StateAsyncStateSync(),
+      new StateNotNormalized(),
+      new StateSelectorRecomputation(),
+      new StateMissingOptimisticUpdate(),
+      new StateUnnecessaryRerender(),
+      new StateRaceCondition()
+    ];
+  }
+};
+var StateDerivedStateNotMemoized = class {
+  getRuleKey() {
+    return "FE-STATE-001";
+  }
+  getName() {
+    return "Derived state not memoized";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const derivedInState = /useState\([^)]*(?:map|filter|reduce|sort|concat|split)/g;
+    const matches = sourceCode.match(derivedInState) || [];
+    const hasUseMemo = /useMemo/.test(sourceCode);
+    if (matches.length > 0 && !hasUseMemo) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} derived value(s) stored in state instead of useMemo`,
+        remediation: "Use useMemo for derived/computed values to avoid unnecessary calculations",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var StateStaleClosure = class {
+  getRuleKey() {
+    return "FE-STATE-002";
+  }
+  getName() {
+    return "Stale closure in state update";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const staleUpdate = /setState\([^p][^)]*\)/g;
+    const directUpdate = /setState\(\w+\)/g;
+    const matches = sourceCode.match(directUpdate) || [];
+    const functionalUpdate = /setState\(prev\s*=>|setState\(\(\)/g;
+    const functionalMatches = sourceCode.match(functionalUpdate) || [];
+    if (matches.length > 2 && functionalMatches.length === 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} state update(s) may cause stale closure`,
+        remediation: "Use functional update: setState(prev => newValue) for async/dependent updates",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var StateAsyncStateSync = class {
+  getRuleKey() {
+    return "FE-STATE-003";
+  }
+  getName() {
+    return "Async state update without mounted check";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasAsyncEffect = /useEffect\(\s*\(\)\s*=>\s*(async|\{[\s\S]*async)/.test(sourceCode);
+    const hasMountedCheck = /isMounted|aborted|cancelled/i.test(sourceCode);
+    const hasSetState = /setState\(|dispatch\(/.test(sourceCode);
+    if (hasAsyncEffect && hasSetState && !hasMountedCheck) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Async state update may execute after unmount",
+        remediation: "Add cleanup: return () => { aborted = true } or use AbortController",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var StateNotNormalized = class {
+  getRuleKey() {
+    return "FE-STATE-004";
+  }
+  getName() {
+    return "State not normalized (nested/array data)";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasArrayOfObjects = /useState<\w+\[\]>\(\[\)|useState\(\[[^\]]*\{/.test(sourceCode);
+    const hasNestedAccess = /\w+\[\w+\]\.\w+/g;
+    const nestedMatches = sourceCode.match(hasNestedAccess) || [];
+    const isNormalized = /Record<|Map<|{ \[id:|byId|entities/i.test(sourceCode);
+    if (hasArrayOfObjects && nestedMatches.length > 3 && !isNormalized) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "State stores nested arrays which may cause performance issues",
+        remediation: "Normalize state: use Record<ID, Entity> or Map for O(1) lookups",
+        confidence: 0.65
+      });
+    }
+    return issues;
+  }
+};
+var StateSelectorRecomputation = class {
+  getRuleKey() {
+    return "FE-STATE-005";
+  }
+  getName() {
+    return "Selector recomputes on every render";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasExpensiveSelector = /useSelector\(state\s*=>\s*(?:map|filter|reduce|sort)/g;
+    const matches = sourceCode.match(hasExpensiveSelector) || [];
+    const hasCreateSelector = /createSelector|reselect|useMemoSelector/.test(sourceCode);
+    if (matches.length > 0 && !hasCreateSelector) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} selector(s) may recompute on every render`,
+        remediation: "Use createSelector (reselect) or useMemo to memoize expensive selectors",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var StateMissingOptimisticUpdate = class {
+  getRuleKey() {
+    return "FE-STATE-006";
+  }
+  getName() {
+    return "Mutation without optimistic update or rollback";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasMutation = /useMutation|mutate|\.post\(|\.put\(|\.delete\(/.test(sourceCode);
+    const hasOptimistic = /optimistic|onMutate|rollback|revert/i.test(sourceCode);
+    const hasErrorRollback = /onError.*setState|catch.*setState|rollback/i.test(sourceCode);
+    if (hasMutation && !hasOptimistic && !hasErrorRollback) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Mutation without optimistic update or error rollback",
+        remediation: "Implement optimistic updates with rollback on error for better UX",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var StateUnnecessaryRerender = class {
+  getRuleKey() {
+    return "FE-STATE-007";
+  }
+  getName() {
+    return "Context value causes unnecessary rerenders";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const inlineContextValue = /<\w+Provider\s+value=\{[\s\{]*(?:\{|\[)/g;
+    const matches = sourceCode.match(inlineContextValue) || [];
+    const hasUseMemo = /useMemo\([^)]*value/.test(sourceCode);
+    if (matches.length > 0 && !hasUseMemo) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} context provider(s) with inline value causes rerenders`,
+        remediation: "Memoize context value: const value = useMemo(() => ({...}), [deps])",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var StateRaceCondition = class {
+  getRuleKey() {
+    return "FE-STATE-008";
+  }
+  getName() {
+    return "Race condition in state updates";
+  }
+  getCategory() {
+    return "STATE_MANAGEMENT";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const multipleSetStates = /(setState|dispatch)[^{]*(?:setState|dispatch)/g;
+    const matches = sourceCode.match(multipleSetStates) || [];
+    const hasCoordination = /Promise\.all|await.*await|batch\(/.test(sourceCode);
+    if (matches.length > 0 && !hasCoordination) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Multiple state updates may cause race condition",
+        remediation: "Use batch() or coordinate updates to avoid race conditions",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/security/ExtendedSecurityRules.ts
+var ExtendedSecurityRules = class {
+  static all() {
+    return [
+      new SecOpenRedirect(),
+      new SecInsecureDependency(),
+      new SecCookieInsecure(),
+      new SecFormInsecure(),
+      new SecURLConstructorUnsafe(),
+      new SecMissingCSP(),
+      new SecSensitiveDataInStorage(),
+      new SecInsecureCommunication(),
+      new SecDOMBasedXSS(),
+      new SecEvalUsage()
+    ];
+  }
+};
+var SecOpenRedirect = class {
+  getRuleKey() {
+    return "FE-SEC-007";
+  }
+  getName() {
+    return "Potential open redirect vulnerability";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const redirectPatterns = [
+      /window\.location\.(?:href|assign|replace)\s*=\s*(?:props|state|params|query|search)/i,
+      /location\.href\s*=\s*[^'"]/i,
+      /router\.push\([^)]*\)/i
+    ];
+    const hasUnsafeRedirect = redirectPatterns.some((pattern) => pattern.test(sourceCode));
+    const hasUserInput = /props\.|params\.|query\.|search\.|getParams/i.test(sourceCode);
+    if (hasUnsafeRedirect && hasUserInput) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Potential open redirect with user-controlled input",
+        remediation: "Validate and whitelist redirect URLs before navigation",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var SecInsecureDependency = class {
+  getRuleKey() {
+    return "FE-SEC-008";
+  }
+  getName() {
+    return "Insecure script dependency loading";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const scriptTags = /<script\s+src=["']https?:\/\/[^"']+["']/gi;
+    const scripts = sourceCode.match(scriptTags) || [];
+    const hasIntegrity = /integrity=["']sha/gi;
+    const scriptsWithoutIntegrity = scripts.filter((script) => !hasIntegrity.test(script));
+    if (scriptsWithoutIntegrity.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${scriptsWithoutIntegrity.length} external script(s) without SRI (Subresource Integrity)`,
+        remediation: 'Add integrity="sha384-..." and crossorigin="anonymous" to script tags',
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var SecCookieInsecure = class {
+  getRuleKey() {
+    return "FE-SEC-009";
+  }
+  getName() {
+    return "Insecure cookie configuration";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const cookieSet = /document\.cookie\s*=\s*[^;]+/g;
+    const cookies = sourceCode.match(cookieSet) || [];
+    const missingSecure = cookies.filter(
+      (cookie) => !/Secure/i.test(cookie) && !/secure=true/i.test(cookie)
+    );
+    const missingHttpOnly = cookies.filter(
+      (cookie) => !/HttpOnly|httponly/i.test(cookie)
+    );
+    const missingSameSite = cookies.filter(
+      (cookie) => !/SameSite/i.test(cookie)
+    );
+    if (missingSecure.length > 0 || missingHttpOnly.length > 0 || missingSameSite.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Cookie(s) missing security flags: Secure(${missingSecure.length}), HttpOnly(${missingHttpOnly.length}), SameSite(${missingSameSite.length})`,
+        remediation: "Set Secure, HttpOnly, and SameSite=Strict flags on cookies",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var SecFormInsecure = class {
+  getRuleKey() {
+    return "FE-SEC-010";
+  }
+  getName() {
+    return "Form submits to non-HTTPS URL";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const insecureForm = /<form[^>]+action=["']http:\/\/[^"']+["']/i;
+    if (insecureForm.test(sourceCode)) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Form submits sensitive data over HTTP",
+        remediation: "Use HTTPS for all form submissions to protect user data",
+        confidence: 0.95
+      });
+    }
+    return issues;
+  }
+};
+var SecURLConstructorUnsafe = class {
+  getRuleKey() {
+    return "FE-SEC-011";
+  }
+  getName() {
+    return "Unsafe URL construction with user input";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const urlConstructor = /new\s+URL\((?:props|params|query|input|user)/i;
+    const hasUserInput = /props\.|params\.|query\.|input|userInput|searchParams/i.test(sourceCode);
+    if (urlConstructor.test(sourceCode) && hasUserInput) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "URL constructed with potentially unsafe user input",
+        remediation: "Validate and sanitize user input before URL construction",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var SecMissingCSP = class {
+  getRuleKey() {
+    return "FE-SEC-012";
+  }
+  getName() {
+    return "Missing Content Security Policy meta tag";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isHTML = /\.html?$/.test(filePath);
+    if (!isHTML)
+      return issues;
+    const hasCSP = /<meta[^>]+http-equiv=["']Content-Security-Policy["']/i;
+    if (!hasCSP.test(sourceCode)) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "No Content Security Policy meta tag found",
+        remediation: 'Add CSP meta tag: <meta http-equiv="Content-Security-Policy" content="...">',
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var SecSensitiveDataInStorage = class {
+  getRuleKey() {
+    return "FE-SEC-013";
+  }
+  getName() {
+    return "Sensitive data in localStorage/sessionStorage";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const sensitiveStorage = /localStorage|sessionStorage/g;
+    const storageMatches = sourceCode.match(sensitiveStorage) || [];
+    const hasSensitiveKeys = /password|token|secret|apiKey|api_key|creditCard|ssn/i.test(sourceCode);
+    if (storageMatches.length > 0 && hasSensitiveKeys) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Sensitive data stored in localStorage/sessionStorage (accessible by XSS)",
+        remediation: "Use httpOnly cookies or secure memory storage for sensitive data",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var SecInsecureCommunication = class {
+  getRuleKey() {
+    return "FE-SEC-014";
+  }
+  getName() {
+    return "Insecure communication (HTTP/Mixed Content)";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const httpUrls = /https?:\/\/(?!localhost|127\.0\.0\.1)[^"'`\s]+/gi;
+    const matches = sourceCode.match(httpUrls) || [];
+    const httpOnly = matches.filter((url) => url.startsWith("http://"));
+    if (httpOnly.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${httpOnly.length} resource(s) loaded over insecure HTTP`,
+        remediation: "Use HTTPS for all network requests to prevent MITM attacks",
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var SecDOMBasedXSS = class {
+  getRuleKey() {
+    return "FE-SEC-015";
+  }
+  getName() {
+    return "Potential DOM-based XSS vulnerability";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const domXSS = [
+      /\.innerHTML\s*=/,
+      /\.outerHTML\s*=/,
+      /document\.write\(/,
+      /element\.insertAdjacentHTML\(/
+    ];
+    const hasDOMWrite = domXSS.some((pattern) => pattern.test(sourceCode));
+    const hasUserInput = /location\.|params|query|props\.|data\.|response/i.test(sourceCode);
+    if (hasDOMWrite && hasUserInput) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "DOM-based XSS: user input written to DOM without sanitization",
+        remediation: "Use DOMPurify or framework built-in escaping before innerHTML",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var SecEvalUsage = class {
+  getRuleKey() {
+    return "FE-SEC-016";
+  }
+  getName() {
+    return "Use of eval() or equivalent";
+  }
+  getCategory() {
+    return "SECURITY";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const evalPatterns = [
+      /\beval\s*\(/,
+      /new\s+Function\s*\(/,
+      /setTimeout\s*\(\s*['"`]/,
+      /setInterval\s*\(\s*['"`]/
+    ];
+    const matches = evalPatterns.filter((pattern) => pattern.test(sourceCode));
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Use of eval or equivalent code execution (code injection risk)",
+        remediation: "Avoid eval(). Use JSON.parse(), dynamic imports, or function references",
+        confidence: 0.95
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/event-handling/EventHandlingRules.ts
+var EventHandlingRules = class {
+  static all() {
+    return [
+      new EventPassiveListenerMissing(),
+      new EventInlineHandlerInLoop(),
+      new EventMissingDelegation(),
+      new EventRaceCondition(),
+      new EventNamingInconsistency(),
+      new EventMissingCleanup()
+    ];
+  }
+};
+var EventPassiveListenerMissing = class {
+  getRuleKey() {
+    return "FE-EVENT-001";
+  }
+  getName() {
+    return "Missing passive event listener";
+  }
+  getCategory() {
+    return "EVENT_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const scrollTouchEvents = /addEventListener\s*\(\s*['"](scroll|touchstart|touchmove|wheel|mousewheel)['"]/g;
+    const matches = sourceCode.match(scrollTouchEvents) || [];
+    const hasPassive = /passive\s*:\s*true/g;
+    const passiveMatches = sourceCode.match(hasPassive) || [];
+    if (matches.length > 0 && passiveMatches.length < matches.length) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length - passiveMatches.length} scroll/touch event(s) without passive option`,
+        remediation: "Add { passive: true } to scroll/touch listeners to improve scroll performance",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var EventInlineHandlerInLoop = class {
+  getRuleKey() {
+    return "FE-EVENT-002";
+  }
+  getName() {
+    return "Inline event handler in loop creates N functions";
+  }
+  getCategory() {
+    return "EVENT_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const inlineInLoop = /\.(?:map|forEach|reduce)\([^)]*=>\s*<[^>]*\s+(?:onClick|onChange|onSubmit|onHover)\s*=\s*\{[\s\(\)]*=>/gs;
+    const matches = sourceCode.match(inlineInLoop) || [];
+    if (matches.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} inline event handler(s) in loop creates unnecessary functions`,
+        remediation: "Extract handler outside loop or use useCallback with stable reference",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var EventMissingDelegation = class {
+  getRuleKey() {
+    return "FE-EVENT-003";
+  }
+  getName() {
+    return "Missing event delegation for similar handlers";
+  }
+  getCategory() {
+    return "EVENT_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const onClickCount = (sourceCode.match(/onClick\s*=/g) || []).length;
+    const onChangeCount = (sourceCode.match(/onChange\s*=/g) || []).length;
+    const hasDelegation = /event\.target|event\.currentTarget|e\.target|e\.currentTarget/.test(sourceCode);
+    if ((onClickCount > 5 || onChangeCount > 5) && !hasDelegation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${Math.max(onClickCount, onChangeCount)} similar event handlers may benefit from delegation`,
+        remediation: "Use event delegation: onClick={e => handleClick(e.target.dataset.id)}",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var EventRaceCondition = class {
+  getRuleKey() {
+    return "FE-EVENT-004";
+  }
+  getName() {
+    return "Event handler race condition (missing debounce/throttle)";
+  }
+  getCategory() {
+    return "EVENT_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasRapidEvent = /onScroll|onResize|onMouseMove|onInput|onKeyDown.*search/i.test(sourceCode);
+    const hasDebounce = /debounce|throttle|lodash|use-debounce|use-throttle/i.test(sourceCode);
+    const hasFetch = /fetch\(|axios\.|useQuery/i.test(sourceCode);
+    if (hasRapidEvent && hasFetch && !hasDebounce) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Rapid-fire event may cause excessive API calls",
+        remediation: "Debounce or throttle event handler to prevent excessive network requests",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var EventNamingInconsistency = class {
+  getRuleKey() {
+    return "FE-EVENT-005";
+  }
+  getName() {
+    return "Event handler naming inconsistency";
+  }
+  getCategory() {
+    return "EVENT_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const patterns = {
+      handleX: (sourceCode.match(/handle[A-Z]\w+/g) || []).length,
+      onX: (sourceCode.match(/on[A-Z]\w+/g) || []).length,
+      onPress: (sourceCode.match(/onPress/g) || []).length
+    };
+    const usedPatterns = Object.entries(patterns).filter(([_, count]) => count > 0).length;
+    if (usedPatterns >= 2) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Inconsistent event handler naming: handleX(${patterns.handleX}), onX(${patterns.onX}), onPress(${patterns.onPress})`,
+        remediation: "Use consistent naming convention (e.g., always handleX or onX)",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var EventMissingCleanup = class {
+  getRuleKey() {
+    return "FE-EVENT-006";
+  }
+  getName() {
+    return "Event listener missing cleanup";
+  }
+  getCategory() {
+    return "EVENT_HANDLING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const addCount = (sourceCode.match(/addEventListener/g) || []).length;
+    const removeCount = (sourceCode.match(/removeEventListener/g) || []).length;
+    const hasCleanup = /useEffect\([^)]*\)\s*=>\s*{[^}]*return\s*\(\)\s*=>/s.test(sourceCode);
+    if (addCount > 0 && (removeCount === 0 || !hasCleanup)) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${addCount} event listener(s) added but may not be cleaned up`,
+        remediation: "Remove event listeners in useEffect cleanup to prevent memory leaks",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/api-design/APIDesignRules.ts
+var APIDesignRules = class {
+  static all() {
+    return [
+      new APIMissingTimeout(),
+      new APINoRetryLogic(),
+      new APIMissingCancellation(),
+      new APIResponseNotTyped(),
+      new APINoErrorStandardization(),
+      new APIMissingPagination(),
+      new APIHardcodedHeaders(),
+      new APINoRequestInterceptor()
+    ];
+  }
+};
+var APIMissingTimeout = class {
+  getRuleKey() {
+    return "FE-API-001";
+  }
+  getName() {
+    return "API request without timeout";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasFetch = /fetch\(|axios\.(get|post|put|delete|patch)/.test(sourceCode);
+    const hasTimeout = /timeout|AbortController|signal|cancelToken/i.test(sourceCode);
+    if (hasFetch && !hasTimeout) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "API request without timeout may hang indefinitely",
+        remediation: "Add timeout with AbortController (fetch) or timeout config (axios)",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var APINoRetryLogic = class {
+  getRuleKey() {
+    return "FE-API-002";
+  }
+  getName() {
+    return "API request without retry logic";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasFetch = /fetch\(|axios\.(get|post|put|delete)/.test(sourceCode);
+    const hasRetry = /retry|exponential.*backoff|retryCount|retryDelay/i.test(sourceCode);
+    const isMutation = /\.post\(|\.put\(|\.delete\(/.test(sourceCode);
+    if (hasFetch && !hasRetry && !isMutation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "GET request without retry logic (network failures not recovered)",
+        remediation: "Implement retry with exponential backoff for resilient network requests",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var APIMissingCancellation = class {
+  getRuleKey() {
+    return "FE-API-003";
+  }
+  getName() {
+    return "API request without cancellation on unmount";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasFetch = /useEffect.*fetch|useEffect.*axios/s.test(sourceCode);
+    const hasCancellation = /AbortController|cancelToken|return\s*\(\)\s*=>.*abort/s.test(sourceCode);
+    if (hasFetch && !hasCancellation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "In-flight request not cancelled on unmount",
+        remediation: "Use AbortController to cancel requests in useEffect cleanup",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var APIResponseNotTyped = class {
+  getRuleKey() {
+    return "FE-API-004";
+  }
+  getName() {
+    return "API response not typed with TypeScript interface";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isTypeScript = /\.tsx?$/.test(filePath);
+    if (!isTypeScript)
+      return issues;
+    const hasFetch = /fetch\([^)]+\)\.then\([^)]*\.json\(\)/.test(sourceCode);
+    const hasTyping = /interface\s+\w*(?:Response|Data|Payload)|type\s+\w*(?:Response|Data|Payload)/i.test(sourceCode);
+    const hasGenericTyping = /\.then\(\s*\(res\)\s*=>\s*res\.json\(\)\s*\)/.test(sourceCode);
+    if (hasFetch && !hasTyping && hasGenericTyping) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "API response not typed (using implicit any)",
+        remediation: "Define TypeScript interface for API response: fetch<T>(url)",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var APINoErrorStandardization = class {
+  getRuleKey() {
+    return "FE-API-005";
+  }
+  getName() {
+    return "API error handling not standardized";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasMultipleFetchPatterns = [
+      /fetch\(/,
+      /axios\./,
+      /useQuery|useMutation/,
+      /api\.(get|post|put|delete)/
+    ].filter((pattern) => pattern.test(sourceCode)).length;
+    const hasStandardError = /ApiError|BaseError|HttpError|errorHandler/i.test(sourceCode);
+    if (hasMultipleFetchPatterns > 1 && !hasStandardError) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Multiple API fetching methods without standardized error handling",
+        remediation: "Create unified API client with standardized error handling",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var APIMissingPagination = class {
+  getRuleKey() {
+    return "FE-API-006";
+  }
+  getName() {
+    return "List API request without pagination";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasListFetch = /fetch\([^)]*(?:list|items|users|products|records)/i.test(sourceCode);
+    const hasPagination = /page|limit|offset|cursor|pageSize|pageNumber/i.test(sourceCode);
+    const hasUseInfiniteQuery = /useInfiniteQuery/.test(sourceCode);
+    if (hasListFetch && !hasPagination && !hasUseInfiniteQuery) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "List API without pagination may fetch excessive data",
+        remediation: "Add pagination params or use useInfiniteQuery for large datasets",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var APIHardcodedHeaders = class {
+  getRuleKey() {
+    return "FE-API-007";
+  }
+  getName() {
+    return "Hardcoded API headers";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasHardcodedHeaders = /headers\s*:\s*\{[^}]*(?:Authorization|Content-Type|Accept)[^}]*['"][^'"]+['"]/g;
+    const matches = sourceCode.match(hasHardcodedHeaders) || [];
+    const hasInterceptor = /interceptor|axios\.defaults|createAxiosWithConfig/i.test(sourceCode);
+    if (matches.length > 0 && !hasInterceptor) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} API call(s) with hardcoded headers`,
+        remediation: "Use request interceptor or axios defaults for common headers",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var APINoRequestInterceptor = class {
+  getRuleKey() {
+    return "FE-API-008";
+  }
+  getName() {
+    return "Missing request interceptor for common logic";
+  }
+  getCategory() {
+    return "API_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const fetchCount = (sourceCode.match(/fetch\(|axios\.(get|post|put|delete)/g) || []).length;
+    const hasInterceptor = /interceptor|axios\.create|baseURL/i.test(sourceCode);
+    const hasCommonLogic = /Authorization|Bearer|token|api[-_]?key/i.test(sourceCode);
+    if (fetchCount > 2 && hasCommonLogic && !hasInterceptor) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Multiple API calls with repeated auth/header logic",
+        remediation: "Create API client with request interceptor for auth headers",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/bundle-optimization/BundleOptimizationRules.ts
+var BundleOptimizationRules = class {
+  static all() {
+    return [
+      new BundleMissingDynamicImportPrefetch(),
+      new BundleCSSInJSRuntime(),
+      new BundleLargeVendorChunk(),
+      new BundleMissingTreeShaking(),
+      new BundleDuplicateImports(),
+      new BundleMissingFontOptimization()
+    ];
+  }
+};
+var BundleMissingDynamicImportPrefetch = class {
+  getRuleKey() {
+    return "FE-BUNDLE-001";
+  }
+  getName() {
+    return "Dynamic import without prefetch/preload hint";
+  }
+  getCategory() {
+    return "BUNDLE_OPTIMIZATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const dynamicImports = /import\s*\(\s*['"][^'"]+['"]\s*\)/g;
+    const imports = sourceCode.match(dynamicImports) || [];
+    const hasChunkName = /webpackChunkName|webpackPreload|webpackPrefetch/i.test(sourceCode);
+    if (imports.length > 0 && !hasChunkName) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${imports.length} dynamic import(s) without prefetch hints`,
+        remediation: 'Add /* webpackChunkName: "name" */ or use <link rel="prefetch">',
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var BundleCSSInJSRuntime = class {
+  getRuleKey() {
+    return "FE-BUNDLE-002";
+  }
+  getName() {
+    return "CSS-in-JS runtime overhead";
+  }
+  getCategory() {
+    return "BUNDLE_OPTIMIZATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasCSSInJS = /styled\.\w+|css`|@emotion|styled-components/g.test(sourceCode);
+    const hasExtractCSS = /babel-plugin-styled-components|extractStyles/i.test(sourceCode);
+    const styledCount = (sourceCode.match(/styled\.\w+|css`/g) || []).length;
+    if (hasCSSInJS && !hasExtractCSS && styledCount > 10) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${styledCount} CSS-in-JS declarations without extraction`,
+        remediation: "Configure CSS-in-JS extraction plugin or use static CSS",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var BundleLargeVendorChunk = class {
+  getRuleKey() {
+    return "FE-BUNDLE-003";
+  }
+  getName() {
+    return "Large library fully imported instead of modular";
+  }
+  getCategory() {
+    return "BUNDLE_OPTIMIZATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const fullImports = [
+      /from\s+['"]lodash['"]/,
+      /from\s+['"]moment['"]/,
+      /from\s+['"]antd['"]/,
+      /from\s+['"]@mui\/material['"]/
+    ];
+    const matches = fullImports.filter((pattern) => pattern.test(sourceCode));
+    const modularImports = [
+      /from\s+['"]lodash\/\w+['"]/,
+      /from\s+['"]date-fns['"]/,
+      /from\s+['"]@mui\/material\/\w+['"]/
+    ];
+    const hasModular = modularImports.some((pattern) => pattern.test(sourceCode));
+    if (matches.length > 0 && !hasModular) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Full library import increases bundle size",
+        remediation: 'Use modular imports: import map from "lodash/map" instead of full lodash',
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var BundleMissingTreeShaking = class {
+  getRuleKey() {
+    return "FE-BUNDLE-004";
+  }
+  getName() {
+    return "Import prevents tree shaking";
+  }
+  getCategory() {
+    return "BUNDLE_OPTIMIZATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const namespaceImports = /import\s+\*\s+as\s+\w+\s+from\s+['"]/g;
+    const imports = sourceCode.match(namespaceImports) || [];
+    const defaultLibImports = /import\s+\w+\s+from\s+['"](?:lodash|rxjs|ramda)/g;
+    const defaultImports = sourceCode.match(defaultLibImports) || [];
+    if (imports.length > 0 || defaultImports.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Namespace/default imports may prevent tree shaking",
+        remediation: 'Use named imports: import { specific } from "library"',
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var BundleDuplicateImports = class {
+  getRuleKey() {
+    return "FE-BUNDLE-005";
+  }
+  getName() {
+    return "Duplicate or overlapping imports";
+  }
+  getCategory() {
+    return "BUNDLE_OPTIMIZATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const importLines = sourceCode.match(/import\s+.*from\s+['"][^'"]+['"]/g) || [];
+    const libraryCounts = {};
+    importLines.forEach((imp) => {
+      const match2 = imp.match(/from\s+['"](@?\w+(?:\/\w+)?)/);
+      if (match2) {
+        const lib = match2[1];
+        libraryCounts[lib] = (libraryCounts[lib] || 0) + 1;
+      }
+    });
+    const duplicates = Object.entries(libraryCounts).filter(([_, count]) => count > 3);
+    if (duplicates.length > 0) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${duplicates.length} library/library imported ${duplicates[0][1]} times`,
+        remediation: "Consolidate imports into single import statement",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var BundleMissingFontOptimization = class {
+  getRuleKey() {
+    return "FE-BUNDLE-006";
+  }
+  getName() {
+    return "Font loading not optimized";
+  }
+  getCategory() {
+    return "BUNDLE_OPTIMIZATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isHTML = /\.html?$/.test(filePath);
+    const hasCSS = /\.css$|\.scss$|\.styled\.tsx?$/.test(filePath);
+    if (!isHTML && !hasCSS)
+      return issues;
+    const hasFontFace = /@font-face/i.test(sourceCode);
+    const hasDisplaySwap = /display\s*:\s*swap/i.test(sourceCode);
+    const hasPreload = /<link[^>]+rel=["']preload["'][^>]+as=["']font["']/i.test(sourceCode);
+    if (hasFontFace && !hasDisplaySwap && !hasPreload) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Custom font without display: swap causes FOIT",
+        remediation: "Add font-display: swap and preload critical fonts",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/lifecycle-timing/LifecycleTimingRules.ts
+var LifecycleTimingRules = class {
+  static all() {
+    return [
+      new LifeRaceConditionInEffect(),
+      new LifeMissingMountedCheck(),
+      new LifeStrictModeDoubleExecution(),
+      new LifeCleanupOrdering(),
+      new LifeTimerDrift(),
+      new LifeMissingDependencyArray()
+    ];
+  }
+};
+var LifeRaceConditionInEffect = class {
+  getRuleKey() {
+    return "FE-LIFE-001";
+  }
+  getName() {
+    return "Race condition in useEffect async operation";
+  }
+  getCategory() {
+    return "LIFECYCLE_TIMING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReact = /\.tsx?$/.test(filePath);
+    if (!isReact)
+      return issues;
+    const asyncEffects = /useEffect\s*\(\s*\(\)\s*=>\s*(?:async|\{[\s\S]*?async)/g;
+    const effects = sourceCode.match(asyncEffects) || [];
+    const hasCancellation = /AbortController|let cancelled|aborted/i.test(sourceCode);
+    if (effects.length > 1 && !hasCancellation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${effects.length} async effect(s) may cause race condition`,
+        remediation: "Use AbortController or cancellation flag in effect cleanup",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var LifeMissingMountedCheck = class {
+  getRuleKey() {
+    return "FE-LIFE-002";
+  }
+  getName() {
+    return "State update after unmount (React < 18)";
+  }
+  getCategory() {
+    return "LIFECYCLE_TIMING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasAsyncOp = /setTimeout|setInterval|fetch\(|axios\.|Promise/g.test(sourceCode);
+    const hasMountedCheck = /isMounted|isSubscribed|mounted.current/i.test(sourceCode);
+    const hasStateUpdate = /setState\(|dispatch\(/g.test(sourceCode);
+    if (hasAsyncOp && hasStateUpdate && !hasMountedCheck) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Async operation may update state after unmount",
+        remediation: "Track mounted state and check before setState in async callbacks",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var LifeStrictModeDoubleExecution = class {
+  getRuleKey() {
+    return "FE-LIFE-003";
+  }
+  getName() {
+    return "Non-idempotent side effect in StrictMode";
+  }
+  getCategory() {
+    return "LIFECYCLE_TIMING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReact = /\.tsx?$/.test(filePath);
+    if (!isReact)
+      return issues;
+    const hasSideEffects = [
+      /fetch\(|axios\./,
+      /localStorage\.|sessionStorage\./,
+      /analytics\.|track\(|gtag\(/,
+      /new\s+WebSocket|new\s+EventSource/
+    ].some((pattern) => pattern.test(sourceCode));
+    const hasCleanup = /return\s*\(\)\s*=>/.test(sourceCode);
+    const hasIdempotent = /useRef|useMemo|useCallback/.test(sourceCode);
+    if (hasSideEffects && !hasCleanup && !hasIdempotent) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Side effect may execute twice in React 18 StrictMode",
+        remediation: "Add cleanup function or make effect idempotent",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var LifeCleanupOrdering = class {
+  getRuleKey() {
+    return "FE-LIFE-004";
+  }
+  getName() {
+    return "Cleanup function accesses cleared state";
+  }
+  getCategory() {
+    return "LIFECYCLE_TIMING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReact = /\.tsx?$/.test(filePath);
+    if (!isReact)
+      return issues;
+    const hasCleanup = /useEffect\([^)]*return\s*\(\)\s*=>\s*\{[\s\S]*?\}/g;
+    const cleanups = sourceCode.match(hasCleanup) || [];
+    const accessesRefInCleanup = cleanups.some(
+      (cleanup) => /\.current/.test(cleanup) && /removeEventListener|clearTimeout|abort/i.test(cleanup)
+    );
+    if (accessesRefInCleanup) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Cleanup may access stale refs or cleared state",
+        remediation: "Capture refs/values in effect scope before cleanup returns",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var LifeTimerDrift = class {
+  getRuleKey() {
+    return "FE-LIFE-005";
+  }
+  getName() {
+    return "Recurring task uses setTimeout instead of setInterval";
+  }
+  getCategory() {
+    return "LIFECYCLE_TIMING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasRecursiveTimeout = /setTimeout\s*\(\s*\(\)\s*=>\s*\{[\s\S]*setTimeout/g;
+    const hasTimerDrift = hasRecursiveTimeout.test(sourceCode);
+    const hasSetInterval = /setInterval/.test(sourceCode);
+    if (hasTimerDrift && !hasSetInterval) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Recursive setTimeout may cause timer drift",
+        remediation: "Use setInterval for recurring tasks or account for execution time",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var LifeMissingDependencyArray = class {
+  getRuleKey() {
+    return "FE-LIFE-006";
+  }
+  getName() {
+    return "useEffect missing dependency array";
+  }
+  getCategory() {
+    return "LIFECYCLE_TIMING";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReact = /\.tsx?$/.test(filePath);
+    if (!isReact)
+      return issues;
+    const effectNoDeps = /useEffect\s*\(\s*\(\)\s*=>\s*\{[^}]+\}\s*\)/g;
+    const effects = sourceCode.match(effectNoDeps) || [];
+    const hasDeps = /useEffect\s*\([^,]+,\s*\[/.test(sourceCode);
+    if (effects.length > 0 && !hasDeps) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${effects.length} useEffect(s) without dependency array`,
+        remediation: "Add dependency array: useEffect(() => { ... }, [deps])",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/component-design/ComponentDesignRules.ts
+var ComponentDesignRules = class {
+  static all() {
+    return [
+      new CompMissingForwardRef(),
+      new CompMissingDisplayName(),
+      new CompControlledUncontrolledMismatch(),
+      new CompMissingChildrenType(),
+      new CompBooleanPropsHell(),
+      new CompMissingComponentComposition()
+    ];
+  }
+};
+var CompMissingForwardRef = class {
+  getRuleKey() {
+    return "FE-DESIGN-001";
+  }
+  getName() {
+    return "Component accepts ref but missing forwardRef";
+  }
+  getCategory() {
+    return "COMPONENT_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReact = /\.tsx?$/.test(filePath);
+    if (!isReact)
+      return issues;
+    const hasRefProp = /ref\s*[:=]|React\.Ref|ref:/.test(sourceCode);
+    const usesForwardRef = /React\.forwardRef|forwardRef\(/.test(sourceCode);
+    if (hasRefProp && !usesForwardRef) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Component accepts ref but does not use React.forwardRef",
+        remediation: "Wrap component with React.forwardRef to properly forward refs",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var CompMissingDisplayName = class {
+  getRuleKey() {
+    return "FE-DESIGN-002";
+  }
+  getName() {
+    return "Anonymous component missing displayName";
+  }
+  getCategory() {
+    return "COMPONENT_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isReact = /\.tsx?$/.test(filePath);
+    if (!isReact)
+      return issues;
+    const hasHOC = /React\.memo\(|React\.forwardRef\(|connect\(|withRouter\(/.test(sourceCode);
+    const hasDisplayName = /\.displayName\s*=/i.test(sourceCode);
+    const isAnonymous = /export\s+default\s+(?:React\.memo|React\.forwardRef|connect)/.test(sourceCode);
+    if (hasHOC && !hasDisplayName && isAnonymous) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.INFO,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Wrapped component missing displayName for React DevTools",
+        remediation: 'Add Component.displayName = "ComponentName" for better debugging',
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var CompControlledUncontrolledMismatch = class {
+  getRuleKey() {
+    return "FE-DESIGN-003";
+  }
+  getName() {
+    return "Component mixes controlled and uncontrolled props";
+  }
+  getCategory() {
+    return "COMPONENT_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasValue = /value\s*=\{|defaultValue\s*=/g.test(sourceCode);
+    const hasBoth = /value\s*=/.test(sourceCode) && /defaultValue\s*=/.test(sourceCode);
+    const hasChecked = /checked\s*=/.test(sourceCode) && /defaultChecked\s*=/.test(sourceCode);
+    if (hasBoth || hasChecked) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Component switches between controlled and uncontrolled mode",
+        remediation: "Use either controlled (value + onChange) or uncontrolled (defaultValue), not both",
+        confidence: 0.9
+      });
+    }
+    return issues;
+  }
+};
+var CompMissingChildrenType = class {
+  getRuleKey() {
+    return "FE-DESIGN-004";
+  }
+  getName() {
+    return "Component children prop missing TypeScript type";
+  }
+  getCategory() {
+    return "COMPONENT_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isTypeScript = /\.tsx?$/.test(filePath);
+    if (!isTypeScript)
+      return issues;
+    const hasChildren = /children\s*[:?]|{ children }|props\.children/.test(sourceCode);
+    const hasType = /ReactNode|React\.ReactNode|JSX\.Element|VNode/.test(sourceCode);
+    if (hasChildren && !hasType) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Children prop not typed with ReactNode",
+        remediation: "Type children: { children?: React.ReactNode }",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var CompBooleanPropsHell = class {
+  getRuleKey() {
+    return "FE-DESIGN-005";
+  }
+  getName() {
+    return "Component has too many boolean props (API complexity)";
+  }
+  getCategory() {
+    return "COMPONENT_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const booleanProps = /is[A-Z]\w+\??\s*:\s*boolean|has[A-Z]\w+\??\s*:\s*boolean|show[A-Z]\w+\??\s*:\s*boolean/g;
+    const matches = sourceCode.match(booleanProps) || [];
+    if (matches.length >= 4) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} boolean props make API complex`,
+        remediation: "Use composition pattern or variant props instead of boolean flags",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var CompMissingComponentComposition = class {
+  getRuleKey() {
+    return "FE-DESIGN-006";
+  }
+  getName() {
+    return "Large component should use composition pattern";
+  }
+  getCategory() {
+    return "COMPONENT_DESIGN";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const lines = sourceCode.split("\n").length;
+    const hasMultipleSections = [
+      /header|navigation/i,
+      /sidebar|aside/i,
+      /content|main/i,
+      /footer|action/i
+    ].filter((section) => section.test(sourceCode)).length;
+    if (lines > 200 && hasMultipleSections >= 3) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Component (${lines} lines) with ${hasMultipleSections} sections needs composition`,
+        remediation: "Split into sub-components: Header, Sidebar, Content, Footer",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+
+// src/rules/data-validation/DataValidationRules.ts
+var DataValidationRules = class {
+  static all() {
+    return [
+      new ValMissingFormValidation(),
+      new ValMissingInputSanitization(),
+      new ValMissingNullCheck(),
+      new ValMissingTypeGuard(),
+      new ValMissingSchemaValidation(),
+      new ValUnsafeJSONParse()
+    ];
+  }
+};
+var ValMissingFormValidation = class {
+  getRuleKey() {
+    return "FE-VAL-001";
+  }
+  getName() {
+    return "Form submission without validation";
+  }
+  getCategory() {
+    return "DATA_VALIDATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isComponent = /\.(tsx|jsx|vue)$/.test(filePath);
+    if (!isComponent)
+      return issues;
+    const hasForm = /<form|onSubmit|handleSubmit/i.test(sourceCode);
+    const hasValidation = /required|minLength|maxLength|pattern|validate|yup|zod|joi|valibot/i.test(sourceCode);
+    const hasHTML5Validation = /noValidate|validate={false}/i.test(sourceCode);
+    if (hasForm && !hasValidation && !hasHTML5Validation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "Form submission without validation allows invalid data",
+        remediation: "Add validation: HTML5 attributes, yup/zod schema, or custom validation",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+var ValMissingInputSanitization = class {
+  getRuleKey() {
+    return "FE-VAL-002";
+  }
+  getName() {
+    return "User input used without sanitization";
+  }
+  getCategory() {
+    return "DATA_VALIDATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const userInputPatterns = [
+      /(?:props|params|query|input|formData)\.\w+.*dangerouslySetInnerHTML/i,
+      /(?:props|params|query|input).*\.innerHTML\s*=/i,
+      /document\.write\([^)]*(?:props|params|query|input)/i
+    ];
+    const hasUnsafeUsage = userInputPatterns.some((pattern) => pattern.test(sourceCode));
+    const hasSanitization = /DOMPurify|sanitize|escape|encode/i.test(sourceCode);
+    if (hasUnsafeUsage && !hasSanitization) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.CRITICAL,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "User input used in DOM without sanitization",
+        remediation: "Sanitize user input with DOMPurify or framework escaping",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ValMissingNullCheck = class {
+  getRuleKey() {
+    return "FE-VAL-003";
+  }
+  getName() {
+    return "Missing null/undefined check before property access";
+  }
+  getCategory() {
+    return "DATA_VALIDATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isTypeScript = /\.tsx?$/.test(filePath);
+    if (isTypeScript)
+      return issues;
+    const unsafeAccess = /\w+\.\w+\.\w+/g;
+    const matches = sourceCode.match(unsafeAccess) || [];
+    const hasSafeAccess = /\?\.\w+|if\s*\(\w+\s*[!=]==\s*null|&&\s*\w+\./.test(sourceCode);
+    if (matches.length > 5 && !hasSafeAccess) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${matches.length} property access(es) without null checks`,
+        remediation: "Use optional chaining (?.) or nullish coalescing (??)",
+        confidence: 0.7
+      });
+    }
+    return issues;
+  }
+};
+var ValMissingTypeGuard = class {
+  getRuleKey() {
+    return "FE-VAL-004";
+  }
+  getName() {
+    return "Missing TypeScript type guard for runtime validation";
+  }
+  getCategory() {
+    return "DATA_VALIDATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const isTypeScript = /\.tsx?$/.test(filePath);
+    if (!isTypeScript)
+      return issues;
+    const hasTypeAssertion = /as\s+\w+|<\w+>[\s\S]*(?:JSON\.parse|fetch|response)/g.test(sourceCode);
+    const hasTypeGuard = /is\s+\w+|type\s+guard|instanceof|typeof/.test(sourceCode);
+    const hasExternalData = /fetch\(|axios\.|API|response|data\s*from/i.test(sourceCode);
+    if (hasExternalData && hasTypeAssertion && !hasTypeGuard) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: "External data type assertion without runtime validation",
+        remediation: "Use runtime type checking: zod, io-ts, or custom type guards",
+        confidence: 0.75
+      });
+    }
+    return issues;
+  }
+};
+var ValMissingSchemaValidation = class {
+  getRuleKey() {
+    return "FE-VAL-005";
+  }
+  getName() {
+    return "Complex form without schema validation";
+  }
+  getCategory() {
+    return "DATA_VALIDATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const hasComplexForm = /useState.*form|useForm|formData|formState/i.test(sourceCode);
+    const fieldCount = (sourceCode.match(/name=["'][^"']*["']|label=["'][^"']*["']/g) || []).length;
+    const hasSchemaValidation = /yup|zod|valibot|joi|schema|validationSchema/i.test(sourceCode);
+    if (hasComplexForm && fieldCount > 5 && !hasSchemaValidation) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MINOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `Complex form (${fieldCount} fields) without schema validation`,
+        remediation: "Use zod, yup, or valibot for declarative schema validation",
+        confidence: 0.8
+      });
+    }
+    return issues;
+  }
+};
+var ValUnsafeJSONParse = class {
+  getRuleKey() {
+    return "FE-VAL-006";
+  }
+  getName() {
+    return "Unsafe JSON.parse without error handling";
+  }
+  getCategory() {
+    return "DATA_VALIDATION";
+  }
+  check(sourceCode, filePath) {
+    const issues = [];
+    const jsonParseCount = (sourceCode.match(/JSON\.parse\(/g) || []).length;
+    const hasTryCatch = /try\s*\{[\s\S]*JSON\.parse/g.test(sourceCode);
+    const hasSafeParse = /\.match(/g.test(sourceCode) || /safeJsonParse/gi.test(sourceCode);
+    if (jsonParseCount > 0 && !hasTryCatch && !hasSafeParse) {
+      issues.push({
+        rule_key: this.getRuleKey(),
+        rule_name: this.getName(),
+        severity: Severity.MAJOR,
+        category: this.getCategory(),
+        file_path: filePath,
+        line: 1,
+        message: `${jsonParseCount} JSON.parse() without error handling`,
+        remediation: "Wrap JSON.parse in try/catch or use safe parsing libraries",
+        confidence: 0.85
+      });
+    }
+    return issues;
+  }
+};
+
 // src/rules/index.ts
 function getAllDefaultRules() {
   const rules = [];
   rules.push(...TypeScriptRules.all());
   rules.push(...ReactRules.all());
   rules.push(...SecurityRules.all());
+  rules.push(...ExtendedSecurityRules.all());
   rules.push(...VueRules.all());
   rules.push(...PerformanceRules.all());
   rules.push(...MemoryRules.all());
@@ -18387,6 +21528,14 @@ function getAllDefaultRules() {
   rules.push(...TestingRules.all());
   rules.push(...BuildConfigRules.all());
   rules.push(...I18nRules.all());
+  rules.push(...ErrorHandlingRules.all());
+  rules.push(...StateManagementRules.all());
+  rules.push(...EventHandlingRules.all());
+  rules.push(...APIDesignRules.all());
+  rules.push(...BundleOptimizationRules.all());
+  rules.push(...LifecycleTimingRules.all());
+  rules.push(...ComponentDesignRules.all());
+  rules.push(...DataValidationRules.all());
   return rules;
 }
 
@@ -19264,6 +22413,714 @@ ${gate.reasons.map((r) => `- ${r}`).join("\n")}
   }
 };
 
+// src/analysis/XSSTaintTracker.ts
+var TAINT_SOURCES = [
+  // URL parameters
+  { pattern: /window\.location\.search/, type: "URL parameter", confidence: 0.9 },
+  { pattern: /window\.location\.hash/, type: "URL hash", confidence: 0.9 },
+  { pattern: /URLSearchParams/, type: "URL parameter", confidence: 0.85 },
+  { pattern: /new URL\(/, type: "URL parameter", confidence: 0.85 },
+  // DOM events
+  { pattern: /event\.target\.value/, type: "DOM event value", confidence: 0.8 },
+  { pattern: /event\.target\.textContent/, type: "DOM event textContent", confidence: 0.7 },
+  { pattern: /document\.cookie/, type: "document.cookie", confidence: 0.8 },
+  // Web APIs
+  { pattern: /fetch\(/, type: "fetch response", confidence: 0.7 },
+  { pattern: /axios\./, type: "axios response", confidence: 0.7 },
+  { pattern: /\.json\(\)/, type: "JSON response", confidence: 0.6 },
+  { pattern: /\.text\(\)/, type: "text response", confidence: 0.6 },
+  // Storage
+  { pattern: /localStorage\.getItem/, type: "localStorage", confidence: 0.75 },
+  { pattern: /sessionStorage\.getItem/, type: "sessionStorage", confidence: 0.75 },
+  // Message events
+  { pattern: /postMessage/, type: "postMessage", confidence: 0.8 },
+  { pattern: /message\.data/, type: "message data", confidence: 0.85 },
+  // Form inputs
+  { pattern: /querySelector.*\.value/, type: "input value", confidence: 0.7 },
+  { pattern: /getElementById.*\.value/, type: "input value", confidence: 0.7 },
+  { pattern: /getElementsByName/, type: "form data", confidence: 0.7 },
+  // Props/State in React (less confident)
+  { pattern: /props\.\w+/, type: "React prop", confidence: 0.5 },
+  { pattern: /state\.\w+/, type: "React state", confidence: 0.5 }
+];
+var TAINT_SINKS = [
+  { pattern: /\.innerHTML\s*=/, type: "innerHTML assignment", severity: Severity.CRITICAL },
+  { pattern: /\.outerHTML\s*=/, type: "outerHTML assignment", severity: Severity.CRITICAL },
+  { pattern: /document\.write\(/, type: "document.write()", severity: Severity.CRITICAL },
+  { pattern: /document\.writeln\(/, type: "document.writeln()", severity: Severity.CRITICAL },
+  { pattern: /dangerouslySetInnerHTML/, type: "dangerouslySetInnerHTML", severity: Severity.CRITICAL },
+  { pattern: /insertAdjacentHTML\(/, type: "insertAdjacentHTML()", severity: Severity.MAJOR },
+  { pattern: /\.replaceWith\(/, type: "replaceWith() with HTML", severity: Severity.MAJOR },
+  { pattern: /DOMPurify\.sanitize/, type: "DOMPurify.sanitize", severity: Severity.INFO },
+  { pattern: /eval\(/, type: "eval()", severity: Severity.CRITICAL },
+  { pattern: /new Function\(/, type: "new Function()", severity: Severity.CRITICAL },
+  { pattern: /setTimeout\(.*string/, type: "setTimeout with string", severity: Severity.MAJOR },
+  { pattern: /setInterval\(.*string/, type: "setInterval with string", severity: Severity.MAJOR }
+];
+var SANITIZERS = [
+  "DOMPurify.sanitize",
+  "sanitizeHtml",
+  "escapeHtml",
+  "he.encode",
+  "escape",
+  "encodeURIComponent",
+  "String.raw",
+  "xss",
+  "sanitize"
+];
+var XSSTaintTracker = class {
+  /**
+   * Analyze source code for potential XSS data flows
+   */
+  analyze(sourceCode, filePath) {
+    const flows = [];
+    const lines = sourceCode.split("\n");
+    const sources = this.findSources(lines, filePath);
+    const sinks = this.findSinks(lines, filePath);
+    for (const sink of sinks) {
+      if (sink.isSanitized)
+        continue;
+      const reachableSources = sources.filter((source) => {
+        return source.line < sink.line;
+      });
+      for (const source of reachableSources) {
+        const sinkContext = lines.slice(
+          Math.max(0, sink.line - 10),
+          Math.min(lines.length, sink.line + 2)
+        ).join("\n");
+        if (this.isVariableRelated(source, sinkContext, lines)) {
+          const path3 = this.buildTrace(source, sink, lines);
+          flows.push({
+            source,
+            sink,
+            path: path3,
+            severity: sink.severity
+          });
+          break;
+        }
+      }
+    }
+    return flows;
+  }
+  /**
+   * Find all taint sources in the code
+   */
+  findSources(lines, filePath) {
+    const sources = [];
+    lines.forEach((line, index) => {
+      for (const sourceDef of TAINT_SOURCES) {
+        if (sourceDef.pattern.test(line)) {
+          const varName = this.extractVariableName(line, sourceDef.pattern);
+          sources.push({
+            type: sourceDef.type,
+            variable: varName || "unknown",
+            line: index + 1,
+            confidence: sourceDef.confidence
+          });
+        }
+      }
+    });
+    return sources;
+  }
+  /**
+   * Find all taint sinks in the code
+   */
+  findSinks(lines, filePath) {
+    const sinks = [];
+    lines.forEach((line, index) => {
+      for (const sinkDef of TAINT_SINKS) {
+        if (sinkDef.pattern.test(line)) {
+          const isSanitized = this.isSanitized(line, lines, index);
+          const sanitizer = isSanitized ? this.findSanitizer(line) : void 0;
+          sinks.push({
+            type: sinkDef.type,
+            line: index + 1,
+            evidence: line.trim(),
+            isSanitized,
+            sanitizer
+          });
+        }
+      }
+    });
+    return sinks;
+  }
+  /**
+   * Check if a sink is sanitized
+   */
+  isSanitized(line, lines, index) {
+    for (const sanitizer of SANITIZERS) {
+      if (line.includes(sanitizer))
+        return true;
+    }
+    const context = lines.slice(
+      Math.max(0, index - 10),
+      Math.min(lines.length, index + 10)
+    ).join("\n");
+    for (const sanitizer of SANITIZERS) {
+      if (context.includes(sanitizer))
+        return true;
+    }
+    return false;
+  }
+  /**
+   * Find which sanitizer is used
+   */
+  findSanitizer(line) {
+    for (const sanitizer of SANITIZERS) {
+      if (line.includes(sanitizer))
+        return sanitizer;
+    }
+    return void 0;
+  }
+  /**
+   * Extract variable name from a source line
+   */
+  extractVariableName(line, pattern) {
+    const assignMatch = line.match(/(?:const|let|var)\s+(\w+)\s*=/);
+    if (assignMatch)
+      return assignMatch[1];
+    const propMatch = line.match(/(\w+)\s*=\s*\w+\.\w+/);
+    if (propMatch)
+      return propMatch[1];
+    return null;
+  }
+  /**
+   * Check if source variable is related to sink usage
+   */
+  isVariableRelated(source, sinkContext, lines) {
+    if (source.variable !== "unknown" && sinkContext.includes(source.variable)) {
+      return true;
+    }
+    if (source.type.includes("URL") && sinkContext.includes("url") || sinkContext.includes("URL")) {
+      return true;
+    }
+    if (source.type.includes("fetch") || source.type.includes("axios")) {
+      const responsePattern = /\b(data|response|result|res|json)\b/;
+      if (responsePattern.test(sinkContext))
+        return true;
+    }
+    if (source.type.includes("prop") || source.type.includes("state")) {
+      return sinkContext.includes(source.variable) || sinkContext.includes(source.type);
+    }
+    if (source.confidence < 0.7)
+      return false;
+    return true;
+  }
+  /**
+   * Build the trace path from source to sink
+   */
+  buildTrace(source, sink, lines) {
+    const steps = [];
+    steps.push({
+      line: source.line,
+      description: `User input: ${source.type}`,
+      code: lines[source.line - 1]?.trim() || ""
+    });
+    if (source.variable !== "unknown") {
+      for (let i = source.line; i < sink.line; i++) {
+        const line = lines[i];
+        if (line && line.includes(source.variable) && !line.trim().startsWith("//")) {
+          if (/(=|\.map\(|\.filter\(|\.reduce\(|\.concat\(|\.split\()/i.test(line)) {
+            steps.push({
+              line: i + 1,
+              description: `Variable transformation`,
+              code: line.trim()
+            });
+          }
+        }
+      }
+    }
+    steps.push({
+      line: sink.line,
+      description: `Dangerous sink: ${sink.type}`,
+      code: sink.evidence
+    });
+    return steps;
+  }
+};
+
+// src/analysis/ComponentDependencyGraph.ts
+var ComponentDependencyAnalyzer = class {
+  constructor() {
+    this.graph = {
+      nodes: [],
+      edges: [],
+      circularDependencies: [],
+      orphanComponents: [],
+      couplingScore: 0,
+      maxCouplingPath: []
+    };
+  }
+  /**
+   * Analyze a set of files and build the dependency graph
+   */
+  analyze(files) {
+    this.graph = {
+      nodes: [],
+      edges: [],
+      circularDependencies: [],
+      orphanComponents: [],
+      couplingScore: 0,
+      maxCouplingPath: []
+    };
+    for (const file of files) {
+      if (!this.isComponentFile(file.path))
+        continue;
+      const imports = this.extractImports(file.content, file.path);
+      const componentName = this.extractComponentName(file.content, file.path);
+      this.graph.nodes.push({
+        filePath: file.path,
+        componentName: componentName || this.fileNameToComponent(file.path),
+        imports,
+        importedBy: [],
+        isOrphan: true,
+        complexity: this.estimateComplexity(file.content)
+      });
+    }
+    for (const node of this.graph.nodes) {
+      for (const imp of node.imports) {
+        const targetNode = this.graph.nodes.find(
+          (n) => this.pathMatches(n.filePath, imp)
+        );
+        if (targetNode) {
+          this.graph.edges.push({
+            from: node.filePath,
+            to: targetNode.filePath,
+            type: this.isDynamicImport(imp) ? "dynamic-import" : "import"
+          });
+          targetNode.importedBy.push(node.filePath);
+          node.isOrphan = false;
+        }
+      }
+    }
+    this.detectCircularDependencies();
+    this.graph.orphanComponents = this.graph.nodes.filter((n) => n.isOrphan).map((n) => n.filePath);
+    this.calculateCouplingScore();
+    return this.graph;
+  }
+  /**
+   * Check if a file is a component file
+   */
+  isComponentFile(filePath) {
+    return /\.(tsx|jsx|vue|svelte)$/.test(filePath) || /component\.ts$/.test(filePath) || /\/components\//i.test(filePath);
+  }
+  /**
+   * Extract imports from file content
+   */
+  extractImports(content, filePath) {
+    const imports = [];
+    const staticImports = content.match(/from\s+['"]([^'"]+)['"]/g) || [];
+    staticImports.forEach((imp) => {
+      const module2 = imp.replace(/from\s+['"]|['"]/g, "");
+      imports.push(module2);
+    });
+    const dynamicImports = content.match(/import\(\s*['"]([^'"]+)['"]\s*\)/g) || [];
+    dynamicImports.forEach((imp) => {
+      const module2 = imp.replace(/import\(\s*['"]|['"]\s*\)/g, "");
+      imports.push(module2);
+    });
+    return imports;
+  }
+  /**
+   * Extract component name from file content
+   */
+  extractComponentName(content, filePath) {
+    const reactFunc = content.match(/export\s+default\s+(?:function|class)\s+(\w+)/);
+    if (reactFunc)
+      return reactFunc[1];
+    const reactConst = content.match(/export\s+const\s+(\w+)\s*=\s*(?:\(|async)/);
+    if (reactConst)
+      return reactConst[1];
+    const vueName = content.match(/name\s*:\s*['"]([^'"]+)['"]/);
+    if (vueName)
+      return vueName[1];
+    return null;
+  }
+  /**
+   * Convert file path to component name (fallback)
+   */
+  fileNameToComponent(filePath) {
+    const parts = filePath.replace(/\.(tsx|jsx|vue|svelte|ts|js)$/, "").split("/");
+    const name = parts[parts.length - 1];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  /**
+   * Check if a path matches an import
+   */
+  pathMatches(filePath, importPath) {
+    const extensions = [".tsx", ".jsx", ".vue", ".svelte", ".ts", ".js"];
+    const basePath = importPath.replace(/^\.\//, "./");
+    for (const ext2 of extensions) {
+      if (filePath.endsWith(basePath + ext2) || filePath.endsWith(basePath + "/index" + ext2) || filePath.endsWith(basePath.replace(/\/index$/, "") + ext2)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  /**
+   * Check if import is dynamic
+   */
+  isDynamicImport(imp) {
+    return imp.includes("import(");
+  }
+  /**
+   * Estimate component complexity
+   */
+  estimateComplexity(content) {
+    let complexity = 1;
+    complexity += (content.match(/useState|useReducer|ref\(|reactive\(/g) || []).length;
+    complexity += (content.match(/useEffect|watch|onMounted|onUnmounted/g) || []).length;
+    complexity += (content.match(/\?.*:.*|v-if|v-show|&&/g) || []).length;
+    complexity += (content.match(/onClick|onSubmit|onChange|@click|@submit/g) || []).length;
+    return complexity;
+  }
+  /**
+   * Detect circular dependencies using DFS
+   */
+  detectCircularDependencies() {
+    const visited = /* @__PURE__ */ new Set();
+    const path3 = [];
+    const pathSet = /* @__PURE__ */ new Set();
+    const dfs = (node) => {
+      if (pathSet.has(node)) {
+        const cycleStart = path3.indexOf(node);
+        const cycle = [...path3.slice(cycleStart), node];
+        this.graph.circularDependencies.push(cycle);
+        return;
+      }
+      if (visited.has(node))
+        return;
+      visited.add(node);
+      path3.push(node);
+      pathSet.add(node);
+      const edges = this.graph.edges.filter((e) => e.from === node);
+      for (const edge of edges) {
+        dfs(edge.to);
+      }
+      path3.pop();
+      pathSet.delete(node);
+    };
+    for (const node of this.graph.nodes) {
+      if (!visited.has(node.filePath)) {
+        dfs(node.filePath);
+      }
+    }
+  }
+  /**
+   * Calculate coupling score (0-100, lower is better)
+   */
+  calculateCouplingScore() {
+    if (this.graph.nodes.length === 0) {
+      this.graph.couplingScore = 0;
+      return;
+    }
+    const maxEdges = this.graph.nodes.length * (this.graph.nodes.length - 1);
+    this.graph.couplingScore = maxEdges > 0 ? Math.round(this.graph.edges.length / maxEdges * 100) : 0;
+    const longestPath = this.findLongestPath();
+    this.graph.maxCouplingPath = longestPath;
+  }
+  /**
+   * Find the longest import chain
+   */
+  findLongestPath() {
+    let longest = [];
+    const dfs = (node, currentPath, visited) => {
+      if (currentPath.length > longest.length) {
+        longest = [...currentPath];
+      }
+      const edges = this.graph.edges.filter((e) => e.from === node);
+      for (const edge of edges) {
+        if (!visited.has(edge.to)) {
+          visited.add(edge.to);
+          currentPath.push(edge.to);
+          dfs(edge.to, currentPath, visited);
+          currentPath.pop();
+          visited.delete(edge.to);
+        }
+      }
+    };
+    for (const node of this.graph.nodes) {
+      dfs(node.filePath, [node.filePath], /* @__PURE__ */ new Set([node.filePath]));
+    }
+    return longest;
+  }
+  /**
+   * Get the graph
+   */
+  getGraph() {
+    return this.graph;
+  }
+};
+
+// src/analysis/CrossFileRelationEngine.ts
+var CrossFileRelationAnalyzer = class {
+  /**
+   * Analyze a set of files and discover cross-file relationships
+   */
+  analyze(files) {
+    const relations = [];
+    const filePaths = files.map((f) => f.path);
+    const fileMap = new Map(files.map((f) => [f.path, f.content]));
+    for (const file of files) {
+      const componentRelations = this.findComponentRelations(file, filePaths, fileMap);
+      relations.push(...componentRelations);
+    }
+    const summary = this.buildSummary(relations, filePaths);
+    return { relations, summary };
+  }
+  /**
+   * Find relations for a component file
+   */
+  findComponentRelations(file, filePaths, fileMap) {
+    const relations = [];
+    const { path: path3, content } = file;
+    if (!this.isComponentFile(path3))
+      return relations;
+    const testFile = this.findTestFile(path3, filePaths);
+    if (testFile) {
+      relations.push({
+        sourceFile: path3,
+        targetFile: testFile,
+        relationType: "COMPONENT_TEST",
+        confidence: 0.95,
+        evidence: `Test file found: ${testFile}`
+      });
+    }
+    const styleFile = this.findStyleFile(path3, filePaths, content);
+    if (styleFile) {
+      relations.push({
+        sourceFile: path3,
+        targetFile: styleFile,
+        relationType: "COMPONENT_STYLE",
+        confidence: 0.9,
+        evidence: `Style import: ${styleFile}`
+      });
+    }
+    const apiService = this.findAPIService(content, filePaths);
+    if (apiService) {
+      relations.push({
+        sourceFile: path3,
+        targetFile: apiService,
+        relationType: "COMPONENT_API",
+        confidence: 0.8,
+        evidence: `API import detected`
+      });
+    }
+    const storeModule = this.findStoreModule(content, filePaths);
+    if (storeModule) {
+      relations.push({
+        sourceFile: path3,
+        targetFile: storeModule,
+        relationType: "COMPONENT_STORE",
+        confidence: 0.8,
+        evidence: `Store import detected`
+      });
+    }
+    if (this.isPageFile(path3)) {
+      const childComponents2 = this.findChildComponents(content, filePaths);
+      for (const child of childComponents2) {
+        relations.push({
+          sourceFile: path3,
+          targetFile: child,
+          relationType: "PAGE_COMPONENT",
+          confidence: 0.7,
+          evidence: `Child component import`
+        });
+      }
+    }
+    const childComponents = this.findChildComponents(content, filePaths);
+    for (const child of childComponents) {
+      relations.push({
+        sourceFile: path3,
+        targetFile: child,
+        relationType: "COMPONENT_CHILD",
+        confidence: 0.75,
+        evidence: `Nested component import`
+      });
+    }
+    return relations;
+  }
+  /**
+   * Check if a file is a component file
+   */
+  isComponentFile(path3) {
+    return /\.(tsx|jsx|vue|svelte)$/.test(path3) || /\/components\//i.test(path3);
+  }
+  /**
+   * Check if a file is a page file
+   */
+  isPageFile(path3) {
+    return /\/pages\//i.test(path3) || /\/views\//i.test(path3) || /\/app\//i.test(path3);
+  }
+  /**
+   * Find corresponding test file
+   */
+  findTestFile(componentPath, filePaths) {
+    const baseName = componentPath.replace(/\.(tsx|jsx|vue|svelte|ts|js)$/, "");
+    const testPatterns = [
+      `${baseName}.test.tsx`,
+      `${baseName}.test.ts`,
+      `${baseName}.test.jsx`,
+      `${baseName}.test.js`,
+      `${baseName}.spec.tsx`,
+      `${baseName}.spec.ts`,
+      `${baseName}Spec.tsx`,
+      `${baseName}Spec.ts`,
+      `${baseName}.test/__snapshots__/`
+    ];
+    for (const pattern of testPatterns) {
+      if (filePaths.includes(pattern))
+        return pattern;
+    }
+    const testsDir = componentPath.replace(/\/([^/]+\.\w+)$/, "/__tests__/$1");
+    for (const fp of filePaths) {
+      if (fp.startsWith(testsDir.replace(/(__tests__\/)/, "")))
+        return fp;
+    }
+    return null;
+  }
+  /**
+   * Find corresponding style file
+   */
+  findStyleFile(componentPath, filePaths, content) {
+    const baseName = componentPath.replace(/\.(tsx|jsx|vue|svelte|ts|js)$/, "");
+    const stylePatterns = [
+      `${baseName}.module.css`,
+      `${baseName}.module.scss`,
+      `${baseName}.module.sass`,
+      `${baseName}.module.less`,
+      `${baseName}.css`,
+      `${baseName}.scss`
+    ];
+    for (const pattern of stylePatterns) {
+      if (filePaths.includes(pattern))
+        return pattern;
+    }
+    const importMatch = content.match(/import\s+['"].*\.css['"]|import\s+['"].*\.scss['"]/);
+    if (importMatch) {
+      const imported = importMatch[0].match(/['"]([^'"]+)['"]/);
+      if (imported) {
+        const fullPath = filePaths.find((f) => f.includes(imported[1]));
+        if (fullPath)
+          return fullPath;
+      }
+    }
+    return null;
+  }
+  /**
+   * Find API service file
+   */
+  findAPIService(content, filePaths) {
+    const apiPatterns = [
+      /from\s+['"].*api['"]/,
+      /from\s+['"].*service['"]/,
+      /from\s+['"].*fetch['"]/,
+      /from\s+['"].*axios['"]/,
+      /from\s+['"].*request['"]/,
+      /from\s+['"].*client['"]/
+    ];
+    for (const pattern of apiPatterns) {
+      const match2 = content.match(pattern);
+      if (match2) {
+        const importPath = match2[0].match(/['"]([^'"]+)['"]/);
+        if (importPath) {
+          const fullPath = filePaths.find(
+            (f) => f.includes(importPath[1]) || f.includes("api") || f.includes("service")
+          );
+          if (fullPath)
+            return fullPath;
+        }
+      }
+    }
+    return null;
+  }
+  /**
+   * Find store/state module
+   */
+  findStoreModule(content, filePaths) {
+    const storePatterns = [
+      /from\s+['"].*store['"]/,
+      /from\s+['"].*reducer['"]/,
+      /from\s+['"].*state['"]/,
+      /from\s+['"].*vuex['"]/,
+      /from\s+['"].*pinia['"]/,
+      /from\s+['"].*redux['"]/,
+      /from\s+['"].*zustand['"]/,
+      /useSelector|useDispatch|connect\(/
+    ];
+    for (const pattern of storePatterns) {
+      if (pattern.test(content)) {
+        const fullPath = filePaths.find(
+          (f) => /store|reducer|state|vuex|pinia|redux|zustand/i.test(f)
+        );
+        if (fullPath)
+          return fullPath;
+      }
+    }
+    return null;
+  }
+  /**
+   * Find child component imports
+   */
+  findChildComponents(content, filePaths) {
+    const imports = content.match(/from\s+['"]([^'"]+)['"]/g) || [];
+    const children = [];
+    for (const imp of imports) {
+      const module2 = imp.replace(/from\s+['"]|['"]/g, "");
+      if (module2.startsWith(".") || module2.startsWith("/")) {
+        const fullPath = filePaths.find((f) => {
+          const normalizedModule = module2.replace(/^\.\//, "");
+          return f.includes(normalizedModule) && this.isComponentFile(f);
+        });
+        if (fullPath)
+          children.push(fullPath);
+      }
+    }
+    return children;
+  }
+  /**
+   * Build relationship summary
+   */
+  buildSummary(relations, filePaths) {
+    const byType = {
+      COMPONENT_TEST: 0,
+      COMPONENT_STYLE: 0,
+      COMPONENT_API: 0,
+      COMPONENT_STORE: 0,
+      PAGE_COMPONENT: 0,
+      COMPONENT_CHILD: 0,
+      HOOK_COMPONENT: 0
+    };
+    for (const rel of relations) {
+      byType[rel.relationType]++;
+    }
+    const missingRelations = [];
+    const componentFiles = filePaths.filter((p) => this.isComponentFile(p));
+    for (const comp of componentFiles) {
+      const hasTest = relations.some((r) => r.sourceFile === comp && r.relationType === "COMPONENT_TEST");
+      if (!hasTest) {
+        missingRelations.push({
+          file: comp,
+          expectedRelation: "COMPONENT_TEST",
+          severity: Severity.INFO,
+          message: `Component has no test file`
+        });
+      }
+    }
+    const importedFiles = new Set(relations.map((r) => r.targetFile));
+    const orphanFiles = filePaths.filter(
+      (f) => this.isComponentFile(f) && !importedFiles.has(f) && !relations.some((r) => r.sourceFile === f)
+    );
+    return {
+      totalRelations: relations.length,
+      byType,
+      missingRelations,
+      orphanFiles: orphanFiles.slice(0, 10)
+      // Limit to 10
+    };
+  }
+};
+
 // src/cli.ts
 var program2 = new Command();
 program2.name("frontend-analyze").description("Frontend Code Quality Analyzer \u2014 AST-based static analysis").version("1.0.0").requiredOption("--sourceRoot <path>", "Project root directory to analyze").option("--outputDir <path>", "Output directory for analysis results", "./analysis-output").option("--format <format>", "Output format: json, html, markdown, or all", "all").option("--websocket-port <port>", "WebSocket port for real-time progress", "0").option("--config <path>", "Rules configuration file").option("--exclude <patterns>", "Comma-separated glob patterns to exclude", "node_modules,dist,.git,coverage,*.test.*,*.spec.*").option("--verbose", "Enable debug logging").parse(process.argv);
@@ -19491,7 +23348,10 @@ async function runAnalysis() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
   log("\n\u{1F4DD} Generating reports...", "cyan");
-  generateReports(projectAnalysis, outputDir);
+  log("\u{1F52C} Running advanced analysis...", "cyan");
+  const advancedResults = runAdvancedAnalysis(fileAnalyses, files, sourceRoot);
+  projectAnalysis.advanced_analysis = advancedResults;
+  generateReports(projectAnalysis, outputDir, advancedResults);
   printSummary(projectAnalysis, elapsed);
   if (wss) {
     await sendWsEvent("complete", { total_issues: allIssues.length }, wsPort);
@@ -19605,7 +23465,53 @@ function detectProjectFramework(fileAnalyses) {
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   return sorted.length > 0 ? sorted[0][0] : void 0;
 }
-function generateReports(analysis, outputDir) {
+function runAdvancedAnalysis(fileAnalyses, files, sourceRoot) {
+  const results = {};
+  try {
+    const fileContents = files.map((f) => ({
+      path: f,
+      content: fs.readFileSync(f, "utf-8")
+    }));
+    const taintTracker = new XSSTaintTracker();
+    const taintFlows = [];
+    for (const file of fileContents) {
+      const flows = taintTracker.analyze(file.content, file.path);
+      for (const flow of flows) {
+        taintFlows.push({
+          source: flow.source,
+          sink: flow.sink,
+          path_length: flow.path.length,
+          severity: flow.severity
+        });
+      }
+    }
+    results.xss_taint_flows = taintFlows;
+    const compAnalyzer = new ComponentDependencyAnalyzer();
+    const compGraph = compAnalyzer.analyze(fileContents);
+    results.component_graph = {
+      total_components: compGraph.nodes.length,
+      total_dependencies: compGraph.edges.length,
+      circular_dependencies: compGraph.circularDependencies.length,
+      orphan_components: compGraph.orphanComponents.length,
+      coupling_score: compGraph.couplingScore,
+      longest_chain_length: compGraph.maxCouplingPath.length
+    };
+    const relationAnalyzer = new CrossFileRelationAnalyzer();
+    const { relations, summary } = relationAnalyzer.analyze(fileContents);
+    results.cross_file_relations = {
+      total_relations: summary.totalRelations,
+      by_type: summary.byType,
+      missing_test_files: summary.missingRelations.length,
+      orphan_files: summary.orphanFiles.length
+    };
+  } catch (err) {
+    if (options.verbose) {
+      log(`  \u26A0\uFE0F  Advanced analysis error: ${err}`, "yellow");
+    }
+  }
+  return results;
+}
+function generateReports(analysis, outputDir, advancedResults) {
   const format = options.format.toLowerCase();
   const projectName = analysis.project_name;
   const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T]/g, "").substring(0, 14);

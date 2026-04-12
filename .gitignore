@@ -1021,4 +1021,4 @@ build/
 /src/test/resources/Redisson_Step9_Full_Matrix.json
 /src/test/resources/Redisson_Step10_Matrix.json
 /dev-ops/db/postgres_data/pg_logical/replorigin_checkpoint
-nginx/html/data/
+html/data/

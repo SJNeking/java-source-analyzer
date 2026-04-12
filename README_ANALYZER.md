@@ -126,7 +126,7 @@ analysis-output/
 
 ## 📖 完整文档
 
-详见 [FRONTEND_GUIDE.md](nginx/html/FRONTEND_GUIDE.md)
+详见 [FRONTEND_GUIDE.md](html/FRONTEND_GUIDE.md)
 
 ## 📄 License
 
