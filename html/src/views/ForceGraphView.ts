@@ -10,10 +10,9 @@ import { cleanDescription, isLargeDataset } from '../utils/dom-helpers';
 import { safeSetInnerHTML } from '../utils/safe-dom';
 import { GraphProcessor } from '../domain/graph-processor';
 import { appState } from '../state';
-import { COLORS } from '../constants/theme';
-import { ICON } from '../constants/icons';
 import { Style } from '../utils/style-helpers';
-import { C, ICON as ICON_C, LABEL } from '../constants';
+import { C, ICON, LABEL } from '../constants';
+import { COLORS } from '../constants/theme';
 
 // Graph visualization configuration
 const GRAPH_CONFIG = {
@@ -251,16 +250,16 @@ export class ForceGraphView {
           `font-size:${GRAPH_CONFIG.TOOLTIP.DESC_SIZE}px; color:${Style.slate[300]}; line-height:${GRAPH_CONFIG.TOOLTIP.LINE_HEIGHT}; margin-bottom:${GRAPH_CONFIG.TOOLTIP.PADDING * 2 / 3}px; border-left:${GRAPH_CONFIG.TOOLTIP.BORDER_WIDTH}px solid ${Style.slate[700]}; padding-left:${GRAPH_CONFIG.TOOLTIP.PADDING * 2 / 3}px`
         ) +
         HTML.FLEX_CONTAINER(
-          HTML.SPAN(`${ICON_C.UI.INFO} ${LABEL.GRAPH.STAT_METHODS(d.methodCount || 0)}`) +
-          HTML.SPAN(`${ICON_C.SECTION.ASSETS} ${LABEL.GRAPH.STAT_FIELDS(d.fieldCount || 0)}`) +
-          HTML.SPAN(`${ICON_C.SECTION.RELATIONS} ${LABEL.GRAPH.STAT_DEPS(params.data.degree || 0)}`),
+          HTML.SPAN(`${ICON.UI.INFO} ${LABEL.GRAPH.STAT_METHODS(d.methodCount || 0)}`) +
+          HTML.SPAN(`${ICON.SECTION.ASSETS} ${LABEL.GRAPH.STAT_FIELDS(d.fieldCount || 0)}`) +
+          HTML.SPAN(`${ICON.SECTION.RELATIONS} ${LABEL.GRAPH.STAT_DEPS(params.data.degree || 0)}`),
           `gap:${GRAPH_CONFIG.TOOLTIP.META_GAP}px; font-size:${GRAPH_CONFIG.TOOLTIP.META_SIZE}px; border-top:${GRAPH_CONFIG.TOOLTIP.BORDER_TOP_WIDTH}px solid ${Style.slate[700]}; padding-top:${GRAPH_CONFIG.TOOLTIP.PADDING / 2}px; color:${Style.slate[400]}`
         ) +
         (d.qualityIssues ? HTML.FLEX_CONTAINER(
-          (d.qualityIssues.critical > 0 ? HTML.SPAN(`${ICON_C.SEVERITY.CRITICAL} ${LABEL.GRAPH.SEV_CRITICAL(d.qualityIssues.critical)}`, `color:${Style.redLt}`) : '') +
-          (d.qualityIssues.major > 0 ? HTML.SPAN(`${ICON_C.SEVERITY.MAJOR} ${LABEL.GRAPH.SEV_MAJOR(d.qualityIssues.major)}`, `color:${Style.amber}`) : '') +
-          (d.qualityIssues.minor > 0 ? HTML.SPAN(`${ICON_C.SEVERITY.MINOR} ${LABEL.GRAPH.SEV_MINOR(d.qualityIssues.minor)}`, `color:${Style.blueLt}`) : '') +
-          (!d.qualityIssues.critical && !d.qualityIssues.major && !d.qualityIssues.minor ? HTML.SPAN(`${ICON_C.UI.CHECK} ${LABEL.GRAPH.SEV_OK}`, `color:${Style.teal}`) : ''),
+          (d.qualityIssues.critical > 0 ? HTML.SPAN(`${ICON.SEVERITY.CRITICAL} ${LABEL.GRAPH.SEV_CRITICAL(d.qualityIssues.critical)}`, `color:${Style.redLt}`) : '') +
+          (d.qualityIssues.major > 0 ? HTML.SPAN(`${ICON.SEVERITY.MAJOR} ${LABEL.GRAPH.SEV_MAJOR(d.qualityIssues.major)}`, `color:${Style.amber}`) : '') +
+          (d.qualityIssues.minor > 0 ? HTML.SPAN(`${ICON.SEVERITY.MINOR} ${LABEL.GRAPH.SEV_MINOR(d.qualityIssues.minor)}`, `color:${Style.blueLt}`) : '') +
+          (!d.qualityIssues.critical && !d.qualityIssues.major && !d.qualityIssues.minor ? HTML.SPAN(`${ICON.UI.CHECK} ${LABEL.GRAPH.SEV_OK}`, `color:${Style.teal}`) : ''),
           `gap:${GRAPH_CONFIG.TOOLTIP.META_GAP_COMPACT}px; margin-top:${GRAPH_CONFIG.TOOLTIP.PADDING / 2}px; padding-top:${GRAPH_CONFIG.TOOLTIP.PADDING / 2}px; border-top:${GRAPH_CONFIG.TOOLTIP.BORDER_TOP_WIDTH}px solid ${Style.slate[700]}; font-size:${GRAPH_CONFIG.TOOLTIP.QUALITY_SIZE}px`
         ) : ''),
         `padding: ${GRAPH_CONFIG.TOOLTIP.PADDING / 3}px`
@@ -281,11 +280,11 @@ export class ForceGraphView {
         ) +
         (isViolation ?
           HTML.DIV(
-            `${ICON_C.UI.WARNING} ${LABEL.GRAPH.EDGE_VIOLATION}`,
+            `${ICON.UI.WARNING} ${LABEL.GRAPH.EDGE_VIOLATION}`,
             `font-size:${GRAPH_CONFIG.TOOLTIP.EDGE_META_SIZE}px; color:${Style.redLt}; margin-bottom:${GRAPH_CONFIG.TOOLTIP.PADDING / 3}px`
           ) :
           HTML.DIV(
-            `${ICON_C.SECTION.ASSETS} ${LABEL.GRAPH.EDGE_IMPORT}`,
+            `${ICON.SECTION.ASSETS} ${LABEL.GRAPH.EDGE_IMPORT}`,
             `font-size:${GRAPH_CONFIG.TOOLTIP.EDGE_META_SIZE}px; color:${Style.slate[400]}; margin-bottom:${GRAPH_CONFIG.TOOLTIP.PADDING / 3}px`
           )
         ) +
