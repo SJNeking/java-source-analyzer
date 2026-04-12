@@ -28,7 +28,7 @@ public class OllamaEmbeddingService implements EmbeddingService {
     private final String endpoint;
     private final String model;
     private final Gson gson;
-    private int dimension; // 延迟检测
+    private int dimension = 768; // Default dimension (nomic-embed-text is 768)
 
     public OllamaEmbeddingService() {
         this(DEFAULT_ENDPOINT, DEFAULT_MODEL);
@@ -38,7 +38,12 @@ public class OllamaEmbeddingService implements EmbeddingService {
         this.endpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         this.model = model;
         this.gson = new GsonBuilder().create();
-        this.dimension = detectDimension();
+        // Try to detect dimension, but fallback to 768 if failed
+        try {
+            this.dimension = detectDimension();
+        } catch (Exception e) {
+            this.dimension = 768;
+        }
     }
 
     @Override
@@ -109,13 +114,15 @@ public class OllamaEmbeddingService implements EmbeddingService {
     }
 
     private int detectDimension() {
-        try {
-            float[] test = embed("test");
-            return test.length;
-        } catch (Exception e) {
-            // 默认维度 (nomic-embed-text = 768)
-            return 768;
-        }
+        // Avoid calling embed() here to prevent circular dependency with hashEmbedding.
+        // Return known dimensions for specific models, or a safe default.
+        if ("nomic-embed-text".equals(model)) return 768;
+        if (model.contains("large")) return 3072; // text-embedding-3-large
+        
+        // For general LLMs like qwen2.5-coder, if Ollama supports embedding extraction,
+        // it typically uses a hidden layer projection. 
+        // We assume a safe default or rely on the fallback if the API fails.
+        return 1536; 
     }
 
     private String sendRequest(String requestBody) throws IOException {

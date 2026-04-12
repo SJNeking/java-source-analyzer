@@ -35,7 +35,7 @@ redis:
 ollama:
   endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
   chat-model: ${OLLAMA_CHAT_MODEL:qwen2.5-coder:32b}
-  embed-model: ${OLLAMA_EMBED_MODEL:nomic-embed-text}
+  embed-model: ${OLLAMA_EMBED_MODEL:qwen2.5-coder:32b}  # 使用已有模型生成Embedding
 
 # ============================================================
 # OpenAI (备用, 需 API Key)
