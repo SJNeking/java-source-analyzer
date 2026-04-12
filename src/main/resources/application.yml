@@ -1,0 +1,60 @@
+# ============================================================
+# CodeGuardian - Application Configuration
+# ============================================================
+
+app:
+  name: "CodeGuardian"
+  version: "1.0.0"
+
+# ============================================================
+# PostgreSQL Database
+# ============================================================
+database:
+  url: ${DATABASE_URL:jdbc:postgresql://localhost:15432/codeguardian}
+  username: ${DATABASE_USER:codeguardian}
+  password: ${DATABASE_PASSWORD:codeguardian_secret}
+  max-pool-size: 20
+  connection-timeout: 30000
+
+# ============================================================
+# Redis Cache
+# ============================================================
+redis:
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:16379}
+  password: ${REDIS_PASSWORD:}
+  database: 0
+  max-total: 50
+  max-idle: 10
+  min-idle: 5
+  timeout-ms: 5000
+
+# ============================================================
+# MinIO Object Storage
+# ============================================================
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:19000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin_secret}
+  bucket: codeguardian
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:19000}
+
+# ============================================================
+# Analysis Configuration
+# ============================================================
+analysis:
+  source-roots:
+    - "src/main/java"
+  exclude-patterns:
+    - "/test/"
+    - "/target/"
+    - "/generated/"
+  confidence-threshold: 0.5
+  fingerprint-ttl-days: 30
+
+# ============================================================
+# Logging
+# ============================================================
+logging:
+  level: INFO
+  format: JSON  # TEXT or JSON (production should use JSON)

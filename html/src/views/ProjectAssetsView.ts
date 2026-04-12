@@ -24,7 +24,7 @@ export class ProjectAssetsView extends Component {
     this.containerId = containerId;
   }
 
-  public loadData(data: AnalysisResult): void {
+  public render(data: AnalysisResult): void {
     this.analysisData = data;
     const container = document.getElementById(this.containerId);
     if (!container) {

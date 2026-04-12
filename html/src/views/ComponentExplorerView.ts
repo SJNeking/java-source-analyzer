@@ -26,7 +26,7 @@ export class ComponentExplorerView extends Component {
     this.containerId = containerId;
   }
 
-  public loadData(data: AnalysisResult): void {
+  public render(data: AnalysisResult): void {
     this.data = data;
     this.history = [{ level: 'packages', address: null }];
     const container = document.getElementById(this.containerId);

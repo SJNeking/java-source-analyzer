@@ -217,7 +217,7 @@ export class CrossFileRelationsView extends Component {
           this.text(`${confidencePercent.toFixed(0)}%`),
         ]),
       ]),
-      this.el('td', { style: { fontSize: Style.font.MD, color: Style.grayLt, maxWidth: '200px' } as Partial<CSSStyleDeclaration> },
+      this.el('td', { style: { fontSize: "12px", color: Style.grayLt, maxWidth: '200px' } as Partial<CSSStyleDeclaration> },
         [this.text(this.truncateText(rel.evidence || '', 40))]),
     ]);
   }

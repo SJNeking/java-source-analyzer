@@ -77,6 +77,22 @@
         <artifactId>Java-WebSocket</artifactId>
         <version>1.5.4</version>
     </dependency>
+    <!-- Production-grade storage dependencies -->
+    <dependency>
+        <groupId>redis.clients</groupId>
+        <artifactId>jedis</artifactId>
+        <version>4.4.8</version>
+    </dependency>
+    <dependency>
+        <groupId>io.minio</groupId>
+        <artifactId>minio</artifactId>
+        <version>8.5.7</version>
+    </dependency>
+    <dependency>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-core</artifactId>
+        <version>9.22.3</version>
+    </dependency>
   </dependencies>
 
   <build>

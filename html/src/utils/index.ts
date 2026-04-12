@@ -10,6 +10,7 @@ export {
   transformToGraph,
   extractShortName
 } from './data-loader';
+export { loadUnifiedReport } from './unified-report-loader';
 export {
   populateProjectSelector,
   updateStatsDisplay,

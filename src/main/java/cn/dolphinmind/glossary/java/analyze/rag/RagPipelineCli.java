@@ -1,0 +1,244 @@
+package cn.dolphinmind.glossary.java.analyze.rag;
+
+import cn.dolphinmind.glossary.java.analyze.config.AppConfig;
+import cn.dolphinmind.glossary.java.analyze.rag.llm.LlmClient;
+import cn.dolphinmind.glossary.java.analyze.rag.llm.OpenAIChatClient;
+import cn.dolphinmind.glossary.java.analyze.rag.model.RagSlice;
+import cn.dolphinmind.glossary.java.analyze.rag.search.Bm25Searcher;
+import cn.dolphinmind.glossary.java.analyze.rag.service.EmbeddingService;
+import cn.dolphinmind.glossary.java.analyze.rag.service.OllamaEmbeddingService;
+import cn.dolphinmind.glossary.java.analyze.rag.service.OpenAIEmbeddingService;
+import cn.dolphinmind.glossary.java.analyze.rag.store.PgVectorStore;
+import cn.dolphinmind.glossary.java.analyze.rag.store.VectorStore;
+import cn.dolphinmind.glossary.java.analyze.slicing.CodeSlicer;
+import cn.dolphinmind.glossary.java.analyze.unified.UnifiedIssue;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.nio.file.*;
+import java.util.*;
+import java.util.logging.Logger;
+
+/**
+ * RAG Pipeline CLI
+ * 
+ * 用法:
+ *   java -cp analyzer.jar cn.dolphinmind.glossary.java.analyze.rag.RagPipelineCli \
+ *     --sourceRoot /path/to/java/project \
+ *     --analysisResult analysis-result.json \
+ *     --output ai-results.json \
+ *     --embedding-provider ollama \
+ *     --llm-provider openai \
+ *     --query "审查代码质量"
+ */
+public class RagPipelineCli {
+
+    private static final Logger logger = Logger.getLogger(RagPipelineCli.class.getName());
+
+    public static void main(String[] args) {
+        Map<String, String> params = parseArgs(args);
+
+        if (params.containsKey("--help")) {
+            printUsage();
+            return;
+        }
+
+        String sourceRoot = params.get("--sourceRoot");
+        String analysisResultPath = params.get("--analysisResult");
+        String outputPath = params.get("--output");
+        String query = params.getOrDefault("--query", "review code quality");
+        String embeddingProvider = params.getOrDefault("--embedding-provider", "ollama");
+        String llmProvider = params.getOrDefault("--llm-provider", "openai");
+
+        if (sourceRoot == null || analysisResultPath == null) {
+            System.err.println("Error: --sourceRoot and --analysisResult are required");
+            printUsage();
+            System.exit(1);
+        }
+
+        try {
+            System.out.println("=== RAG Pipeline ===");
+            System.out.println("Source: " + sourceRoot);
+            System.out.println("Analysis: " + analysisResultPath);
+            System.out.println("Embedding: " + embeddingProvider);
+            System.out.println("LLM: " + llmProvider);
+            System.out.println();
+
+            // Step 1: Load analysis result & generate slices
+            System.out.println("Step 1: Loading analysis result...");
+            String jsonContent = new String(Files.readAllBytes(Paths.get(analysisResultPath)));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> analysisResult = new Gson().fromJson(jsonContent, Map.class);
+
+            CodeSlicer slicer = new CodeSlicer();
+            List<RagSlice> slices = convertToRagSlices(slicer, Paths.get(sourceRoot), analysisResult);
+            System.out.println("  Generated " + slices.size() + " code slices");
+
+            // Step 2: Initialize RAG Pipeline
+            System.out.println("Step 2: Initializing RAG Pipeline...");
+            RagPipeline pipeline = createPipeline(embeddingProvider, llmProvider, params);
+            pipeline.initialize();
+
+            // Step 3: Index slices
+            System.out.println("Step 3: Indexing slices...");
+            pipeline.indexSlices(slices);
+
+            // Step 4: Run review
+            System.out.println("Step 4: Running review with query: \"" + query + "\"");
+            List<UnifiedIssue> issues = pipeline.review(query, null);
+            System.out.println("  Found " + issues.size() + " AI issues");
+
+            // Step 5: Output results
+            System.out.println("Step 5: Writing results...");
+            if (outputPath != null) {
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("version", "1.0.0");
+                result.put("model", params.getOrDefault("--llm-model", "gpt-4"));
+                result.put("issues", issuesToMaps(issues));
+
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                Files.write(Paths.get(outputPath), gson.toJson(result).getBytes());
+                System.out.println("  Written to: " + outputPath);
+            }
+
+            // Print summary
+            System.out.println();
+            System.out.println("=== Review Summary ===");
+            for (UnifiedIssue issue : issues) {
+                System.out.println("  [" + issue.getSeverity() + "] " + issue.getMessage());
+                System.out.println("    File: " + issue.getFilePath() + ":" + issue.getLine());
+                if (issue.getConfidence() != null) {
+                    System.out.println("    Confidence: " + String.format("%.0f%%", issue.getConfidence() * 100));
+                }
+            }
+
+            pipeline.close();
+
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<RagSlice> convertToRagSlices(CodeSlicer slicer, Path sourceRoot,
+                                                      Map<String, Object> analysisResult) throws Exception {
+        List<RagSlice> ragSlices = new ArrayList<>();
+
+        // Use CodeSlicer to generate slices from analysis result
+        Map<String, Object> ragContext = slicer.buildRagContext(sourceRoot, analysisResult);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> sliceMaps = (List<Map<String, Object>>) ragContext.get("slices");
+
+        if (sliceMaps != null) {
+            for (Map<String, Object> map : sliceMaps) {
+                RagSlice slice = new RagSlice();
+                slice.setFilePath((String) map.get("filePath"));
+                slice.setClassName((String) map.get("className"));
+                slice.setMethodName((String) map.get("methodName"));
+                slice.setStartLine(map.get("startLine") instanceof Number ? ((Number) map.get("startLine")).intValue() : 0);
+                slice.setEndLine(map.get("endLine") instanceof Number ? ((Number) map.get("endLine")).intValue() : 0);
+                slice.setCode((String) map.get("code"));
+                slice.setTokenCount(map.get("tokenCount") instanceof Number ? ((Number) map.get("tokenCount")).intValue() : 0);
+                String typeStr = (String) map.get("type");
+                if (typeStr != null) {
+                    try { slice.setType(RagSlice.SliceType.valueOf(typeStr)); }
+                    catch (IllegalArgumentException e) { slice.setType(RagSlice.SliceType.ISSUE_AREA); }
+                }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> metadata = (Map<String, Object>) map.get("context");
+                if (metadata != null) slice.setMetadata(metadata);
+                ragSlices.add(slice);
+            }
+        }
+
+        return ragSlices;
+    }
+
+    private static RagPipeline createPipeline(String embeddingProvider, String llmProvider,
+                                                Map<String, String> params) {
+        AppConfig config = AppConfig.getInstance();
+
+        // Embedding Service
+        EmbeddingService embeddingService;
+        if ("ollama".equals(embeddingProvider)) {
+            embeddingService = new OllamaEmbeddingService(
+                    params.getOrDefault("--embedding-endpoint", "http://localhost:11434/api/embeddings"),
+                    params.getOrDefault("--embedding-model", "nomic-embed-text"));
+        } else {
+            String apiKey = params.getOrDefault("--api-key", config.getString("openai.api-key", ""));
+            if (apiKey.isEmpty()) {
+                System.err.println("Warning: No API key provided. Using zero embeddings.");
+            }
+            embeddingService = new OpenAIEmbeddingService(
+                    apiKey,
+                    params.getOrDefault("--embedding-endpoint", "https://api.openai.com/v1/embeddings"),
+                    params.getOrDefault("--embedding-model", "text-embedding-3-small"));
+        }
+
+        // Vector Store
+        String jdbcUrl = params.getOrDefault("--database-url", config.getDatabaseUrl());
+        String dbUser = params.getOrDefault("--database-user", config.getDatabaseUser());
+        String dbPassword = params.getOrDefault("--database-password", config.getDatabasePassword());
+        VectorStore vectorStore = new PgVectorStore(jdbcUrl, dbUser, dbPassword, embeddingService.getDimension());
+
+        // BM25 Searcher
+        Bm25Searcher bm25Searcher = new Bm25Searcher(jdbcUrl, dbUser, dbPassword);
+
+        // LLM Client
+        LlmClient llmClient;
+        String llmApiKey = params.getOrDefault("--api-key", config.getString("openai.api-key", ""));
+        String llmModel = params.getOrDefault("--llm-model", "gpt-4");
+        String llmEndpoint = params.getOrDefault("--llm-endpoint", "https://api.openai.com/v1/chat/completions");
+
+        llmClient = new OpenAIChatClient(llmApiKey, llmEndpoint, llmModel, 0.3);
+
+        return new RagPipeline(embeddingService, vectorStore, bm25Searcher, llmClient);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> issuesToMaps(List<UnifiedIssue> issues) {
+        List<Map<String, Object>> maps = new ArrayList<>();
+        for (UnifiedIssue issue : issues) {
+            maps.add(issue.toMap());
+        }
+        return maps;
+    }
+
+    private static Map<String, String> parseArgs(String[] args) {
+        Map<String, String> params = new LinkedHashMap<>();
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].startsWith("--")) {
+                if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+                    params.put(args[i], args[++i]);
+                } else {
+                    params.put(args[i], "");
+                }
+            }
+        }
+        return params;
+    }
+
+    private static void printUsage() {
+        System.out.println("Usage: java RagPipelineCli [options]");
+        System.out.println();
+        System.out.println("Required:");
+        System.out.println("  --sourceRoot <path>           Java source root directory");
+        System.out.println("  --analysisResult <file>       Static analysis result JSON");
+        System.out.println();
+        System.out.println("Optional:");
+        System.out.println("  --output <file>               Output AI results JSON");
+        System.out.println("  --query <text>                Review query (default: 'review code quality')");
+        System.out.println("  --embedding-provider <name>   ollama | openai (default: ollama)");
+        System.out.println("  --llm-provider <name>         openai (default: openai)");
+        System.out.println("  --llm-model <model>           LLM model name (default: gpt-4)");
+        System.out.println("  --embedding-model <model>     Embedding model (default: nomic-embed-text)");
+        System.out.println("  --api-key <key>               API key for OpenAI/Qwen/etc");
+        System.out.println("  --database-url <url>          PostgreSQL JDBC URL");
+        System.out.println("  --database-user <user>        Database username");
+        System.out.println("  --database-password <pass>    Database password");
+        System.out.println("  --help                        Show this help");
+    }
+}

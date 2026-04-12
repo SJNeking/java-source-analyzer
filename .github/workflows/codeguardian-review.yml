@@ -1,0 +1,386 @@
+name: CodeGuardian Unified Review
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master, 'feature/**' ]
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'AI model to use (gpt-4, qwen-max, deepseek)'
+        required: false
+        default: 'qwen-max'
+
+env:
+  JAVA_VERSION: '8'
+  ANALYZER_JAR: target/glossary-java-source-analyzer-1.0.jar
+  CONFIDENCE_THRESHOLD: '0.5'
+
+jobs:
+  # ============================================================
+  # Stage 1: Static Analysis (Java Source Analyzer)
+  # ============================================================
+  static-analysis:
+    name: Static Code Analysis
+    runs-on: ubuntu-latest
+    outputs:
+      hit: ${{ steps.fingerprint.outputs.hit }}
+      fingerprint: ${{ steps.fingerprint.outputs.fingerprint }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Compute semantic fingerprint
+        id: fingerprint
+        run: |
+          # Fingerprint based on source code structure (ignoring whitespace/comments)
+          FP=$(find src/main/java -name "*.java" -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -c1-16)
+          echo "fingerprint=$FP" >> $GITHUB_OUTPUT
+          echo "Computed fingerprint: $FP"
+
+      - name: Check fingerprint cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: static-results.json
+          key: static-analysis-${{ steps.fingerprint.outputs.fingerprint }}
+
+      - name: Build analyzer
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: mvn clean package -DskipTests -q
+
+      - name: Run static analysis
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          java -jar ${{ env.ANALYZER_JAR }} \
+            --sourceRoot . \
+            --outputDir . \
+            --format json \
+            --outputFile static-results.json \
+            2>&1 | tee analysis.log
+
+      - name: Validate static results
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          if [ ! -f static-results.json ] || [ ! -s static-results.json ]; then
+            echo "Static analysis produced no output"
+            exit 1
+          fi
+          ISSUES=$(python3 -c "import json; print(len(json.load(open('static-results.json')).get('quality_issues', [])))")
+          echo "Found $ISSUES quality issues"
+          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+
+      - name: Upload static results
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-results
+          path: static-results.json
+          retention-days: 14
+
+  # ============================================================
+  # Stage 2: AI Review (CodeGuardian AI)
+  # ============================================================
+  ai-review:
+    name: AI Code Review
+    needs: static-analysis
+    runs-on: ubuntu-latest
+    if: needs.static-analysis.outputs.hit != 'true'
+    outputs:
+      merged-total: ${{ steps.merge.outputs.merged-total }}
+      ai-only: ${{ steps.merge.outputs.ai-only }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Download static results
+        uses: actions/download-artifact@v4
+        with:
+          name: static-results
+
+      - name: Build analyzer (for ResultMerger + CodeSlicer)
+        run: mvn clean package -DskipTests -q
+
+      # Step 2a: Generate RAG context from AST slicing
+      - name: Generate RAG context (AST slices)
+        run: |
+          java -cp ${{ env.ANALYZER_JAR }} \
+            cn.dolphinmind.glossary.java.analyze.slicing.CodeSlicer \
+            . static-results.json rag-context.json
+          echo "RAG context generated"
+          python3 -c "
+          import json
+          d = json.load(open('rag-context.json'))
+          print(f'  Slices: {d[\"totalSlices\"]}')
+          print(f'  Tokens: {d[\"totalEstimatedTokens\"]}')
+          "
+
+      - name: Upload RAG context
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-context
+          path: rag-context.json
+          retention-days: 14
+
+      # Step 2b: Run AI review (placeholder - replace with actual CodeGuardian call)
+      - name: Run AI review
+        id: ai-review
+        env:
+          AI_MODEL: ${{ github.event.inputs.model || 'qwen-max' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+        run: |
+          echo "Running AI review with model: $AI_MODEL"
+          # TODO: Replace with actual CodeGuardian AI invocation
+          # The AI reviewer should:
+          # 1. Read rag-context.json for code slices + static analysis context
+          # 2. Send each slice to the LLM for review
+          # 3. Output ai-results.json with UnifiedIssue format
+          
+          # For now, create a placeholder AI result
+          cat > ai-results.json << 'AIEOF'
+          {
+            "version": "1.0.0",
+            "model": "placeholder",
+            "issues": []
+          }
+          AIEOF
+          echo "AI review complete (placeholder)"
+
+      - name: Upload AI results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-results
+          path: ai-results.json
+          retention-days: 14
+
+  # ============================================================
+  # Stage 3: Merge Reports
+  # ============================================================
+  merge-reports:
+    name: Merge Review Reports
+    needs: [static-analysis, ai-review]
+    runs-on: ubuntu-latest
+    if: always()
+    outputs:
+      merged-total: ${{ steps.merge.outputs.merged-total }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Download static results
+        uses: actions/download-artifact@v4
+        with:
+          name: static-results
+
+      - name: Download AI results
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-results
+
+      - name: Download RAG context
+        uses: actions/download-artifact@v4
+        with:
+          name: rag-context
+          ignore-missing: true
+
+      - name: Build analyzer
+        run: mvn clean package -DskipTests -q
+
+      - name: Merge reports
+        id: merge
+        run: |
+          AI_FLAG=""
+          [ -f ai-results.json ] && [ -s ai-results.json ] && AI_FLAG="--ai ai-results.json"
+
+          java -cp ${{ env.ANALYZER_JAR }} \
+            cn.dolphinmind.glossary.java.analyze.unified.ResultMerger \
+            --static static-results.json \
+            $AI_FLAG \
+            --sourceRoot . \
+            --project "${{ github.repository }}" \
+            --commit "${{ github.sha }}" \
+            --branch "${{ github.head_ref || github.ref_name }}" \
+            --model "${{ github.event.inputs.model || 'qwen-max' }}" \
+            --output unified-report.json \
+            --threshold ${{ env.CONFIDENCE_THRESHOLD }}
+
+          # Extract summary stats
+          STATS=$(python3 -c "
+          import json
+          d = json.load(open('unified-report.json'))
+          s = d.get('summary', {})
+          print(f'merged-total={s.get(\"totalIssues\", 0)}')
+          print(f'active={s.get(\"activeIssues\", 0)}')
+          print(f'critical={s.get(\"critical\", 0)}')
+          print(f'major={s.get(\"major\", 0)}')
+          ")
+          while IFS='=' read -r key val; do
+            echo "$key=$val" >> $GITHUB_OUTPUT
+          done <<< "$STATS"
+
+      - name: Upload unified report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-review-report
+          path: unified-report.json
+          retention-days: 30
+
+      # ============================================================
+      # Stage 3b: Build frontend with report
+      # ============================================================
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Copy report to frontend data
+        if: always()
+        run: |
+          mkdir -p html/data
+          cp unified-report.json html/data/
+
+      - name: Build frontend
+        if: always()
+        working-directory: html
+        run: |
+          npm install --silent 2>/dev/null
+          npm run build
+
+      - name: Deploy review site
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: html
+          destination_dir: reviews/${{ github.sha }}
+
+      # ============================================================
+      # Stage 3c: PR Comment
+      # ============================================================
+      - name: Post PR comment with review summary
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const total = ${{ steps.merge.outputs.merged-total || 0 }};
+            const active = ${{ steps.merge.outputs.active || 0 }};
+            const critical = ${{ steps.merge.outputs.critical || 0 }};
+            const major = ${{ steps.merge.outputs.major || 0 }};
+
+            const status = critical > 0 ? 'FAILED' : 'PASSED';
+            const statusEmoji = critical > 0 ? '🔴' : '✅';
+
+            const comment = `## ${statusEmoji} CodeGuardian Unified Review
+
+            | Metric | Count |
+            |---|---|
+            | Total Issues | ${total} |
+            | Active Issues | ${active} |
+            | 🔴 Critical | ${critical} |
+            | 🟠 Major | ${major} |
+
+            **Quality Gate: ${statusEmoji} ${status}**
+
+            <details>
+            <summary>Review details</summary>
+
+            - [View full HTML report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reviews/${{ github.sha }}/views/index.html)
+            - [Download unified report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            </details>
+
+            ${critical > 0 ? '\n> ⚠️ **Please fix critical issues before merging.**\n' : '\n> ✅ No critical issues found. Minor improvements are welcome.\n'}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      # ============================================================
+      # Stage 3d: SARIF upload
+      # ============================================================
+      - name: Generate SARIF from unified report
+        if: always()
+        run: |
+          python3 -c "
+          import json, datetime
+          
+          with open('unified-report.json') as f:
+              report = json.load(f)
+          
+          sarif = {
+              'version': '2.1.0',
+              '$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
+              'runs': [{
+                  'tool': {
+                      'driver': {
+                          'name': 'CodeGuardian Unified Review',
+                          'version': '1.0.0',
+                          'informationUri': 'https://github.com/${{ github.repository }}'
+                      }
+                  },
+                  'results': []
+              }]
+          }
+          
+          for issue in report.get('issues', []):
+              if issue.get('autoFiltered'):
+                  continue
+              severity = issue.get('severity', 'MINOR')
+              level = 'error' if severity == 'CRITICAL' else 'warning' if severity == 'MAJOR' else 'note'
+              
+              result = {
+                  'ruleId': issue.get('ruleKey', 'UNKNOWN'),
+                  'level': level,
+                  'message': {'text': issue.get('message', '')},
+                  'locations': [{
+                      'physicalLocation': {
+                          'artifactLocation': {
+                              'uri': issue.get('filePath', '')
+                          },
+                          'region': {
+                              'startLine': issue.get('line', 1)
+                          }
+                      }
+                  }]
+              }
+              sarif['runs'][0]['results'].append(result)
+          
+          with open('review-results.sarif', 'w') as f:
+              json.dump(sarif, f, indent=2)
+          "
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: review-results.sarif
+          category: codeguardian-unified-review

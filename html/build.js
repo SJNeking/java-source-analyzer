@@ -31,6 +31,7 @@ const entryPoints = [
   path.join(__dirname, 'src/views/ClassInspectorPanel.ts'),
   path.join(__dirname, 'src/views/ComponentExplorerView.ts'),
   path.join(__dirname, 'src/views/ApiEndpointView.ts'),
+  path.join(__dirname, 'src/views/AiReviewView.ts'),
 ];
 
 const buildConfig = {
@@ -46,7 +47,7 @@ const buildConfig = {
   loader: {
     '.ts': 'ts',
   },
-  external: ['echarts'], // ECharts loaded separately via <script>
+  external: [], // Bundle echarts - no external deps
   treeShaking: true,
   // Public path for chunk loading
   publicPath: './',

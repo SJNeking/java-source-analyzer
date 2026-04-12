@@ -30,7 +30,7 @@ export class CodeExplorerView extends Component {
     this.containerId = containerId;
   }
 
-  public loadData(data: AnalysisResult): void {
+  public render(data: AnalysisResult): void {
     this.data = data;
     this._currentClass = '';
     this._currentMethod = '';
@@ -559,8 +559,8 @@ export class CodeExplorerView extends Component {
     const overview = this.el('div', { className: CLS.CONTEXT_SECTION }, [
       this.el('h4', null, [this.text(LABEL.EXPLORER.OVERVIEW)]),
       this.el('div', { className: CLS.CONTEXT_STATS }, [
-        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.METHODS)]), this.el('strong', null, [this.text(methods.length)])]),
-        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.FIELDS)]), this.el('strong', null, [this.text(fields.length)])]),
+        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.METHODS)]), this.el('strong', null, [this.text((asset.methods_full || asset.methods || []).length)])]),
+        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.FIELDS)]), this.el('strong', null, [this.text((asset.fields_matrix || asset.fields || []).length)])]),
       ]),
     ]);
     el.appendChild(overview);
@@ -603,8 +603,8 @@ export class CodeExplorerView extends Component {
     el.appendChild(this.el('div', { className: CLS.CONTEXT_SECTION }, [
       this.el('h4', null, [this.text(LABEL.EXPLORER.OVERVIEW)]),
       this.el('div', { className: CLS.CONTEXT_STATS }, [
-        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.METHODS)]), this.el('strong', null, [this.text(methods.length)])]),
-        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.FIELDS)]), this.el('strong', null, [this.text(fields.length)])]),
+        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.METHODS)]), this.el('strong', null, [this.text((asset.methods_full || asset.methods || []).length)])]),
+        this.el('div', { className: CLS.CONTEXT_STAT }, [this.el('span', null, [this.text(LABEL.EXPLORER.FIELDS)]), this.el('strong', null, [this.text((asset.fields_matrix || asset.fields || []).length)])]),
       ]),
       this.el('div', { className: CLS.METHOD_SIGNATURE }, [this.text(method.signature || `${methodName}()`)]),
       method.modifiers?.length ? this.el('div', { className: CLS.METHOD_MODIFIERS }, [this.text(method.modifiers.join(' '))]) : this.el('div', null, []),
@@ -650,7 +650,7 @@ export class CodeExplorerView extends Component {
   }
 
   private getKindColor(kind: string): string {
-    return C[kind as keyof typeof C] || Style.slate[400];
+    return String(C[kind as keyof typeof C] || Style.slate[400]);
   }
 
   public cleanup(): void {

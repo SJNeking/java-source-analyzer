@@ -44,7 +44,7 @@ export class CallChainView extends Component {
     this.containerId = containerId;
   }
 
-  public loadData(data: AnalysisResult): void {
+  public render(data: AnalysisResult): void {
     this.currentData = data;
     const container = document.getElementById(this.containerId);
     if (!container) {

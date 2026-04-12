@@ -32,7 +32,7 @@ export class ArchitectureLayerView extends Component {
     this.containerId = containerId;
   }
 
-  public loadData(data: AnalysisResult): void {
+  public render(data: AnalysisResult): void {
     this.analysisData = data;
     const container = document.getElementById(this.containerId);
     if (!container) {
@@ -150,7 +150,7 @@ export class ArchitectureLayerView extends Component {
           className: CLS.METRICS_CHART_TITLE,
           style: { color: Style.green } as Partial<CSSStyleDeclaration>,
         }, [this.text(LABEL.ARCHITECTURE.NO_VIOLATIONS)]),
-        this.el('div', { style: { textAlign: 'center', padding: Style.padding.LG, color: Style.slate[500] } as Partial<CSSStyleDeclaration> },
+        this.el('div', { style: { textAlign: 'center', padding: "20px", color: Style.slate[500] } as Partial<CSSStyleDeclaration> },
           [this.text(LABEL.ARCHITECTURE.NO_VIOLATIONS_MSG)]),
       ]);
     }
@@ -175,7 +175,7 @@ export class ArchitectureLayerView extends Component {
       ]),
       this.el('div', { className: 'quality-message' }, [this.text(v.description || '')]),
       this.el('div', { className: 'quality-meta' }, [
-        this.el('strong', null, [this.text(LABEL.ARCHITECTURE.TYPE_LABEL)]),
+        this.el('strong', null, [this.text(LABEL.ARCHITECTURE.VIOLATION_TYPE)]),
         this.text(v.violationType || ''),
       ]),
     ];

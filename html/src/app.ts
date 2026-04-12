@@ -18,10 +18,12 @@ import {
   updateStatsDisplay,
   toggleLoadingOverlay,
   showError,
-  Logger
+  Logger,
+  loadUnifiedReport
 } from './utils';
 import { applyFilters } from './utils/filter-utils';
 import { appState, viewManager } from './state';
+import { CONFIG } from './config';
 import { dataFetcher } from './services';
 import { eventBus } from './utils/event-bus';
 
@@ -67,7 +69,7 @@ const VIEW_LOADERS: Record<string, ViewLoader> = {
 
   'explorer': () => import('./views/CodeExplorerView').then(m => {
     const view = new m.CodeExplorerView('code-explorer-content');
-    return { render: (data) => { view.loadData(data); }, cleanup: () => view.cleanup?.() };
+    return { render: (data) => { view.render(data); }, cleanup: () => view.cleanup?.() };
   }),
 
   'relations': () => import('./views/CrossFileRelationsView').then(m => {
@@ -77,12 +79,12 @@ const VIEW_LOADERS: Record<string, ViewLoader> = {
 
   'assets': () => import('./views/ProjectAssetsView').then(m => {
     const view = new m.ProjectAssetsView('assets-content');
-    return { render: (data) => { view.loadData(data); }, cleanup: () => view.cleanup?.() };
+    return { render: (data) => { view.render(data); }, cleanup: () => view.cleanup?.() };
   }),
 
   'architecture': () => import('./views/ArchitectureLayerView').then(m => {
     const view = new m.ArchitectureLayerView('architecture-content');
-    return { render: (data) => { view.loadData(data); }, cleanup: () => {} };
+    return { render: (data) => { view.render(data); }, cleanup: () => {} };
   }),
 
   'method-call': () => import('./views/MethodCallView').then(m => {
@@ -92,7 +94,12 @@ const VIEW_LOADERS: Record<string, ViewLoader> = {
 
   'call-chain': () => import('./views/CallChainView').then(m => {
     const view = new m.CallChainView('call-chain-content');
-    return { render: (data) => { view.loadData(data); }, cleanup: () => {} };
+    return { render: (data) => { view.render(data); }, cleanup: () => {} };
+  }),
+
+  'ai-review': () => import('./views/AiReviewView').then(m => {
+    const view = new m.AiReviewView('ai-review-content');
+    return { render: (data) => view.render(data), cleanup: () => view.cleanup?.() };
   }),
 };
 
@@ -158,14 +165,19 @@ class App {
   }
 
   /**
-   * Load Project using DataFetcherService
+   * Load Project using DataFetcherService with unified report support
    */
   private async loadProject(filename: string): Promise<void> {
     if (!filename) return;
     toggleLoadingOverlay(true, '正在解析项目资产...');
 
     try {
-      const analysisResult = await dataFetcher.loadProject(filename);
+      // Try loading unified report first (unified-report.json)
+      const { unifiedReport, analysisResult } = await loadUnifiedReport(
+        CONFIG.dataPath,
+        filename
+      );
+
       appState.setFullAnalysisData(analysisResult);
 
       const graphData = await loadProjectData(filename);
@@ -173,11 +185,16 @@ class App {
 
       updateStatsDisplay(graphData);
 
+      // If unified report has AI data, set it on appState for AiReviewView
+      if (unifiedReport) {
+        (appState as any).setUnifiedReport?.(unifiedReport);
+      }
+
       // Set data for all registered views via ViewManager
       viewManager.setData(analysisResult);
 
       toggleLoadingOverlay(false);
-      Logger.success(`Project loaded: ${graphData.nodes.length} nodes`);
+      Logger.success(`Project loaded: ${graphData.nodes.length} nodes${unifiedReport ? `, ${unifiedReport.issues?.length || 0} unified issues` : ''}`);
     } catch (error) {
       showError(`加载失败: ${(error as Error).message}`);
       toggleLoadingOverlay(false);
