@@ -582,7 +582,8 @@ public final class RuleRegistry {
             new SecurityPerformanceRules.MissingGracefulShutdown(),
             new SecurityPerformanceRules.ServerSideTemplateInjection(),
             new SecurityPerformanceRules.MissingIdempotency(),
-            new SecurityPerformanceRules.ConcurrentHashMapBlocking()
+            new SecurityPerformanceRules.ConcurrentHashMapBlocking(),
+            new RecordMutableFieldsRule()
     ));
 
     // =====================================================================
