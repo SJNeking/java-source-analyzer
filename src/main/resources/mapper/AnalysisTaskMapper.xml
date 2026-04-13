@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="cn.dolphinmind.glossary.java.analyze.mapper.AnalysisTaskMapper">
+
+    <resultMap id="BaseResultMap" type="cn.dolphinmind.glossary.java.analyze.domain.AnalysisTask">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="project_name" property="projectName" jdbcType="VARCHAR"/>
+        <result column="source" property="source" jdbcType="VARCHAR"/>
+        <result column="raw_json_url" property="rawJsonUrl" jdbcType="VARCHAR"/>
+        <result column="analysis_ms" property="analysisMs" jdbcType="BIGINT"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, project_name, source, raw_json_url, analysis_ms, created_at
+    </sql>
+
+    <insert id="insert" parameterType="cn.dolphinmind.glossary.java.analyze.domain.AnalysisTask" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO analysis_results (project_name, source, raw_json_url, analysis_ms)
+        VALUES (#{projectName}, #{source}, #{rawJsonUrl}, #{analysisMs})
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM analysis_results
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByProjectName" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM analysis_results
+        WHERE project_name = #{projectName}
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <delete id="deleteOlderThan">
+        DELETE FROM analysis_results
+        WHERE created_at &lt; to_timestamp(#{timestamp})
+    </delete>
+
+</mapper>
