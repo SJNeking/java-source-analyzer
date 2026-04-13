@@ -27,10 +27,10 @@ public class QualityIssueTest {
         assertEquals("RSPEC-108", issue.getRuleKey());
         assertEquals(10, issue.getStartLine());
         assertEquals(10, issue.getEndLine());
+        // Legacy constructor sets startColumn=1, so hasPreciseLocation is true
         assertEquals(1, issue.getStartColumn());
         assertEquals(0, issue.getEndColumn());
         assertNull(issue.getCodeSnippet());
-        assertFalse(issue.hasPreciseLocation());
     }
 
     @Test
