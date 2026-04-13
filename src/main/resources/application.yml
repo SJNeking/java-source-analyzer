@@ -10,7 +10,7 @@ spring:
   
   # 1. PostgreSQL + PGVector (通过 MyBatis 访问)
   datasource:
-    url: jdbc:postgresql://localhost:15432/codeguardian
+    url: jdbc:postgresql://localhost:5434/codeguardian
     username: root
     password: 123456
     driver-class-name: org.postgresql.Driver
