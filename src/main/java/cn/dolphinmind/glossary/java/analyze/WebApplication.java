@@ -3,7 +3,6 @@ package cn.dolphinmind.glossary.java.analyze;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
  * Spring Boot 启动类
@@ -12,7 +11,6 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
  */
 @SpringBootApplication
 @MapperScan("cn.dolphinmind.glossary.java.analyze.mapper")
-@EnableAspectJAutoProxy
 public class WebApplication {
 
     public static void main(String[] args) {

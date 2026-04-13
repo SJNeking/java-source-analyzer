@@ -28,6 +28,12 @@
           <artifactId>spring-boot-starter-web</artifactId>
       </dependency>
 
+      <!-- 2.1 AOP 支持 (解决 @EnableAspectJAutoProxy 报错) -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-aop</artifactId>
+      </dependency>
+
       <!-- 3. MyBatis Starter (替代原生 JDBC) -->
       <dependency>
           <groupId>org.mybatis.spring.boot</groupId>
@@ -94,6 +100,12 @@
       <dependency>
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-starter-test</artifactId>
+          <scope>test</scope>
+      </dependency>
+      <!-- 兼容老项目的 JUnit 4 测试用例 -->
+      <dependency>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
           <scope>test</scope>
       </dependency>
   </dependencies>
