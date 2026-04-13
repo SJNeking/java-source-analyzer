@@ -32,7 +32,6 @@ const GRAPH_CONFIG = {
 
 const ForceGraphView: React.FC<ForceGraphViewProps> = ({ data }) => {
   const chartRef = useRef<ReactECharts>(null);
-  const { nodeTypeFilters, setNodeTypeFilter } = useAppStore();
 
   // Filter nodes based on active filters
   const filterData = useCallback((graphData: GraphData): GraphData => {
@@ -203,7 +202,6 @@ const ForceGraphView: React.FC<ForceGraphViewProps> = ({ data }) => {
         }}
         opts={{
           renderer: 'canvas',
-          useDirtyRect: false,
         }}
       />
     </div>

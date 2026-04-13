@@ -4,7 +4,6 @@
  */
 
 import React, { useMemo } from 'react';
-import type { UnifiedReport, UnifiedIssue } from '@/types/unified-issue';
 import { useAppStore } from '@store/app-store';
 
 interface TimeDistribution {

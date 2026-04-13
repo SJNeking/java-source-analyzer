@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { Asset, MethodAsset } from '@/types/project';
+import type { Asset } from '@/types/project';
 import { useAppStore } from '@store/app-store';
 
 interface CallChainNode {
@@ -46,7 +46,7 @@ const CallChainView: React.FC = () => {
     if (!asset) return [];
     
     const methods = asset.methods_full || asset.methods || [];
-    return methods.filter(m => m.modifiers?.includes('public')).slice(0, 30);
+    return methods.filter((m: any) => m.modifiers?.includes('public')).slice(0, 30);
   }, [selectedClass, fullAnalysisData]);
 
   // Build call chain for selected method
@@ -57,12 +57,12 @@ const CallChainView: React.FC = () => {
     const links: CallChainLink[] = [];
 
     // Find the entry method
-    let entryMethod: MethodAsset | null = null;
+    let entryMethod: any = null;
     let entryAsset: Asset | null = null;
 
     for (const asset of fullAnalysisData.assets) {
       const methods = asset.methods_full || asset.methods || [];
-      const found = methods.find(m => m.address === selectedMethod);
+      const found = methods.find((m: any) => m.address === selectedMethod);
       if (found) {
         entryMethod = found;
         entryAsset = asset;
@@ -88,9 +88,9 @@ const CallChainView: React.FC = () => {
       visited.add(methodAddr);
 
       // Find method in assets
-      for (const asset of fullAnalysisData.assets) {
+      for (const asset of fullAnalysisData.assets || []) {
         const methods = asset.methods_full || asset.methods || [];
-        const method = methods.find(m => m.address === methodAddr);
+        const method = methods.find((m: any) => m.address === methodAddr);
         
         if (method) {
           const keyStmts = (method as any).key_statements || [];
@@ -106,7 +106,7 @@ const CallChainView: React.FC = () => {
 
               // Add target node
               const targetExists = nodes.find(n => n.id === targetAddr);
-              if (!targetExists) {
+              if (!targetExists && targetAddr) {
                 nodes.push({
                   id: targetAddr,
                   name: stmt.description || targetAddr.split('.').pop() || '',
@@ -247,7 +247,7 @@ const CallChainView: React.FC = () => {
         </h2>
 
         <div style={{ display: 'grid', gap: '12px' }}>
-          {classMethods.map(method => (
+          {classMethods.map((method: any) => (
             <div
               key={method.address}
               onClick={() => setSelectedMethod(method.address)}

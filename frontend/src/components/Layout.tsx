@@ -18,7 +18,7 @@ const Layout: React.FC = () => {
     setProjects, 
     setCurrentProject,
     setLoading,
-    setError 
+    setError,
   } = useAppStore();
 
   // Load projects on mount
@@ -27,10 +27,11 @@ const Layout: React.FC = () => {
       try {
         setLoading(true);
         const projectsData = await dataFetcher.loadProjects();
-        setProjects(projectsData as ProjectInfo[]);
+        const typedProjects = Array.isArray(projectsData) ? projectsData : [];
+        setProjects(typedProjects as ProjectInfo[]);
         
-        if (projectsData.length > 0 && !currentProject) {
-          handleProjectSelect(projectsData[0]);
+        if (typedProjects.length > 0 && !currentProject) {
+          handleProjectSelect(typedProjects[0]);
         }
       } catch (error) {
         setError('加载项目失败');
@@ -48,9 +49,9 @@ const Layout: React.FC = () => {
       setLoading(true);
       setCurrentProject(project);
       
-      // Load project data
-      const graphData = await dataFetcher.loadProjectData(project.file);
-      const unifiedReport = await dataFetcher.loadUnifiedReport(project.file);
+      // Load project data (store updates handled by Zustand)
+      await dataFetcher.loadProjectData(project.file);
+      await dataFetcher.loadUnifiedReport(project.file);
       
       // Navigate to default view
       const currentView = location.pathname.split('/')[1] || 'explorer';

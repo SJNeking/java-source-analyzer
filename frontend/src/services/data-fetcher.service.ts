@@ -59,7 +59,7 @@ class DataFetcherService {
       return cached;
     }
 
-    const report = await apiService.loadUnifiedReport(projectFile);
+    const report = await apiService.loadUnifiedReport();
     
     if (report) {
       this.setCache(cacheKey, report);

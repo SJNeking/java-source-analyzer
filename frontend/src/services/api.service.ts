@@ -72,9 +72,8 @@ class ApiService {
   /**
    * Load unified report (with Harness Engineering data)
    */
-  async loadUnifiedReport(projectFile: string): Promise<any> {
+  async loadUnifiedReport(): Promise<any> {
     try {
-      const projectName = projectFile.replace('.json', '');
       const response = await this.client.get(`/data/unified-report.json`);
       return response.data;
     } catch (error) {

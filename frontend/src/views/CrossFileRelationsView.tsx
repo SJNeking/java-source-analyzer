@@ -4,7 +4,6 @@
  */
 
 import React, { useMemo } from 'react';
-import type { Asset } from '@/types/project';
 import { useAppStore } from '@store/app-store';
 
 interface CrossFileRelation {
@@ -38,7 +37,7 @@ const CrossFileRelationsView: React.FC = () => {
 
       // Check for implementations
       if (asset.implements_interfaces) {
-        asset.implements_interfaces.forEach(iface => {
+        asset.implements_interfaces.forEach((iface: any) => {
           allRelations.push({
             source: asset.address,
             target: iface,

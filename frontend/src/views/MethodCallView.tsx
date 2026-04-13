@@ -3,10 +3,10 @@
  * 方法调用桑基图可视化
  */
 
-import React, { useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useMemo, useCallback } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
-import type { Asset, MethodAsset } from '@/types/project';
+import type { Asset } from '@/types/project';
 import { useAppStore } from '@store/app-store';
 
 interface MethodCallNode {
@@ -48,7 +48,7 @@ const MethodCallView: React.FC = () => {
     if (methods.length === 0) return null;
 
     // Build nodes
-    const nodes: MethodCallNode[] = methods.map(method => ({
+    const nodes: MethodCallNode[] = methods.map((method: any) => ({
       id: method.address,
       name: method.name,
       className: asset.address.split('.').pop() || '',
@@ -59,13 +59,13 @@ const MethodCallView: React.FC = () => {
     // Build links
     const links: MethodCallLink[] = [];
 
-    methods.forEach(method => {
-      const keyStmts = (method as any).key_statements || [];
+    methods.forEach((method: any) => {
+      const keyStmts = method.key_statements || [];
       const extCalls = keyStmts.filter((s: any) => s.type === 'EXTERNAL_CALL');
 
       extCalls.forEach((call: any) => {
         const targetMethod = call.target_method || call.target || '';
-        const isInternal = methods.some(m => m.address === targetMethod);
+        const isInternal = methods.some((m: any) => m.address === targetMethod);
 
         if (isInternal) {
           const existingLink = links.find(l => l.source === method.address && l.target === targetMethod);
@@ -87,9 +87,9 @@ const MethodCallView: React.FC = () => {
     });
 
     // Update node values based on link counts
-    nodes.forEach(node => {
-      const incoming = links.filter(l => l.target === node.id).reduce((sum, l) => sum + l.value, 0);
-      const outgoing = links.filter(l => l.source === node.id).reduce((sum, l) => sum + l.value, 0);
+    nodes.forEach((node: any) => {
+      const incoming = links.filter(l => l.target === node.id).reduce((sum: number, l) => sum + l.value, 0);
+      const outgoing = links.filter(l => l.source === node.id).reduce((sum: number, l) => sum + l.value, 0);
       node.value = incoming + outgoing;
     });
 
@@ -132,10 +132,10 @@ const MethodCallView: React.FC = () => {
       },
       series: [
         {
-          type: 'sankey',
-          layout: 'none',
+          type: 'sankey' as const,
+          layout: 'none' as const,
           emphasis: {
-            focus: 'adjacency',
+            focus: 'adjacency' as const,
           },
           data: data.nodes.map(node => ({
             id: node.id,
