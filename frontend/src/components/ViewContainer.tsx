@@ -3,6 +3,8 @@ import { Routes, Route } from 'react-router-dom';
 import ForceGraphView from '@views/ForceGraphView';
 import QualityDashboardView from '@views/QualityDashboardView';
 import AiReviewView from '@views/AiReviewView';
+import MetricsDashboardView from '@views/MetricsDashboardView';
+import ProjectAssetsView from '@views/ProjectAssetsView';
 import { useAppStore } from '@store/app-store';
 
 // Placeholder view component
@@ -37,8 +39,8 @@ const ViewContainer: React.FC = () => {
         />
         
         <Route path="/frontend-quality" element={<PlaceholderView name="前端质量" />} />
-        <Route path="/metrics" element={<PlaceholderView name="代码指标" />} />
-        <Route path="/assets" element={<PlaceholderView name="项目资产" />} />
+        <Route path="/metrics" element={fullAnalysisData ? <MetricsDashboardView /> : <PlaceholderView name="代码指标" />} />
+        <Route path="/assets" element={fullAnalysisData ? <ProjectAssetsView /> : <PlaceholderView name="项目资产" />} />
         <Route path="/ai-review" element={unifiedReport ? <AiReviewView /> : <PlaceholderView name="AI 审查" />} />
         <Route path="/pipeline" element={<PlaceholderView name="RAG管道" />} />
         <Route path="/performance" element={<PlaceholderView name="性能监控" />} />
