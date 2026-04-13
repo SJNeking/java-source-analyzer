@@ -1,7 +1,7 @@
 {
-  "name": "java-source-analyzer-frontend",
-  "version": "1.0.0",
-  "description": "TypeScript frontend for Java Source Analyzer - Visualizes code analysis results",
+  "name": "codeguardian-frontend",
+  "version": "2.0.0",
+  "description": "Enterprise Code Review Frontend - Visualizes Static Analysis & AI RAG Results",
   "main": "dist/app.js",
   "scripts": {
     "build": "node build.js",
