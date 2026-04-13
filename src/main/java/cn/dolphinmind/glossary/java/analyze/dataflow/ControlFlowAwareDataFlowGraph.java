@@ -151,6 +151,20 @@ public class ControlFlowAwareDataFlowGraph {
                 collectUses(foreach.getIterable(), stmtUses);
             }
 
+            // For VariableDeclarationExpr, also collect uses from initializers
+            if (stmt instanceof ExpressionStmt) {
+                Expression expr = ((ExpressionStmt) stmt).getExpression();
+                if (expr instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr) {
+                    com.github.javaparser.ast.expr.VariableDeclarationExpr vde =
+                        (com.github.javaparser.ast.expr.VariableDeclarationExpr) expr;
+                    for (com.github.javaparser.ast.body.VariableDeclarator vd : vde.getVariables()) {
+                        if (vd.getInitializer().isPresent()) {
+                            collectUses(vd.getInitializer().get(), stmtUses);
+                        }
+                    }
+                }
+            }
+
             DFGNode node = new DFGNode(nodeId++, stmt, stmtDefs, stmtUses);
             nodes.add(node);
         }

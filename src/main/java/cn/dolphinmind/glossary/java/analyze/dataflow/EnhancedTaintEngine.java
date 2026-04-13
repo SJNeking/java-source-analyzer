@@ -52,7 +52,9 @@ public class EnhancedTaintEngine {
         SINK_PATTERNS.put("createStatement", "SQL Injection");
         SINK_PATTERNS.put("Runtime.getRuntime", "Command Injection");
         SINK_PATTERNS.put("ProcessBuilder", "Command Injection");
-        SINK_PATTERNS.put("new File", "Path Traversal");
+        SINK_PATTERNS.put("File", "Path Traversal");
+        SINK_PATTERNS.put("FileInputStream", "Path Traversal");
+        SINK_PATTERNS.put("FileOutputStream", "Path Traversal");
         SINK_PATTERNS.put("Paths.get", "Path Traversal");
         SINK_PATTERNS.put("Files.newInputStream", "Path Traversal");
         SINK_PATTERNS.put("Files.readAllBytes", "Path Traversal");
@@ -99,7 +101,8 @@ public class EnhancedTaintEngine {
         for (TaintSourceNode source : sources) {
             for (TaintSinkNode sink : sinks) {
                 // Check if tainted variable reaches the sink through DFG
-                if (isTaintedFlowThroughDFG(dfg, source, sink)) {
+                boolean isTainted = isTaintedFlowThroughDFG(dfg, source, sink);
+                if (isTainted) {
                     // Check if sanitized along the path
                     if (!isSanitizedAlongPath(method, dfg, source, sink)) {
                         findings.add(new EnhancedTaintFinding(source, sink));
@@ -123,17 +126,36 @@ public class EnhancedTaintEngine {
             if (!(stmt instanceof ExpressionStmt)) continue;
 
             Expression expr = ((ExpressionStmt) stmt).getExpression();
-            if (!(expr instanceof AssignExpr)) continue;
+            String sourceType = null;
+            String varName = null;
 
-            AssignExpr assign = (AssignExpr) expr;
-            String sourceType = matchesSourcePattern(assign.getValue());
-            if (sourceType != null) {
-                String varName = extractVariableName(assign.getTarget());
-                if (varName != null) {
-                    sources.add(new TaintSourceNode(node, varName, sourceType,
-                        stmt.getBegin().map(p -> p.line).orElse(0),
-                        stmt.toString()));
+            // Case 1: Direct assignment from source: var = request.getParameter(...)
+            if (expr instanceof AssignExpr) {
+                AssignExpr assign = (AssignExpr) expr;
+                sourceType = matchesSourcePattern(assign.getValue());
+                if (sourceType != null) {
+                    varName = extractVariableName(assign.getTarget());
                 }
+            }
+
+            // Case 2: Variable declaration with source initialization: String var = request.getParameter(...)
+            if (expr instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr) {
+                com.github.javaparser.ast.expr.VariableDeclarationExpr vde =
+                    (com.github.javaparser.ast.expr.VariableDeclarationExpr) expr;
+                for (com.github.javaparser.ast.body.VariableDeclarator vd : vde.getVariables()) {
+                    if (vd.getInitializer().isPresent()) {
+                        sourceType = matchesSourcePattern(vd.getInitializer().get());
+                        if (sourceType != null) {
+                            varName = vd.getNameAsString();
+                        }
+                    }
+                }
+            }
+
+            if (sourceType != null && varName != null) {
+                sources.add(new TaintSourceNode(node, varName, sourceType,
+                    stmt.getBegin().map(p -> p.line).orElse(0),
+                    stmt.toString().trim()));
             }
         }
 
@@ -153,14 +175,41 @@ public class EnhancedTaintEngine {
 
             Expression expr = ((ExpressionStmt) stmt).getExpression();
             String sinkType = matchesSinkPattern(expr);
+            String usedVar = null;
+
             if (sinkType != null) {
                 // Extract the variable being used as argument to the sink
-                String usedVar = extractSinkArgument(expr);
-                if (usedVar != null) {
-                    sinks.add(new TaintSinkNode(node, usedVar, sinkType,
-                        stmt.getBegin().map(p -> p.line).orElse(0),
-                        stmt.toString()));
+                usedVar = extractSinkArgument(expr);
+            }
+
+            // Also check method calls inside other expressions (e.g., chained calls)
+            if (sinkType == null) {
+                List<MethodCallExpr> methodCalls = expr.findAll(MethodCallExpr.class);
+                for (MethodCallExpr mce : methodCalls) {
+                    sinkType = matchesSinkPattern(mce);
+                    if (sinkType != null) {
+                        usedVar = extractSinkArgument(mce);
+                        break;
+                    }
                 }
+            }
+
+            // Also check object creation (e.g., new File(filename))
+            if (sinkType == null) {
+                List<ObjectCreationExpr> creations = expr.findAll(ObjectCreationExpr.class);
+                for (ObjectCreationExpr oce : creations) {
+                    sinkType = matchesObjectCreationSink(oce);
+                    if (sinkType != null) {
+                        usedVar = extractObjectCreationArgument(oce);
+                        break;
+                    }
+                }
+            }
+
+            if (sinkType != null && usedVar != null) {
+                sinks.add(new TaintSinkNode(node, usedVar, sinkType,
+                    stmt.getBegin().map(p -> p.line).orElse(0),
+                    stmt.toString().trim()));
             }
         }
 
@@ -169,16 +218,43 @@ public class EnhancedTaintEngine {
 
     /**
      * Check if tainted variable reaches the sink through DFG edges.
-     * Uses reaching definitions to trace the flow.
+     * Uses reaching definitions to trace the flow, including indirect propagation
+     * through intermediate variables.
      */
     private boolean isTaintedFlowThroughDFG(ControlFlowAwareDataFlowGraph dfg,
                                              TaintSourceNode source, TaintSinkNode sink) {
         // Source line must be before sink line
         if (source.getLine() >= sink.getLine()) return false;
 
-        // Check if the sink's used variable has a reaching definition from the source
+        // Get all reaching definitions at the sink node
         Set<DFGNode> reachingDefs = dfg.getReachingDefs(sink.getNode(), sink.getTaintedVar());
-        return reachingDefs.contains(source.getNode());
+
+        // Check if any reaching definition transitively depends on the source
+        Set<DFGNode> visited = new HashSet<>();
+        return isTaintedReach(dfg, source, reachingDefs, visited);
+    }
+
+    /**
+     * Check if any of the reaching definitions transitively depends on the source.
+     */
+    private boolean isTaintedReach(ControlFlowAwareDataFlowGraph dfg, TaintSourceNode source,
+                                    Set<DFGNode> reachingDefs, Set<DFGNode> visited) {
+        for (DFGNode defNode : reachingDefs) {
+            if (visited.contains(defNode)) continue;
+            visited.add(defNode);
+
+            // Direct match: this node IS the source
+            if (defNode.equals(source.getNode())) return true;
+
+            // Indirect: check if this node uses the tainted variable from source
+            for (String usedVar : defNode.getUses()) {
+                Set<DFGNode> prevDefs = dfg.getReachingDefs(defNode, usedVar);
+                if (isTaintedReach(dfg, source, prevDefs, visited)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -262,6 +338,53 @@ public class EnhancedTaintEngine {
     }
 
     /**
+     * Check if MethodCallExpr matches a sink pattern.
+     */
+    private String matchesSinkPattern(MethodCallExpr mce) {
+        String methodName = mce.getNameAsString();
+        String fullCall = mce.toString();
+
+        for (Map.Entry<String, String> entry : SINK_PATTERNS.entrySet()) {
+            String pattern = entry.getKey();
+            if (methodName.contains(pattern) || fullCall.contains(pattern)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check if ObjectCreationExpr matches a sink pattern.
+     */
+    private String matchesObjectCreationSink(ObjectCreationExpr oce) {
+        String typeName = oce.getType().asString();
+        String fullExpr = oce.toString();
+
+        for (Map.Entry<String, String> entry : SINK_PATTERNS.entrySet()) {
+            String pattern = entry.getKey();
+            // Match type name (e.g., "File", "FileInputStream") or full expression
+            if (typeName.equals(pattern) || typeName.contains(pattern) || fullExpr.contains(pattern)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract the argument variable from an ObjectCreationExpr.
+     */
+    private String extractObjectCreationArgument(ObjectCreationExpr oce) {
+        for (Expression arg : oce.getArguments()) {
+            if (arg instanceof NameExpr) {
+                return ((NameExpr) arg).getNameAsString();
+            } else if (arg instanceof FieldAccessExpr) {
+                return ((FieldAccessExpr) arg).getScope().toString();
+            }
+        }
+        return null;
+    }
+
+    /**
      * Extract the variable name being assigned.
      */
     private String extractVariableName(Expression target) {
@@ -292,9 +415,24 @@ public class EnhancedTaintEngine {
             }
         } else if (expr instanceof ObjectCreationExpr) {
             ObjectCreationExpr oce = (ObjectCreationExpr) expr;
+            // For new File(filename) or new FileInputStream(filename)
             for (Expression argExpr : oce.getArguments()) {
                 if (argExpr instanceof NameExpr) {
                     return ((NameExpr) argExpr).getNameAsString();
+                }
+            }
+        } else if (expr instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr) {
+            // VariableDeclarationExpr: check initializer
+            com.github.javaparser.ast.expr.VariableDeclarationExpr vde =
+                (com.github.javaparser.ast.expr.VariableDeclarationExpr) expr;
+            for (com.github.javaparser.ast.body.VariableDeclarator vd : vde.getVariables()) {
+                if (vd.getInitializer().isPresent()) {
+                    Expression init = vd.getInitializer().get();
+                    if (init instanceof ObjectCreationExpr) {
+                        return extractObjectCreationArgument((ObjectCreationExpr) init);
+                    } else if (init instanceof MethodCallExpr) {
+                        return extractSinkArgument(init);
+                    }
                 }
             }
         }
