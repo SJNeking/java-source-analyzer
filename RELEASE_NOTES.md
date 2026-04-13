@@ -1,6 +1,6 @@
 # 🚀 CodeGuardian AI v2.0.0 - Release Notes
 
-We are excited to announce the release of **CodeGuardian AI v2.0.0**, the enterprise-ready hybrid code review platform combining static analysis with RAG-powered AI review.
+We are excited to announce the Release of **CodeGuardian AI v2.0.0**, the enterprise-ready hybrid code review platform combining static analysis with RAG-powered AI review.
 
 ## ✨ Key Features
 

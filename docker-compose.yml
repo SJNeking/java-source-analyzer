@@ -1,0 +1,39 @@
+services:
+  # CodeGuardian DB (PostgreSQL 16 + PGVector)
+  codeguardian_db:
+    image: pgvector/pgvector:pg16
+    container_name: codeguardian_db
+    restart: always
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: codeguardian
+    volumes:
+      - ./.data/postgres:/var/lib/postgresql/data
+
+  # CodeGuardian MinIO (Object Storage)
+  minio:
+    image: minio/minio:latest
+    container_name: codeguardian_minio
+    restart: always
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_secret
+    volumes:
+      - ./.data/minio:/data
+    command: server /data --console-address ":9001"
+
+  # CodeGuardian Redis (Cache)
+  redis:
+    image: redis:7-alpine
+    container_name: codeguardian_redis
+    restart: always
+    ports:
+      - "16379:6379"
+    volumes:
+      - ./.data/redis:/data

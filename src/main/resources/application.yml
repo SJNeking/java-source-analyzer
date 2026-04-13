@@ -10,7 +10,7 @@ app:
 # PostgreSQL Database (本地 Docker: redisson_brain_db)
 # ============================================================
 database:
-  url: ${DATABASE_URL:jdbc:postgresql://localhost:15432/postgres}
+  url: ${DATABASE_URL:jdbc:postgresql://localhost:15432/root}
   username: ${DATABASE_USER:root}
   password: ${DATABASE_PASSWORD:123456}
   max-pool-size: 20

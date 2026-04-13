@@ -269,7 +269,7 @@ java -cp target/glossary-java-source-analyzer-1.0.jar \
 
 ## 📖 文档
 
-- [架构设计文档](README_ANALYZER.md) — 系统全景图与数据流转
+- [架构设计文档](docs/README_ANALYZER.md) — 系统全景图与数据流转
 - [存储配置指南](src/main/resources/storage-config.md) — MinIO + Redis + PostgreSQL
 - [前端开发指南](html/src/) — 组件框架与视图开发
 
