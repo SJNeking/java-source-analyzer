@@ -23,8 +23,8 @@ public class IssueConverter {
         IssueDTO dto = new IssueDTO();
         dto.setId(issue.getId() != null ? issue.getId() : UUID.randomUUID().toString().substring(0, 8));
         dto.setSource(issue.getSource() != null ? issue.getSource().name() : "unknown");
-        dto.setSeverity(issue.getSeverity() != null ? issue.getSeverity().name() : "INFO");
-        dto.setCategory(issue.getCategory() != null ? issue.getCategory().name() : "CODE_SMELL");
+        dto.setSeverity(issue.getSeverity());
+        dto.setCategory(issue.getCategory());
         dto.setFilePath(issue.getFilePath());
         dto.setClassName(issue.getClassName());
         dto.setMethodName(issue.getMethodName());
