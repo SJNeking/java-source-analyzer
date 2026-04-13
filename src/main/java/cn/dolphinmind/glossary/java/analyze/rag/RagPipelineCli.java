@@ -293,12 +293,13 @@ public class RagPipelineCli {
         Map<String, String> params = new LinkedHashMap<>();
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--")) {
+                String key = args[i];
                 if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
                     String value = args[++i];
                     // Security: Sanitize log inputs
-                    params.put(SecurityUtils.sanitizeLogInput(args[i]), SecurityUtils.sanitizeLogInput(value));
+                    params.put(SecurityUtils.sanitizeLogInput(key), SecurityUtils.sanitizeLogInput(value));
                 } else {
-                    params.put(SecurityUtils.sanitizeLogInput(args[i]), "");
+                    params.put(SecurityUtils.sanitizeLogInput(key), "");
                 }
             }
         }

@@ -64,7 +64,7 @@ public class RagPipelineIntegrationTest {
             RagSlice slice = new RagSlice();
             slice.setCode("public void method" + i + "() { /* logic " + i + " */ }");
             slice.setEmbedding(new float[]{0.1f * i, 0.5f, 0.2f}); // 3D vector for test
-            slice.setFilePath("Test.java");
+            slice.setFilePath("Test" + i + ".java"); // Unique Key
             slices.add(slice);
             store.upsert(slice);
         }

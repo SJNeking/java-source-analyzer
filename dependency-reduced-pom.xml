@@ -4,7 +4,7 @@
   <groupId>cn.dolphinmind</groupId>
   <artifactId>glossary-java-source-analyzer</artifactId>
   <name>java-source-analyzer</name>
-  <version>1.0</version>
+  <version>2.0.0</version>
   <url>http://maven.apache.org</url>
   <build>
     <plugins>
@@ -23,6 +23,20 @@
         <configuration>
           <source>8</source>
           <target>8</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-maven-plugin</artifactId>
+        <version>9.22.3</version>
+        <configuration>
+          <url>jdbc:postgresql://localhost:15432/postgres</url>
+          <user>root</user>
+          <password>123456</password>
+          <locations>
+            <location>classpath:db/migration</location>
+          </locations>
+          <baselineOnMigrate>true</baselineOnMigrate>
         </configuration>
       </plugin>
       <plugin>
