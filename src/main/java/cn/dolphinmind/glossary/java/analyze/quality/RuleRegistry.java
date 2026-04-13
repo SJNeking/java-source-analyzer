@@ -565,6 +565,26 @@ public final class RuleRegistry {
     ));
 
     // =====================================================================
+    // SECURITY & PERFORMANCE RULES (New High-Impact Rules)
+    // =====================================================================
+    private static final List<QualityRule> SECURITY_PERFORMANCE_RULES = Collections.unmodifiableList(Arrays.asList(
+            new SecurityPerformanceRules.InsecureDirectObjectReference(),
+            new SecurityPerformanceRules.MassAssignment(),
+            new SecurityPerformanceRules.SimpleDateFormatThreadSafety(),
+            new SecurityPerformanceRules.OptionalOrElsePerformance(),
+            new SecurityPerformanceRules.JakartaMigration(),
+            new SecurityPerformanceRules.ParallelStreamMisuse(),
+            new SecurityPerformanceRules.StreamReuse(),
+            new SecurityPerformanceRules.ImmutableCollectionModification(),
+            new SecurityPerformanceRules.NoSqlInjection(),
+            new SecurityPerformanceRules.VirtualThreadBlocking(),
+            new SecurityPerformanceRules.MissingGracefulShutdown(),
+            new SecurityPerformanceRules.ServerSideTemplateInjection(),
+            new SecurityPerformanceRules.MissingIdempotency(),
+            new SecurityPerformanceRules.ConcurrentHashMapBlocking()
+    ));
+
+    // =====================================================================
     // PUBLIC ACCESSORS
     // =====================================================================
 
@@ -597,6 +617,7 @@ public final class RuleRegistry {
     public static List<QualityRule> getCodeOrganizationRules() { return CODE_ORGANIZATION_RULES; }
     public static List<QualityRule> getApiDesignRules() { return API_DESIGN_RULES; }
     public static List<QualityRule> getReflectionRules() { return REFLECTION_RULES; }
+    public static List<QualityRule> getSecurityPerformanceRules() { return SECURITY_PERFORMANCE_RULES; }
 
     /**
      * Get an unmodifiable list of ALL rule categories combined.
@@ -612,7 +633,8 @@ public final class RuleRegistry {
             CODE_SMELL_ENHANCED_RULES, SOLID_RULES, SECURITY_ENHANCED_RULES,
             RESOURCE_MANAGEMENT_RULES, JAVA8_PLUS_RULES, EXCEPTION_HANDLING_RULES,
             LOGGING_RULES, COLLECTION_RULES, STRING_RULES, DESIGN_PATTERN_RULES,
-            CODE_ORGANIZATION_RULES, API_DESIGN_RULES, REFLECTION_RULES
+            CODE_ORGANIZATION_RULES, API_DESIGN_RULES, REFLECTION_RULES,
+            SECURITY_PERFORMANCE_RULES
         ));
     }
 
@@ -622,6 +644,44 @@ public final class RuleRegistry {
      */
     public static void registerAll(RuleEngine engine, RulesConfig rulesConfig) {
         builder().withConfig(rulesConfig).registerTo(engine);
+    }
+
+    /**
+     * Register ALL rules into the given RuleEngine, filtering by RulesConfig.
+     * Legacy method - prefer using builder() for selective registration.
+     */
+    public static void registerAllLegacy(RuleEngine engine, RulesConfig rulesConfig) {
+        registerCategory(engine, rulesConfig, BUG_RULES);
+        registerCategory(engine, rulesConfig, CODE_SMELL_RULES);
+        registerCategory(engine, rulesConfig, SECURITY_RULES);
+        registerCategory(engine, rulesConfig, getCfgRules(rulesConfig));
+        registerCategory(engine, rulesConfig, OWASP_RULES);
+        registerCategory(engine, rulesConfig, PERFORMANCE_RULES);
+        registerCategory(engine, rulesConfig, ARCHITECTURE_RULES);
+        registerCategory(engine, rulesConfig, MAINTAINABILITY_RULES);
+        registerCategory(engine, rulesConfig, CONCURRENCY_RULES);
+        registerCategory(engine, rulesConfig, MODERNIZATION_RULES);
+        registerCategory(engine, rulesConfig, DATABASE_RULES);
+        registerCategory(engine, rulesConfig, SPRING_BOOT_RULES);
+        registerCategory(engine, rulesConfig, ROBUSTNESS_RULES);
+        registerCategory(engine, rulesConfig, WEB_API_RULES);
+        registerCategory(engine, rulesConfig, MICROSERVICE_RULES);
+        registerCategory(engine, rulesConfig, TEST_QUALITY_RULES);
+        registerCategory(engine, rulesConfig, INPUT_VALIDATION_RULES);
+        registerCategory(engine, rulesConfig, CODE_SMELL_ENHANCED_RULES);
+        registerCategory(engine, rulesConfig, SOLID_RULES);
+        registerCategory(engine, rulesConfig, SECURITY_ENHANCED_RULES);
+        registerCategory(engine, rulesConfig, RESOURCE_MANAGEMENT_RULES);
+        registerCategory(engine, rulesConfig, JAVA8_PLUS_RULES);
+        registerCategory(engine, rulesConfig, EXCEPTION_HANDLING_RULES);
+        registerCategory(engine, rulesConfig, LOGGING_RULES);
+        registerCategory(engine, rulesConfig, COLLECTION_RULES);
+        registerCategory(engine, rulesConfig, STRING_RULES);
+        registerCategory(engine, rulesConfig, DESIGN_PATTERN_RULES);
+        registerCategory(engine, rulesConfig, CODE_ORGANIZATION_RULES);
+        registerCategory(engine, rulesConfig, API_DESIGN_RULES);
+        registerCategory(engine, rulesConfig, REFLECTION_RULES);
+        registerCategory(engine, rulesConfig, SECURITY_PERFORMANCE_RULES);
     }
 
     /**
@@ -659,6 +719,7 @@ public final class RuleRegistry {
         public Builder withSpringBootRules() { selectedRules.addAll(SPRING_BOOT_RULES); return this; }
         public Builder withRobustnessRules() { selectedRules.addAll(ROBUSTNESS_RULES); return this; }
         public Builder withWebApiRules() { selectedRules.addAll(WEB_API_RULES); return this; }
+        public Builder withSecurityPerformanceRules() { selectedRules.addAll(SECURITY_PERFORMANCE_RULES); return this; }
         public Builder withConfig(RulesConfig config) { this.config = config; return this; }
         public Builder excluding(String... ruleKeys) {
             for (String key : ruleKeys) excludedKeys.add(key);
@@ -711,6 +772,6 @@ public final class RuleRegistry {
                 + LOGGING_RULES.size() + COLLECTION_RULES.size()
                 + STRING_RULES.size() + DESIGN_PATTERN_RULES.size()
                 + CODE_ORGANIZATION_RULES.size() + API_DESIGN_RULES.size()
-                + REFLECTION_RULES.size();
+                + REFLECTION_RULES.size() + SECURITY_PERFORMANCE_RULES.size();
     }
 }

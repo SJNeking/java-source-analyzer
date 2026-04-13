@@ -69,6 +69,7 @@ public class QualityIssue {
     public String getClassName() { return className; }
     public String getMethodName() { return methodName; }
     /** @deprecated use {@link #getStartLine()} for precise location */
+    @Deprecated
     public int getLine() { return startLine; }
     public String getMessage() { return message; }
     public String getEvidence() { return evidence; }
