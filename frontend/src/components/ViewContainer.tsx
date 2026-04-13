@@ -34,6 +34,53 @@ const ViewContainer: React.FC = () => {
   return (
     <div className="content-viewport">
       <Routes>
+        {/* Default route - Welcome page */}
+        <Route 
+          path="/" 
+          element={
+            <div style={{ padding: '60px', textAlign: 'center' }}>
+              <h1 style={{ fontSize: '32px', marginBottom: '20px', color: '#f8fafc' }}>
+                🚀 Java Source Analyzer
+              </h1>
+              <p style={{ fontSize: '16px', color: '#94a3b8', marginBottom: '40px' }}>
+                React前端已就绪，请选择左侧菜单查看功能
+              </p>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '20px',
+                maxWidth: '1000px',
+                margin: '0 auto'
+              }}>
+                <div style={{ padding: '20px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>📊</div>
+                  <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc' }}>代码可视化</h3>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>力导向图、桑基图、调用链路</p>
+                </div>
+                
+                <div style={{ padding: '20px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>🔍</div>
+                  <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc' }}>质量分析</h3>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>AI审查、指标监控、架构检测</p>
+                </div>
+                
+                <div style={{ padding: '20px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>⚙️</div>
+                  <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc' }}>Harness Engineering</h3>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8' }}>RAG管道、性能监控、验证反馈</p>
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '40px', padding: '16px', backgroundColor: '#1e293b', borderRadius: '6px', display: 'inline-block' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+                  💡 提示：启动后端服务以加载项目数据
+                </p>
+              </div>
+            </div>
+          }
+        />
+        
         <Route 
           path="/explorer" 
           element={fullAnalysisData ? <CodeExplorerView /> : <PlaceholderView name="代码浏览器" />} 
