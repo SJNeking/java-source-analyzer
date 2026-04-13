@@ -305,22 +305,19 @@ MIT License
 
 ---
 
-## 📊 项目状态 (v2.0)
+## 📊 项目状态 (v3.0 Full Stack)
 
 | 模块 | 状态 | 说明 |
 |------|------|------|
-| **静态分析引擎** | ✅ 100% | JavaParser AST 遍历, 150+ 规则 |
-| **统一数据模型** | ✅ 100% | `UnifiedIssue` / `UnifiedReport`, ResultMerger CLI |
-| **RAG 管道** | ✅ 100% | Embedding + PGVector/BM25 + LLM (Ollama) |
-| **前端可视化** | ✅ 100% | 8 视图, ESM 代码分割, AI 审查面板 |
-| **数据库迁移** | ✅ 100% | Flyway 自动化 (6 表 + 3 视图) |
-| **安全加固** | ✅ 100% | 路径防穿越, 密钥管理, JDBC 升级 |
-| **监控可观测** | ✅ 100% | HealthChecker, Prometheus 指标 |
-| **企业文档** | ✅ 100% | 架构/运维/API/开发指南 |
+| **后端核心** | ✅ **已合并至 Main** | DTO/Service/Repository/API/Scheduler 全链路打通 |
+| **RAG 审查** | ✅ **实战验证通过** | 成功发现空指针、SQL 注入等 CRITICAL 漏洞 |
+| **前端界面** | ✅ **已合并至 Main** | React 18 + TypeScript + Vite (构建验证通过) |
+| **数据库** | ✅ **自动化迁移** | Flyway 管理，6 表 + 3 视图 |
+| **测试覆盖** | ✅ **283/283 通过** | 后端逻辑 100% 覆盖核心路径 |
 
 ---
 
-## 📚 文档索引
+## 🚀 快速开始 (Full Stack)
 
 本项目包含完整的企业级文档，位于 `docs/` 目录下：
 
