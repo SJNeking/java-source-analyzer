@@ -73,6 +73,6 @@ public class AnalysisJobScheduler {
      * 获取所有活跃任务
      */
     public Map<String, JobStatus> getActiveJobs() {
-        return Map.copyOf(activeJobs);
+        return new ConcurrentHashMap<>(activeJobs);
     }
 }
