@@ -10,6 +10,11 @@ import PerformanceMetricsView from '@views/PerformanceMetricsView';
 import MethodCallView from '@views/MethodCallView';
 import CrossFileRelationsView from '@views/CrossFileRelationsView';
 import ArchitectureLayerView from '@views/ArchitectureLayerView';
+import CallChainView from '@views/CallChainView';
+import ClassInspectorPanel from '@views/ClassInspectorPanel';
+import ComponentExplorerView from '@views/ComponentExplorerView';
+import ApiEndpointView from '@views/ApiEndpointView';
+import FrontendQualityView from '@views/FrontendQualityView';
 import { useAppStore } from '@store/app-store';
 
 // Placeholder view component
@@ -43,12 +48,16 @@ const ViewContainer: React.FC = () => {
           element={unifiedReport ? <QualityDashboardView /> : <PlaceholderView name="质量分析" />} 
         />
         
-        <Route path="/frontend-quality" element={<PlaceholderView name="前端质量" />} />
+        <Route path="/frontend-quality" element={<FrontendQualityView />} />
         <Route path="/metrics" element={fullAnalysisData ? <MetricsDashboardView /> : <PlaceholderView name="代码指标" />} />
         <Route path="/assets" element={fullAnalysisData ? <ProjectAssetsView /> : <PlaceholderView name="项目资产" />} />
         <Route path="/relations" element={<CrossFileRelationsView />} />
         <Route path="/architecture" element={<ArchitectureLayerView />} />
         <Route path="/method-calls" element={<MethodCallView />} />
+        <Route path="/call-chains" element={<CallChainView />} />
+        <Route path="/inspector" element={<ClassInspectorPanel />} />
+        <Route path="/components" element={<ComponentExplorerView />} />
+        <Route path="/api-endpoints" element={<ApiEndpointView />} />
         <Route path="/ai-review" element={unifiedReport ? <AiReviewView /> : <PlaceholderView name="AI 审查" />} />
         <Route path="/pipeline" element={<RagPipelineView />} />
         <Route path="/performance" element={<PerformanceMetricsView />} />
