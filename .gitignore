@@ -1029,3 +1029,4 @@ nginx/
 html/data/analysis-results/
 postgres_data
 .data/
+frontend/node_modules/
