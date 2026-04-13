@@ -3,10 +3,9 @@
  * Force-directed graph visualization using ECharts
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { GraphData, GraphNode, GraphLink } from '@/types/graph';
-import { useAppStore } from '@store/app-store';
 
 interface ForceGraphViewProps {
   data?: GraphData;
@@ -28,6 +27,15 @@ const GRAPH_CONFIG = {
     MAX_WIDTH: 4,
     CURVENESS: 0.2,
   },
+};
+
+const nodeTypeFilters: Record<string, boolean> = {
+  CLASS: true,
+  INTERFACE: true,
+  ENUM: true,
+  ABSTRACT_CLASS: true,
+  UTILITY: true,
+  EXTERNAL: false,
 };
 
 const ForceGraphView: React.FC<ForceGraphViewProps> = ({ data }) => {

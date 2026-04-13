@@ -132,8 +132,8 @@ const MethodCallView: React.FC = () => {
       },
       series: [
         {
-          type: 'sankey' as const,
-          layout: 'none' as const,
+          type: 'sankey' as any,
+          layout: 'none' as any,
           emphasis: {
             focus: 'adjacency' as const,
           },
