@@ -2,16 +2,24 @@
 
 ## 📚 文档分类
 
-### 根目录文档
+### 核心文档
 - [README.md](../README.md) - 项目主文档（技术栈、架构、快速开始）
+- [docs/README_ANALYZER.md](./README_ANALYZER.md) - 分析器详细说明
+- [docs/ARCHITECTURE.md](./ARCHITECTURE.md) - 系统架构设计
+- [docs/API.md](./API.md) - API接口文档
 
-### 通用文档
-- [USAGE.md](./USAGE.md) - 使用指南
-- [RELEASE_NOTES.md](./RELEASE_NOTES.md) - 版本发布说明
+### 开发指南
+- [docs/DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) - 开发者指南
+- [docs/RUNBOOK.md](./RUNBOOK.md) - 运维手册
+- [docs/CHANGELOG.md](./CHANGELOG.md) - 变更日志
+
+### 使用文档
+- [docs/USAGE.md](./USAGE.md) - 使用指南
+- [docs/RELEASE_NOTES.md](./RELEASE_NOTES.md) - 版本发布说明
 
 ### 前端文档
-- [frontend/README.md](./frontend/README.md) - React前端技术文档
-- [frontend/MIGRATION_COMPLETE.md](./frontend/MIGRATION_COMPLETE.md) - React迁移完成报告
+- [frontend/README.md](../frontend/README.md) - React前端技术文档
+- [docs/frontend/MIGRATION_COMPLETE.md](./frontend/MIGRATION_COMPLETE.md) - React迁移完成报告
 
 ## 📂 文档结构
 
