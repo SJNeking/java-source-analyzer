@@ -599,40 +599,90 @@ public final class RuleRegistry {
     public static List<QualityRule> getReflectionRules() { return REFLECTION_RULES; }
 
     /**
+     * Get an unmodifiable list of ALL rule categories combined.
+     * Useful for diagnostics and testing.
+     */
+    public static List<List<QualityRule>> getAllRuleCategories() {
+        return Collections.unmodifiableList(Arrays.asList(
+            BUG_RULES, CODE_SMELL_RULES, SECURITY_RULES, OWASP_RULES,
+            PERFORMANCE_RULES, ARCHITECTURE_RULES, MAINTAINABILITY_RULES,
+            CONCURRENCY_RULES, MODERNIZATION_RULES, DATABASE_RULES,
+            SPRING_BOOT_RULES, ROBUSTNESS_RULES, WEB_API_RULES,
+            MICROSERVICE_RULES, TEST_QUALITY_RULES, INPUT_VALIDATION_RULES,
+            CODE_SMELL_ENHANCED_RULES, SOLID_RULES, SECURITY_ENHANCED_RULES,
+            RESOURCE_MANAGEMENT_RULES, JAVA8_PLUS_RULES, EXCEPTION_HANDLING_RULES,
+            LOGGING_RULES, COLLECTION_RULES, STRING_RULES, DESIGN_PATTERN_RULES,
+            CODE_ORGANIZATION_RULES, API_DESIGN_RULES, REFLECTION_RULES
+        ));
+    }
+
+    /**
      * Register ALL rules into the given RuleEngine, filtering by RulesConfig.
      * Replaces the 450+ lines of reg.accept() in SourceUniversePro.
      */
     public static void registerAll(RuleEngine engine, RulesConfig rulesConfig) {
-        registerCategory(engine, rulesConfig, BUG_RULES);
-        registerCategory(engine, rulesConfig, CODE_SMELL_RULES);
-        registerCategory(engine, rulesConfig, SECURITY_RULES);
-        registerCategory(engine, rulesConfig, getCfgRules(rulesConfig));
-        registerCategory(engine, rulesConfig, OWASP_RULES);
-        registerCategory(engine, rulesConfig, PERFORMANCE_RULES);
-        registerCategory(engine, rulesConfig, ARCHITECTURE_RULES);
-        registerCategory(engine, rulesConfig, MAINTAINABILITY_RULES);
-        registerCategory(engine, rulesConfig, CONCURRENCY_RULES);
-        registerCategory(engine, rulesConfig, MODERNIZATION_RULES);
-        registerCategory(engine, rulesConfig, DATABASE_RULES);
-        registerCategory(engine, rulesConfig, SPRING_BOOT_RULES);
-        registerCategory(engine, rulesConfig, ROBUSTNESS_RULES);
-        registerCategory(engine, rulesConfig, WEB_API_RULES);
-        registerCategory(engine, rulesConfig, MICROSERVICE_RULES);
-        registerCategory(engine, rulesConfig, TEST_QUALITY_RULES);
-        registerCategory(engine, rulesConfig, INPUT_VALIDATION_RULES);
-        registerCategory(engine, rulesConfig, CODE_SMELL_ENHANCED_RULES);
-        registerCategory(engine, rulesConfig, SOLID_RULES);
-        registerCategory(engine, rulesConfig, SECURITY_ENHANCED_RULES);
-        registerCategory(engine, rulesConfig, RESOURCE_MANAGEMENT_RULES);
-        registerCategory(engine, rulesConfig, JAVA8_PLUS_RULES);
-        registerCategory(engine, rulesConfig, EXCEPTION_HANDLING_RULES);
-        registerCategory(engine, rulesConfig, LOGGING_RULES);
-        registerCategory(engine, rulesConfig, COLLECTION_RULES);
-        registerCategory(engine, rulesConfig, STRING_RULES);
-        registerCategory(engine, rulesConfig, DESIGN_PATTERN_RULES);
-        registerCategory(engine, rulesConfig, CODE_ORGANIZATION_RULES);
-        registerCategory(engine, rulesConfig, API_DESIGN_RULES);
-        registerCategory(engine, rulesConfig, REFLECTION_RULES);
+        builder().withConfig(rulesConfig).registerTo(engine);
+    }
+
+    /**
+     * Create a builder for selective rule registration.
+     *
+     * Example:
+     *   RuleRegistry.builder()
+     *       .withBugRules()
+     *       .withSecurityRules()
+     *       .excluding("RSPEC-108")
+     *       .registerTo(engine);
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder for selective rule registration.
+     */
+    public static class Builder {
+        private final List<QualityRule> selectedRules = new ArrayList<>();
+        private final Set<String> excludedKeys = new HashSet<>();
+        private RulesConfig config;
+
+        public Builder withBugRules() { selectedRules.addAll(BUG_RULES); return this; }
+        public Builder withCodeSmellRules() { selectedRules.addAll(CODE_SMELL_RULES); return this; }
+        public Builder withSecurityRules() { selectedRules.addAll(SECURITY_RULES); return this; }
+        public Builder withOwaspRules() { selectedRules.addAll(OWASP_RULES); return this; }
+        public Builder withPerformanceRules() { selectedRules.addAll(PERFORMANCE_RULES); return this; }
+        public Builder withArchitectureRules() { selectedRules.addAll(ARCHITECTURE_RULES); return this; }
+        public Builder withMaintainabilityRules() { selectedRules.addAll(MAINTAINABILITY_RULES); return this; }
+        public Builder withConcurrencyRules() { selectedRules.addAll(CONCURRENCY_RULES); return this; }
+        public Builder withModernizationRules() { selectedRules.addAll(MODERNIZATION_RULES); return this; }
+        public Builder withDatabaseRules() { selectedRules.addAll(DATABASE_RULES); return this; }
+        public Builder withSpringBootRules() { selectedRules.addAll(SPRING_BOOT_RULES); return this; }
+        public Builder withRobustnessRules() { selectedRules.addAll(ROBUSTNESS_RULES); return this; }
+        public Builder withWebApiRules() { selectedRules.addAll(WEB_API_RULES); return this; }
+        public Builder withConfig(RulesConfig config) { this.config = config; return this; }
+        public Builder excluding(String... ruleKeys) {
+            for (String key : ruleKeys) excludedKeys.add(key);
+            return this;
+        }
+
+        /**
+         * Register selected rules to the engine.
+         */
+        public void registerTo(RuleEngine engine) {
+            RulesConfig cfg = config != null ? config : new RulesConfig();
+            for (QualityRule rule : selectedRules) {
+                if (cfg.isRuleEnabled(rule.getRuleKey()) && !excludedKeys.contains(rule.getRuleKey())) {
+                    engine.registerRule(rule);
+                }
+            }
+        }
+
+        /**
+         * Return the list of selected rules without registering.
+         */
+        public List<QualityRule> build() {
+            return Collections.unmodifiableList(selectedRules);
+        }
     }
 
     private static void registerCategory(RuleEngine engine, RulesConfig config, List<QualityRule> rules) {
