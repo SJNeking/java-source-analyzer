@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS code_embeddings (
     embedding       vector(768),
     
     created_at      TIMESTAMPTZ DEFAULT NOW(),
-    result_id       BIGINT REFERENCES analysis_results(id)
+    result_id       BIGINT REFERENCES analysis_results(id),
+    
+    -- Unique constraint for Upsert operations
+    CONSTRAINT unique_embedding UNIQUE (project_name, file_path, method_name, start_line)
 );
 
 -- 3. Indexes for Performance

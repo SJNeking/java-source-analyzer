@@ -1028,3 +1028,4 @@ html/node_modules/
 nginx/
 html/data/analysis-results/
 postgres_data
+.data/

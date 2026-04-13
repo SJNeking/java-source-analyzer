@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # PostgreSQL + PGVector (AI 向量检索)
   postgres:
-    image: postgres:16-alpine  # 临时使用标准PostgreSQL，PGVector需手动安装
+    image: docker.m.daocloud.io/pgvector/pgvector:pg16  # 国内镜像加速
     container_name: codeguardian_db
     restart: always
     ports:

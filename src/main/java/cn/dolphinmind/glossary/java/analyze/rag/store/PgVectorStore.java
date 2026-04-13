@@ -54,7 +54,7 @@ public class PgVectorStore implements VectorStore {
                     "(project_name, file_path, method_name, class_name, " +
                     "start_line, end_line, slice_code, token_count, slice_type, " +
                     "metadata_json, embedding) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::vector) " +
                     "ON CONFLICT (project_name, file_path, method_name, start_line) " +
                     "DO UPDATE SET embedding = EXCLUDED.embedding, " +
                     "              slice_code = EXCLUDED.slice_code, " +
@@ -70,7 +70,7 @@ public class PgVectorStore implements VectorStore {
                 ps.setString(7, slice.getCode());
                 ps.setInt(8, slice.getTokenCount());
                 ps.setString(9, slice.getType() != null ? slice.getType().name() : null);
-                ps.setString(10, toJson(slice.getMetadata()));
+                ps.setObject(10, toJson(slice.getMetadata()), Types.OTHER);
                 ps.setString(11, vectorToString(slice.getEmbedding()));
                 ps.executeUpdate();
             }
