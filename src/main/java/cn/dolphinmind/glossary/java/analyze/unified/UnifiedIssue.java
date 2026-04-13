@@ -49,6 +49,7 @@ public class UnifiedIssue {
     
     private String staticIssueId;         // 关联的静态分析ID (AI补充静态问题时)
     private String aiIssueId;             // 关联的AI审查ID (静态问题被AI补充时)
+    private int retryCount;               // 重试次数 (Harness Engineering)
     private Date createdAt;
     private Date updatedAt;
 
@@ -265,6 +266,10 @@ public class UnifiedIssue {
     
     public String getAiIssueId() { return aiIssueId; }
     public void setAiIssueId(String id) { this.aiIssueId = id; }
+    
+    public int getRetryCount() { return retryCount; }
+    public void setRetryCount(int count) { this.retryCount = count; }
+    public void incrementRetryCount() { this.retryCount++; }
     
     public Date getCreatedAt() { return createdAt; }
     public Date getUpdatedAt() { return updatedAt; }

@@ -73,15 +73,29 @@ public class RagPipelineCli {
         }
 
         try {
-            // Security: Validate file paths to prevent Path Traversal
-            SecurityUtils.validatePath(analysisResultPath, new File("."));
-            SecurityUtils.validateExtension(analysisResultPath, "json");
+            // Security: Validate file paths
+            // For CLI usage, validate extension but allow absolute paths
+            Path analysisResultFile = Paths.get(analysisResultPath).normalize().toAbsolutePath();
+            SecurityUtils.validateExtension(analysisResultFile.toString(), "json");
             
-            Path sourceRootPath = SecurityUtils.validatePath(sourceRoot, null);
+            // Verify file exists
+            if (!Files.exists(analysisResultFile)) {
+                throw new IllegalArgumentException("File not found: " + analysisResultPath);
+            }
+            
+            Path sourceRootPath = Paths.get(sourceRoot).normalize().toAbsolutePath();
+            if (!Files.exists(sourceRootPath)) {
+                throw new IllegalArgumentException("Source root not found: " + sourceRoot);
+            }
             
             if (outputPath != null) {
-                SecurityUtils.validatePath(outputPath, new File("."));
-                SecurityUtils.validateExtension(outputPath, "json");
+                Path outputFile = Paths.get(outputPath).normalize().toAbsolutePath();
+                SecurityUtils.validateExtension(outputFile.toString(), "json");
+                
+                // Create parent directory if needed
+                if (outputFile.getParent() != null && !Files.exists(outputFile.getParent())) {
+                    Files.createDirectories(outputFile.getParent());
+                }
             }
 
             System.out.println("=== RAG Pipeline ===");

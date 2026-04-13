@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "project": "java-source-analyzer",
+  "timestamp": "2026-04-13T09:47:00Z",
+  "quality_issues": [
+    {
+      "rule_key": "LONG_METHOD",
+      "severity": "MAJOR",
+      "file": "src/main/java/cn/dolphinmind/glossary/java/analyze/rag/RagPipeline.java",
+      "class": "RagPipeline",
+      "method": "review",
+      "line": 101,
+      "message": "Method is too long (32 lines)",
+      "category": "CODE_SMELL"
+    },
+    {
+      "rule_key": "NULL_POINTER_DEREFERENCE",
+      "severity": "CRITICAL",
+      "file": "src/main/java/com/example/UserService.java",
+      "class": "UserService",
+      "method": "getUserById",
+      "line": 42,
+      "message": "Possible null pointer dereference on userRepository.findById()",
+      "category": "BUG"
+    },
+    {
+      "rule_key": "COMPLEX_LOGIC",
+      "severity": "MAJOR",
+      "file": "src/main/java/cn/dolphinmind/glossary/java/analyze/rag/search/HybridSearcher.java",
+      "class": "HybridSearcher",
+      "method": "rrfRerank",
+      "line": 58,
+      "message": "Cyclomatic complexity is high (12)",
+      "category": "CODE_SMELL",
+      "cyclomaticComplexity": 12
+    }
+  ]
+}

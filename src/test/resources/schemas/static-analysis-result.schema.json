@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Static Analysis Result Schema",
+  "description": "Java Source Analyzer 静态分析结果标准格式",
+  "type": "object",
+  "required": ["version", "project", "timestamp", "quality_issues"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "分析引擎版本",
+      "examples": ["2.0.0"]
+    },
+    "project": {
+      "type": "string",
+      "description": "项目名称",
+      "examples": ["java-source-analyzer"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "分析时间戳 (ISO 8601)"
+    },
+    "quality_issues": {
+      "type": "array",
+      "description": "质量问题列表",
+      "items": {
+        "type": "object",
+        "required": ["rule_key", "severity", "file", "line", "message"],
+        "properties": {
+          "rule_key": {
+            "type": "string",
+            "description": "规则标识符 (下划线命名)",
+            "examples": ["LONG_METHOD", "NULL_POINTER_DEREFERENCE"]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "MAJOR", "MINOR", "INFO"],
+            "description": "严重程度"
+          },
+          "file": {
+            "type": "string",
+            "description": "文件路径 (相对于项目根目录)",
+            "examples": ["src/main/java/com/example/UserService.java"]
+          },
+          "class": {
+            "type": "string",
+            "description": "类名 (可选)",
+            "examples": ["UserService"]
+          },
+          "method": {
+            "type": "string",
+            "description": "方法名 (可选，用于精准切片)",
+            "examples": ["getUserById"]
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "问题所在行号"
+          },
+          "message": {
+            "type": "string",
+            "description": "问题描述"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["BUG", "CODE_SMELL", "SECURITY", "DESIGN", "PERFORMANCE"],
+            "description": "问题分类 (可选)"
+          },
+          "cyclomaticComplexity": {
+            "type": "integer",
+            "description": "圈复杂度 (仅COMPLEXITY相关规则)"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

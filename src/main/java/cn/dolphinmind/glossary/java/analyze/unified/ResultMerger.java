@@ -103,6 +103,17 @@ public class ResultMerger {
         UnifiedReport report;
         if (!aiIssues.isEmpty()) {
             report = UnifiedReport.merge(staticIssues, aiIssues);
+            
+            // Harness Engineering: 验证反馈回路
+            ValidationLoop validation = new ValidationLoop();
+            List<UnifiedIssue> validatedIssues = validation.validateAndCorrect(report.getIssues());
+            
+            // 更新报告中的问题列表
+            report.setIssues(validatedIssues);
+            
+            // 记录验证统计
+            Map<String, Object> validationStats = validation.getValidationStats(report.getIssues(), validatedIssues);
+            System.out.println("Validation stats: " + validationStats);
         } else {
             report = UnifiedReport.fromStaticAnalysis(staticIssues);
         }
