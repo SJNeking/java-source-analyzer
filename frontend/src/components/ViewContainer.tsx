@@ -15,6 +15,7 @@ import ClassInspectorPanel from '@views/ClassInspectorPanel';
 import ComponentExplorerView from '@views/ComponentExplorerView';
 import ApiEndpointView from '@views/ApiEndpointView';
 import FrontendQualityView from '@views/FrontendQualityView';
+import CodeExplorerView from '@views/CodeExplorerView';
 import { useAppStore } from '@store/app-store';
 
 // Placeholder view component
@@ -28,13 +29,15 @@ const PlaceholderView: React.FC<{ name: string }> = ({ name }) => (
 );
 
 const ViewContainer: React.FC = () => {
-  const { graphData, unifiedReport } = useAppStore();
+  const { graphData, unifiedReport, fullAnalysisData } = useAppStore();
 
   return (
     <div className="content-viewport">
       <Routes>
-        <Route path="/" element={<PlaceholderView name="源码浏览器" />} />
-        <Route path="/explorer" element={<PlaceholderView name="源码浏览器" />} />
+        <Route 
+          path="/explorer" 
+          element={fullAnalysisData ? <CodeExplorerView /> : <PlaceholderView name="代码浏览器" />} 
+        />
         
         <Route 
           path="/graph" 

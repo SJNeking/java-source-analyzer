@@ -17,3 +17,4 @@ export { default as ClassInspectorPanel } from './ClassInspectorPanel';
 export { default as ComponentExplorerView } from './ComponentExplorerView';
 export { default as ApiEndpointView } from './ApiEndpointView';
 export { default as FrontendQualityView } from './FrontendQualityView';
+export { default as CodeExplorerView } from './CodeExplorerView';
