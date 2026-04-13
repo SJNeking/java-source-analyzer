@@ -54,7 +54,7 @@ class ApiService {
       return response.data.projects || [];
     } catch (error) {
       // Fallback to mock data for development
-      console.warning('Failed to load projects, using mock data');
+      console.warn('Failed to load projects, using mock data');
       return [
         { name: 'Demo Project', file: 'demo-project.json' },
       ];
@@ -78,7 +78,7 @@ class ApiService {
       const response = await this.client.get(`/data/unified-report.json`);
       return response.data;
     } catch (error) {
-      console.warning('Unified report not found, falling back to legacy format');
+      console.warn('Unified report not found, falling back to legacy format');
       return null;
     }
   }
@@ -100,7 +100,7 @@ class ApiService {
       return response.data;
     } catch (error) {
       if (retries > 0 && this.isRetryableError(error)) {
-        console.warning(`Request failed, retrying in ${backoff}ms... (${retries} attempts left)`);
+        console.warn(`Request failed, retrying in ${backoff}ms... (${retries} attempts left)`);
         await this.delay(backoff);
         return this.get(url, retries - 1, backoff * 2);
       }

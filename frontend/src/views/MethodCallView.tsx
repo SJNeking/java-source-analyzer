@@ -6,7 +6,7 @@
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
-import type { Asset, MethodAsset } from '@types/project';
+import type { Asset, MethodAsset } from '@/types/project';
 import { useAppStore } from '@store/app-store';
 
 interface MethodCallNode {

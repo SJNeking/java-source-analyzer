@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import ReactECharts from 'echarts-for-react';
-import type { GraphData, GraphNode, GraphLink } from '@types/graph';
+import type { GraphData, GraphNode, GraphLink } from '@/types/graph';
 import { useAppStore } from '@store/app-store';
 
 interface ForceGraphViewProps {

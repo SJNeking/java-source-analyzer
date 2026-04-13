@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { UnifiedIssue, IssueSource } from '@types/unified-issue';
+import type { UnifiedIssue, IssueSource } from '@/types/unified-issue';
 import { useAppStore, selectActiveIssues, selectValidationStats } from '@store/app-store';
 
 const AiReviewView: React.FC = () => {

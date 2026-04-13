@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { UnifiedIssue, Severity, IssueCategory } from '@types/unified-issue';
+import type { UnifiedIssue, Severity, IssueCategory } from '@/types/unified-issue';
 import { useAppStore, selectActiveIssues } from '@store/app-store';
 
 const SEVERITY_COLORS: Record<Severity, string> = {

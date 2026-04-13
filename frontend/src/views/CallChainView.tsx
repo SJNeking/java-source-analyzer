@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { Asset, MethodAsset } from '@types/project';
+import type { Asset, MethodAsset } from '@/types/project';
 import { useAppStore } from '@store/app-store';
 
 interface CallChainNode {

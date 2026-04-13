@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { Asset } from '@types/project';
+import type { Asset } from '@/types/project';
 import { useAppStore } from '@store/app-store';
 
 const ComponentExplorerView: React.FC = () => {
