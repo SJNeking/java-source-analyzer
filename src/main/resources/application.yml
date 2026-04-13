@@ -1,77 +1,62 @@
 # ============================================================
-# CodeGuardian - Application Configuration
+# CodeGuardian v3.5 (Spring Boot Web Edition)
 # ============================================================
+server:
+  port: 8080
 
-app:
-  name: "CodeGuardian"
-  version: "1.0.0"
-
-# ============================================================
-# PostgreSQL Database (本地 Docker: redisson_brain_db)
-# ============================================================
-database:
-  url: ${DATABASE_URL:jdbc:postgresql://localhost:15432/root}
-  username: ${DATABASE_USER:root}
-  password: ${DATABASE_PASSWORD:123456}
-  max-pool-size: 20
-  connection-timeout: 30000
-
-# ============================================================
-# Redis Cache
-# ============================================================
-redis:
-  host: ${REDIS_HOST:localhost}
-  port: ${REDIS_PORT:16379}
-  password: ${REDIS_PASSWORD:}
-  database: 0
-  max-total: 50
-  max-idle: 10
-  min-idle: 5
-  timeout-ms: 5000
+spring:
+  application:
+    name: codeguardian-backend
+  
+  # 1. PostgreSQL + PGVector (通过 MyBatis 访问)
+  datasource:
+    url: jdbc:postgresql://localhost:15432/codeguardian
+    username: root
+    password: 123456
+    driver-class-name: org.postgresql.Driver
 
 # ============================================================
-# Ollama (本地 LLM)
+# MyBatis Configuration
 # ============================================================
-ollama:
-  endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
-  chat-model: ${OLLAMA_CHAT_MODEL:qwen2.5-coder:32b}
-  embed-model: ${OLLAMA_EMBED_MODEL:nomic-embed-text}
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: cn.dolphinmind.glossary.java.analyze.domain
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 开发环境打印 SQL
 
 # ============================================================
-# OpenAI (备用, 需 API Key)
+# Redisson Configuration (参考 S-PAY-MALL)
 # ============================================================
-openai:
-  api-key: ${OPENAI_API_KEY:}
-  endpoint: ${OPENAI_ENDPOINT:https://api.openai.com/v1}
-  chat-model: ${OPENAI_CHAT_MODEL:gpt-4}
-  embed-model: ${OPENAI_EMBED_MODEL:text-embedding-3-small}
+redisson:
+  address: redis://localhost:16379
+  # password:
+  connection-pool-size: 64
+  connection-minimum-idle-size: 10
 
 # ============================================================
-# MinIO Object Storage (暂未运行, 需时启动)
+# MinIO Object Storage
 # ============================================================
 minio:
-  endpoint: ${MINIO_ENDPOINT:http://localhost:19000}
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin_secret}
-  bucket: codeguardian
-  public-url: ${MINIO_PUBLIC_URL:http://localhost:19000}
+  endpoint: http://localhost:19000
+  access-key: minioadmin
+  secret-key: minioadmin_secret
+  bucket: codeguardian-reports
 
 # ============================================================
-# Analysis Configuration
+# Ollama AI Config
 # ============================================================
-analysis:
-  source-roots:
-    - "src/main/java"
-  exclude-patterns:
-    - "/test/"
-    - "/target/"
-    - "/generated/"
-  confidence-threshold: 0.5
-  fingerprint-ttl-days: 30
+ollama:
+  endpoint: http://localhost:11434
+  chat-model: qwen2.5-coder:32b
+  embed-model: nomic-embed-text
 
 # ============================================================
 # Logging
 # ============================================================
 logging:
-  level: INFO
-  format: TEXT
+  level:
+    root: INFO
+    cn.dolphinmind: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

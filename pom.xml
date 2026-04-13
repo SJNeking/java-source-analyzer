@@ -1,165 +1,125 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  
+  <!-- 1. 引入 Spring Boot Parent -->
+  <parent>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-parent</artifactId>
+      <version>2.7.12</version>
+      <relativePath/>
+  </parent>
+
   <groupId>cn.dolphinmind</groupId>
   <artifactId>glossary-java-source-analyzer</artifactId>
-  <version>2.0.0</version>
-  <name>java-source-analyzer</name>
-  <url>http://maven.apache.org</url>
+  <version>3.5.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
+  <properties>
+      <java.version>1.8</java.version>
+      <mybatis.version>2.3.1</mybatis.version>
+      <gson.version>2.10.1</gson.version>
+  </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>com.github.javaparser</groupId>
-      <artifactId>javaparser-symbol-solver-core</artifactId>
-      <version>3.27.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.13.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.yaml</groupId>
-      <artifactId>snakeyaml</artifactId>
-      <version>2.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <version>42.7.3</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>5.13.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
-      <version>5.13.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-plugin-api</artifactId>
-      <version>3.9.6</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven.plugin-tools</groupId>
-      <artifactId>maven-plugin-annotations</artifactId>
-      <version>3.11.0</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-core</artifactId>
-      <version>3.9.6</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
+      <!-- 2. Spring Boot Web Starter (前后端分离核心) -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-web</artifactId>
+      </dependency>
+
+      <!-- 3. MyBatis Starter (替代原生 JDBC) -->
+      <dependency>
+          <groupId>org.mybatis.spring.boot</groupId>
+          <artifactId>mybatis-spring-boot-starter</artifactId>
+          <version>${mybatis.version}</version>
+      </dependency>
+
+      <!-- 4. PostgreSQL Driver -->
+      <dependency>
+          <groupId>org.postgresql</groupId>
+          <artifactId>postgresql</artifactId>
+      </dependency>
+
+      <!-- 5. Redisson Starter (替代 Spring Data Redis，功能更强大) -->
+      <dependency>
+          <groupId>org.redisson</groupId>
+          <artifactId>redisson-spring-boot-starter</artifactId>
+          <version>3.23.4</version>
+      </dependency>
+
+      <!-- Jackson for Redisson 序列化 -->
+      <dependency>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+      </dependency>
+
+      <!-- 6. MinIO SDK (用于存储大文件/报告) -->
+      <dependency>
+          <groupId>io.minio</groupId>
+          <artifactId>minio</artifactId>
+          <version>8.5.7</version>
+      </dependency>
+
+      <!-- 原有分析引擎依赖 -->
+      <dependency>
+        <groupId>com.github.javaparser</groupId>
+        <artifactId>javaparser-symbol-solver-core</artifactId>
+        <version>3.27.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+      </dependency>
+      <dependency>
+        <groupId>org.yaml</groupId>
+        <artifactId>snakeyaml</artifactId>
+      </dependency>
+
+      <!-- 字节码分析 -->
+      <dependency>
         <groupId>org.ow2.asm</groupId>
         <artifactId>asm</artifactId>
         <version>9.6</version>
-    </dependency>
-    <!-- WebSocket for real-time streaming analysis -->
-    <dependency>
+      </dependency>
+      
+      <!-- WebSocket 实时流 -->
+      <dependency>
         <groupId>org.java-websocket</groupId>
         <artifactId>Java-WebSocket</artifactId>
         <version>1.5.4</version>
-    </dependency>
-    <!-- Production-grade storage dependencies -->
-    <dependency>
-        <groupId>redis.clients</groupId>
-        <artifactId>jedis</artifactId>
-        <version>4.4.8</version>
-    </dependency>
-    <dependency>
-        <groupId>io.minio</groupId>
-        <artifactId>minio</artifactId>
-        <version>8.5.7</version>
-    </dependency>
-    <dependency>
-        <groupId>org.flywaydb</groupId>
-        <artifactId>flyway-core</artifactId>
-        <version>9.22.3</version>
-    </dependency>
+      </dependency>
+
+      <!-- 测试 -->
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-test</artifactId>
+          <scope>test</scope>
+      </dependency>
   </dependencies>
 
   <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.5</version>
-        <configuration>
-          <includes>
-            <include>**/*Test.java</include>
-          </includes>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
-        <configuration>
-          <source>8</source>
-          <target>8</target>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.flywaydb</groupId>
-        <artifactId>flyway-maven-plugin</artifactId>
-        <version>9.22.3</version>
-        <configuration>
-          <url>jdbc:postgresql://localhost:15432/postgres</url>
-          <user>root</user>
-          <password>123456</password>
-          <locations>
-            <location>classpath:db/migration</location>
-          </locations>
-          <baselineOnMigrate>true</baselineOnMigrate>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>3.5.1</version>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>shade</goal>
-            </goals>
-            <configuration>
-              <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>cn.dolphinmind.glossary.java.analyze.SourceUniversePro</mainClass>
-                </transformer>
-              </transformers>
-              <filters>
-                <filter>
-                  <artifact>*:*</artifact>
-                  <excludes>
-                    <exclude>META-INF/*.SF</exclude>
-                    <exclude>META-INF/*.DSA</exclude>
-                    <exclude>META-INF/*.RSA</exclude>
-                  </excludes>
-                </filter>
-              </filters>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
+      <plugins>
+          <plugin>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-maven-plugin</artifactId>
+          </plugin>
+          <!-- MyBatis Generator 插件 (可选，后续生成代码用) -->
+          <plugin>
+              <groupId>org.mybatis.generator</groupId>
+              <artifactId>mybatis-generator-maven-plugin</artifactId>
+              <version>1.4.1</version>
+          </plugin>
+      </plugins>
+      <resources>
+          <resource>
+              <directory>src/main/resources</directory>
+              <includes>
+                  <include>**/*.yml</include>
+                  <include>**/*.xml</include>
+                  <include>**/*.sql</include>
+              </includes>
+          </resource>
+      </resources>
   </build>
 </project>

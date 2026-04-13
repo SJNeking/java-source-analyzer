@@ -72,7 +72,7 @@ public class SourceUniversePro {
             if (resource != null) {
                 com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
                         new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8));
-                reader.setStrictness(com.google.gson.Strictness.LENIENT);
+                // reader.setStrictness(com.google.gson.Strictness.LENIENT); // Removed for Spring Boot 2.7 compatibility
                 tagDictionary = JsonParser.parseReader(reader).getAsJsonObject();
                 System.out.println("✅ 动态标签字典加载成功: " + tagDictionary.getAsJsonObject("tags").size() + " 个标签");
             }

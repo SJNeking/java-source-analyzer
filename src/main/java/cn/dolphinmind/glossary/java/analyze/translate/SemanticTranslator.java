@@ -134,7 +134,7 @@ public class SemanticTranslator {
             if (resource != null) {
                 com.google.gson.stream.JsonReader reader = new com.google.gson.stream.JsonReader(
                         new java.io.InputStreamReader(resource.openStream(), StandardCharsets.UTF_8));
-                reader.setStrictness(com.google.gson.Strictness.LENIENT);
+                // reader.setStrictness(com.google.gson.Strictness.LENIENT); // Removed for Spring Boot 2.7 compatibility
                 tagDictionary = JsonParser.parseReader(reader).getAsJsonObject();
             }
         } catch (Exception e) {
