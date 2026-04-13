@@ -142,6 +142,7 @@ public final class RuleRegistry {
         rules.add(new ResourceLeakPath());
         rules.add(new ExceptionHandlingPath());
         rules.add(new TaintFlowRule());
+        rules.add(new EnhancedTaintFlowRule());
         return Collections.unmodifiableList(rules);
     }
 

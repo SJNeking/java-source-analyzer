@@ -279,8 +279,7 @@ public class EnhancedTaintEngine {
     private String extractSinkArgument(Expression expr) {
         if (expr instanceof MethodCallExpr) {
             MethodCallExpr mce = (MethodCallExpr) expr;
-            for (Argument arg : mce.getArguments()) {
-                Expression argExpr = arg.getExpression();
+            for (Expression argExpr : mce.getArguments()) {
                 if (argExpr instanceof NameExpr) {
                     return ((NameExpr) argExpr).getNameAsString();
                 } else if (argExpr instanceof BinaryExpr) {
@@ -293,8 +292,7 @@ public class EnhancedTaintEngine {
             }
         } else if (expr instanceof ObjectCreationExpr) {
             ObjectCreationExpr oce = (ObjectCreationExpr) expr;
-            for (Argument arg : oce.getArguments()) {
-                Expression argExpr = arg.getExpression();
+            for (Expression argExpr : oce.getArguments()) {
                 if (argExpr instanceof NameExpr) {
                     return ((NameExpr) argExpr).getNameAsString();
                 }
